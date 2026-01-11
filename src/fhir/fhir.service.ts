@@ -66,7 +66,7 @@ export class FhirService {
   /**
    * Fetch observations for a patient
    * @param patientId - Required patient ID
-   * @param category - Optional category filter
+   * @param category - Optional category filter (Epic requires either category or code)
    * @param count - Maximum number of results
    */
   async getObservations(
@@ -84,11 +84,16 @@ export class FhirService {
       const params = new URLSearchParams({
         patient: patientId,
         _count: count.toString(),
-        _sort: '-date',
       });
 
+      // Epic requires either category or code parameter for Observation search
+      // If category is not provided, use a default category to satisfy Epic's requirement
       if (category) {
         params.append('category', category);
+      } else {
+        // Use 'laboratory' as default category if none specified
+        // This satisfies Epic's requirement for Observation searches
+        params.append('category', 'laboratory');
       }
 
       const response = await this.httpClient.get<FhirBundle>(
@@ -181,8 +186,20 @@ export class FhirService {
             'Authentication failed. Token may be invalid or expired.',
           );
         } else if (status === 403) {
+          // Determine which resource failed based on the error message
+          let resourceHint = '';
+          if (defaultMessage.includes('Observation')) {
+            resourceHint =
+              ' Observation resource. Please verify that system/Observation.read scope is enabled in your Epic App Orchard application.';
+          } else if (defaultMessage.includes('Condition')) {
+            resourceHint =
+              ' Condition resource. Please verify that system/Condition.read scope is enabled in your Epic App Orchard application.';
+          } else if (defaultMessage.includes('Patient')) {
+            resourceHint =
+              ' Patient resource. Please verify that system/Patient.read scope is enabled in your Epic App Orchard application.';
+          }
           throw new BadRequestException(
-            'Access forbidden. Insufficient permissions.',
+            `Access forbidden. Insufficient permissions to access${resourceHint} Contact your Epic support team to enable the required scopes. See docs/SCOPE_TROUBLESHOOTING.md for details.`,
           );
         } else if (status === 404) {
           throw new BadRequestException('Resource not found.');
