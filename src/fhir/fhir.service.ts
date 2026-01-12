@@ -6,6 +6,11 @@ import {
   FhirPatient,
   FhirObservation,
   FhirCondition,
+  FhirAllergyIntolerance,
+  FhirMedicationStatement,
+  FhirProcedure,
+  FhirEncounter,
+  FhirDiagnosticReport,
   FhirBundle,
 } from './interfaces/fhir.interface';
 
@@ -164,6 +169,245 @@ export class FhirService {
       return conditions;
     } catch (error) {
       this.handleFhirError(error, 'Failed to fetch conditions');
+      throw error;
+    }
+  }
+
+  /**
+   * Fetch allergies for a patient
+   * @param patientId - Required patient ID
+   * @param count - Maximum number of results
+   */
+  async getAllergies(
+    patientId: string,
+    count: number = 100,
+  ): Promise<FhirAllergyIntolerance[]> {
+    if (!patientId) {
+      throw new BadRequestException('Patient ID is required');
+    }
+
+    const accessToken = await this.authService.getAccessToken();
+
+    try {
+      const params = new URLSearchParams({
+        patient: patientId,
+        _count: count.toString(),
+      });
+
+      const response = await this.httpClient.get<FhirBundle>(
+        `${this.epicConfig.fhirBaseUrl}/AllergyIntolerance?${params.toString()}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        },
+      );
+
+      const allergies: FhirAllergyIntolerance[] = [];
+      if (response.data.entry) {
+        for (const entry of response.data.entry) {
+          if (
+            entry.resource &&
+            entry.resource.resourceType === 'AllergyIntolerance'
+          ) {
+            allergies.push(entry.resource as FhirAllergyIntolerance);
+          }
+        }
+      }
+
+      return allergies;
+    } catch (error) {
+      this.handleFhirError(error, 'Failed to fetch allergies');
+      throw error;
+    }
+  }
+
+  /**
+   * Fetch medications for a patient
+   * @param patientId - Required patient ID
+   * @param count - Maximum number of results
+   */
+  async getMedications(
+    patientId: string,
+    count: number = 100,
+  ): Promise<FhirMedicationStatement[]> {
+    if (!patientId) {
+      throw new BadRequestException('Patient ID is required');
+    }
+
+    const accessToken = await this.authService.getAccessToken();
+
+    try {
+      const params = new URLSearchParams({
+        patient: patientId,
+        _count: count.toString(),
+      });
+
+      const response = await this.httpClient.get<FhirBundle>(
+        `${this.epicConfig.fhirBaseUrl}/MedicationStatement?${params.toString()}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        },
+      );
+
+      const medications: FhirMedicationStatement[] = [];
+      if (response.data.entry) {
+        for (const entry of response.data.entry) {
+          if (
+            entry.resource &&
+            entry.resource.resourceType === 'MedicationStatement'
+          ) {
+            medications.push(entry.resource as FhirMedicationStatement);
+          }
+        }
+      }
+
+      return medications;
+    } catch (error) {
+      this.handleFhirError(error, 'Failed to fetch medications');
+      throw error;
+    }
+  }
+
+  /**
+   * Fetch procedures for a patient
+   * @param patientId - Required patient ID
+   * @param count - Maximum number of results
+   */
+  async getProcedures(
+    patientId: string,
+    count: number = 100,
+  ): Promise<FhirProcedure[]> {
+    if (!patientId) {
+      throw new BadRequestException('Patient ID is required');
+    }
+
+    const accessToken = await this.authService.getAccessToken();
+
+    try {
+      const params = new URLSearchParams({
+        patient: patientId,
+        _count: count.toString(),
+      });
+
+      const response = await this.httpClient.get<FhirBundle>(
+        `${this.epicConfig.fhirBaseUrl}/Procedure?${params.toString()}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        },
+      );
+
+      const procedures: FhirProcedure[] = [];
+      if (response.data.entry) {
+        for (const entry of response.data.entry) {
+          if (entry.resource && entry.resource.resourceType === 'Procedure') {
+            procedures.push(entry.resource as FhirProcedure);
+          }
+        }
+      }
+
+      return procedures;
+    } catch (error) {
+      this.handleFhirError(error, 'Failed to fetch procedures');
+      throw error;
+    }
+  }
+
+  /**
+   * Fetch encounters (visits) for a patient
+   * @param patientId - Required patient ID
+   * @param count - Maximum number of results
+   */
+  async getEncounters(
+    patientId: string,
+    count: number = 100,
+  ): Promise<FhirEncounter[]> {
+    if (!patientId) {
+      throw new BadRequestException('Patient ID is required');
+    }
+
+    const accessToken = await this.authService.getAccessToken();
+
+    try {
+      const params = new URLSearchParams({
+        patient: patientId,
+        _count: count.toString(),
+      });
+
+      const response = await this.httpClient.get<FhirBundle>(
+        `${this.epicConfig.fhirBaseUrl}/Encounter?${params.toString()}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        },
+      );
+
+      const encounters: FhirEncounter[] = [];
+      if (response.data.entry) {
+        for (const entry of response.data.entry) {
+          if (entry.resource && entry.resource.resourceType === 'Encounter') {
+            encounters.push(entry.resource as FhirEncounter);
+          }
+        }
+      }
+
+      return encounters;
+    } catch (error) {
+      this.handleFhirError(error, 'Failed to fetch encounters');
+      throw error;
+    }
+  }
+
+  /**
+   * Fetch diagnostic reports for a patient
+   * @param patientId - Required patient ID
+   * @param count - Maximum number of results
+   */
+  async getDiagnosticReports(
+    patientId: string,
+    count: number = 100,
+  ): Promise<FhirDiagnosticReport[]> {
+    if (!patientId) {
+      throw new BadRequestException('Patient ID is required');
+    }
+
+    const accessToken = await this.authService.getAccessToken();
+
+    try {
+      const params = new URLSearchParams({
+        patient: patientId,
+        _count: count.toString(),
+      });
+
+      const response = await this.httpClient.get<FhirBundle>(
+        `${this.epicConfig.fhirBaseUrl}/DiagnosticReport?${params.toString()}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        },
+      );
+
+      const diagnosticReports: FhirDiagnosticReport[] = [];
+      if (response.data.entry) {
+        for (const entry of response.data.entry) {
+          if (
+            entry.resource &&
+            entry.resource.resourceType === 'DiagnosticReport'
+          ) {
+            diagnosticReports.push(entry.resource as FhirDiagnosticReport);
+          }
+        }
+      }
+
+      return diagnosticReports;
+    } catch (error) {
+      this.handleFhirError(error, 'Failed to fetch diagnostic reports');
       throw error;
     }
   }

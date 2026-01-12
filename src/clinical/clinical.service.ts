@@ -4,12 +4,24 @@ import {
   NormalizedPatient,
   NormalizedObservation,
   NormalizedCondition,
+  NormalizedAllergy,
+  NormalizedMedication,
+  NormalizedProcedure,
+  NormalizedEncounter,
+  NormalizedDiagnosticReport,
   ClinicalDataResponse,
+  DiagnosisDataResponse,
+  BulkPatientResponse,
 } from './interfaces/clinical.interface';
 import {
   FhirPatient,
   FhirObservation,
   FhirCondition,
+  FhirAllergyIntolerance,
+  FhirMedicationStatement,
+  FhirProcedure,
+  FhirEncounter,
+  FhirDiagnosticReport,
 } from '../fhir/interfaces/fhir.interface';
 
 @Injectable()
@@ -67,6 +79,123 @@ export class ClinicalService {
       patient,
       observations,
       conditions,
+    };
+  }
+
+  /**
+   * Get normalized allergies
+   * @param patientId - Required patient ID
+   */
+  async getAllergies(patientId: string): Promise<NormalizedAllergy[]> {
+    const allergies = await this.fhirService.getAllergies(patientId);
+    return allergies.map((allergy) => this.normalizeAllergy(allergy));
+  }
+
+  /**
+   * Get normalized medications
+   * @param patientId - Required patient ID
+   */
+  async getMedications(patientId: string): Promise<NormalizedMedication[]> {
+    const medications = await this.fhirService.getMedications(patientId);
+    return medications.map((med) => this.normalizeMedication(med));
+  }
+
+  /**
+   * Get normalized procedures
+   * @param patientId - Required patient ID
+   */
+  async getProcedures(patientId: string): Promise<NormalizedProcedure[]> {
+    const procedures = await this.fhirService.getProcedures(patientId);
+    return procedures.map((proc) => this.normalizeProcedure(proc));
+  }
+
+  /**
+   * Get normalized encounters
+   * @param patientId - Required patient ID
+   */
+  async getEncounters(patientId: string): Promise<NormalizedEncounter[]> {
+    const encounters = await this.fhirService.getEncounters(patientId);
+    return encounters.map((enc) => this.normalizeEncounter(enc));
+  }
+
+  /**
+   * Get normalized diagnostic reports
+   * @param patientId - Required patient ID
+   */
+  async getDiagnosticReports(
+    patientId: string,
+  ): Promise<NormalizedDiagnosticReport[]> {
+    const diagnosticReports =
+      await this.fhirService.getDiagnosticReports(patientId);
+    return diagnosticReports.map((report) =>
+      this.normalizeDiagnosticReport(report),
+    );
+  }
+
+  /**
+   * Get comprehensive diagnosis data for a patient
+   * @param patientId - Required patient ID
+   */
+  async getDiagnosisData(patientId: string): Promise<DiagnosisDataResponse> {
+    const [
+      patient,
+      allergies,
+      medications,
+      procedures,
+      encounters,
+      diagnosticReports,
+      observations,
+      conditions,
+    ] = await Promise.all([
+      this.getPatient(patientId),
+      this.getAllergies(patientId),
+      this.getMedications(patientId),
+      this.getProcedures(patientId),
+      this.getEncounters(patientId),
+      this.getDiagnosticReports(patientId),
+      this.getObservations(patientId),
+      this.getConditions(patientId),
+    ]);
+
+    return {
+      patient,
+      allergies,
+      medications,
+      procedures,
+      encounters,
+      diagnosticReports,
+      observations,
+      conditions,
+    };
+  }
+
+  /**
+   * Get bulk patient data
+   * @param patientIds - Array of patient IDs
+   */
+  async getBulkPatients(patientIds: string[]): Promise<BulkPatientResponse> {
+    if (!patientIds || patientIds.length === 0) {
+      return { patients: [], total: 0 };
+    }
+
+    // Fetch all patients in parallel
+    const patientPromises = patientIds.map((patientId) =>
+      this.getPatient(patientId).catch((error) => {
+        this.logger.error(
+          `Failed to fetch patient ${patientId}: ${error.message}`,
+        );
+        return null;
+      }),
+    );
+
+    const patients = await Promise.all(patientPromises);
+    const validPatients = patients.filter(
+      (p): p is NormalizedPatient => p !== null,
+    );
+
+    return {
+      patients: validPatients,
+      total: validPatients.length,
     };
   }
 
@@ -148,6 +277,134 @@ export class ClinicalService {
       status,
       onsetDate: cond.onsetDateTime,
       recordedDate: cond.recordedDate,
+    };
+  }
+
+  /**
+   * Normalize FHIR AllergyIntolerance to simplified format
+   */
+  private normalizeAllergy(
+    allergy: FhirAllergyIntolerance,
+  ): NormalizedAllergy {
+    const code = allergy.code.coding?.[0]?.code || '';
+    const display =
+      allergy.code.text || allergy.code.coding?.[0]?.display || code;
+    const status =
+      allergy.clinicalStatus?.coding?.[0]?.code ||
+      allergy.clinicalStatus?.coding?.[0]?.display;
+
+    return {
+      id: allergy.id,
+      code,
+      display,
+      type: allergy.type,
+      category: allergy.category,
+      criticality: allergy.criticality,
+      status,
+      recordedDate: allergy.recordedDate,
+    };
+  }
+
+  /**
+   * Normalize FHIR MedicationStatement to simplified format
+   */
+  private normalizeMedication(
+    med: FhirMedicationStatement,
+  ): NormalizedMedication {
+    const medication =
+      med.medicationCodeableConcept || med.medicationReference;
+    const code =
+      med.medicationCodeableConcept?.coding?.[0]?.code ||
+      med.medicationReference?.display ||
+      '';
+    const display =
+      med.medicationCodeableConcept?.text ||
+      med.medicationCodeableConcept?.coding?.[0]?.display ||
+      med.medicationReference?.display ||
+      code;
+
+    const dosageText = med.dosage?.[0]?.text;
+    const route =
+      med.dosage?.[0]?.route?.coding?.[0]?.display ||
+      med.dosage?.[0]?.route?.coding?.[0]?.code;
+
+    return {
+      id: med.id,
+      code,
+      display,
+      status: med.status,
+      startDate: med.effectivePeriod?.start,
+      endDate: med.effectivePeriod?.end,
+      dateAsserted: med.dateAsserted,
+      dosage: dosageText,
+      route,
+    };
+  }
+
+  /**
+   * Normalize FHIR Procedure to simplified format
+   */
+  private normalizeProcedure(proc: FhirProcedure): NormalizedProcedure {
+    const code = proc.code.coding?.[0]?.code || '';
+    const display = proc.code.text || proc.code.coding?.[0]?.display || code;
+    const category = proc.category?.coding?.[0]?.code;
+    const outcome = proc.outcome?.coding?.[0]?.display || proc.outcome?.coding?.[0]?.code;
+    const performedDate =
+      proc.performedDateTime || proc.performedPeriod?.start;
+
+    return {
+      id: proc.id,
+      code,
+      display,
+      status: proc.status,
+      category,
+      performedDate,
+      outcome,
+    };
+  }
+
+  /**
+   * Normalize FHIR Encounter to simplified format
+   */
+  private normalizeEncounter(enc: FhirEncounter): NormalizedEncounter {
+    const type = enc.type?.[0]?.coding?.[0]?.display || enc.type?.[0]?.coding?.[0]?.code;
+    const reason =
+      enc.reasonCode?.[0]?.text ||
+      enc.reasonCode?.[0]?.coding?.[0]?.display ||
+      enc.reasonCode?.[0]?.coding?.[0]?.code;
+
+    return {
+      id: enc.id,
+      status: enc.status,
+      type,
+      class: enc.class?.display || enc.class?.code,
+      startDate: enc.period?.start,
+      endDate: enc.period?.end,
+      reason,
+    };
+  }
+
+  /**
+   * Normalize FHIR DiagnosticReport to simplified format
+   */
+  private normalizeDiagnosticReport(
+    report: FhirDiagnosticReport,
+  ): NormalizedDiagnosticReport {
+    const code = report.code.coding?.[0]?.code || '';
+    const display = report.code.text || report.code.coding?.[0]?.display || code;
+    const category = report.category?.[0]?.coding?.[0]?.display || report.category?.[0]?.coding?.[0]?.code;
+    const effectiveDate =
+      report.effectiveDateTime || report.effectivePeriod?.start;
+
+    return {
+      id: report.id,
+      code,
+      display,
+      status: report.status,
+      category,
+      effectiveDate,
+      issuedDate: report.issued,
+      conclusion: report.conclusion,
     };
   }
 }

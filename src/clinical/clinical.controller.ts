@@ -1,7 +1,9 @@
 import {
   Controller,
   Get,
+  Post,
   Query,
+  Body,
   BadRequestException,
   Logger,
 } from '@nestjs/common';
@@ -9,6 +11,7 @@ import {
   ApiTags,
   ApiOperation,
   ApiQuery,
+  ApiBody,
   ApiOkResponse,
   ApiBadRequestResponse,
 } from '@nestjs/swagger';
@@ -17,13 +20,27 @@ import {
   NormalizedPatient,
   NormalizedObservation,
   NormalizedCondition,
+  NormalizedAllergy,
+  NormalizedMedication,
+  NormalizedProcedure,
+  NormalizedEncounter,
+  NormalizedDiagnosticReport,
   ClinicalDataResponse,
+  DiagnosisDataResponse,
+  BulkPatientResponse,
 } from './interfaces/clinical.interface';
 import {
   NormalizedPatientDto,
   NormalizedObservationDto,
   NormalizedConditionDto,
+  NormalizedAllergyDto,
+  NormalizedMedicationDto,
+  NormalizedProcedureDto,
+  NormalizedEncounterDto,
+  NormalizedDiagnosticReportDto,
   ClinicalDataResponseDto,
+  DiagnosisDataResponseDto,
+  BulkPatientResponseDto,
 } from './dto/clinical.dto';
 
 @ApiTags('clinical')
@@ -203,6 +220,311 @@ export class ClinicalController {
     } catch (error) {
       this.logger.error(
         `Error fetching clinical data: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * GET /api/clinical/allergies
+   * Get normalized allergies for a patient
+   * Query params: patientId (required)
+   */
+  @ApiOperation({
+    summary: 'Get patient allergies',
+    description: 'Retrieves normalized allergies for a patient.',
+  })
+  @ApiQuery({
+    name: 'patientId',
+    required: true,
+    description: 'Patient ID from Epic',
+    example: 'Tbt3KuCY0B5PSrJvCu2j-PlK.aiHsu2xUjUM8bWpetXoB',
+  })
+  @ApiOkResponse({
+    description: 'Allergies retrieved successfully',
+    type: [NormalizedAllergyDto],
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid patient ID or patient not found',
+  })
+  @Get('allergies')
+  async getAllergies(
+    @Query('patientId') patientId: string,
+  ): Promise<NormalizedAllergy[]> {
+    if (!patientId) {
+      throw new BadRequestException('patientId is required');
+    }
+
+    try {
+      return await this.clinicalService.getAllergies(patientId);
+    } catch (error) {
+      this.logger.error(
+        `Error fetching allergies: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * GET /api/clinical/medications
+   * Get normalized medications for a patient
+   * Query params: patientId (required)
+   */
+  @ApiOperation({
+    summary: 'Get patient medications',
+    description: 'Retrieves normalized medications for a patient.',
+  })
+  @ApiQuery({
+    name: 'patientId',
+    required: true,
+    description: 'Patient ID from Epic',
+    example: 'Tbt3KuCY0B5PSrJvCu2j-PlK.aiHsu2xUjUM8bWpetXoB',
+  })
+  @ApiOkResponse({
+    description: 'Medications retrieved successfully',
+    type: [NormalizedMedicationDto],
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid patient ID or patient not found',
+  })
+  @Get('medications')
+  async getMedications(
+    @Query('patientId') patientId: string,
+  ): Promise<NormalizedMedication[]> {
+    if (!patientId) {
+      throw new BadRequestException('patientId is required');
+    }
+
+    try {
+      return await this.clinicalService.getMedications(patientId);
+    } catch (error) {
+      this.logger.error(
+        `Error fetching medications: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * GET /api/clinical/procedures
+   * Get normalized procedures for a patient
+   * Query params: patientId (required)
+   */
+  @ApiOperation({
+    summary: 'Get patient procedures',
+    description: 'Retrieves normalized procedures for a patient.',
+  })
+  @ApiQuery({
+    name: 'patientId',
+    required: true,
+    description: 'Patient ID from Epic',
+    example: 'Tbt3KuCY0B5PSrJvCu2j-PlK.aiHsu2xUjUM8bWpetXoB',
+  })
+  @ApiOkResponse({
+    description: 'Procedures retrieved successfully',
+    type: [NormalizedProcedureDto],
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid patient ID or patient not found',
+  })
+  @Get('procedures')
+  async getProcedures(
+    @Query('patientId') patientId: string,
+  ): Promise<NormalizedProcedure[]> {
+    if (!patientId) {
+      throw new BadRequestException('patientId is required');
+    }
+
+    try {
+      return await this.clinicalService.getProcedures(patientId);
+    } catch (error) {
+      this.logger.error(
+        `Error fetching procedures: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * GET /api/clinical/encounters
+   * Get normalized encounters (visits) for a patient
+   * Query params: patientId (required)
+   */
+  @ApiOperation({
+    summary: 'Get patient encounters',
+    description: 'Retrieves normalized encounters (visits) for a patient.',
+  })
+  @ApiQuery({
+    name: 'patientId',
+    required: true,
+    description: 'Patient ID from Epic',
+    example: 'Tbt3KuCY0B5PSrJvCu2j-PlK.aiHsu2xUjUM8bWpetXoB',
+  })
+  @ApiOkResponse({
+    description: 'Encounters retrieved successfully',
+    type: [NormalizedEncounterDto],
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid patient ID or patient not found',
+  })
+  @Get('encounters')
+  async getEncounters(
+    @Query('patientId') patientId: string,
+  ): Promise<NormalizedEncounter[]> {
+    if (!patientId) {
+      throw new BadRequestException('patientId is required');
+    }
+
+    try {
+      return await this.clinicalService.getEncounters(patientId);
+    } catch (error) {
+      this.logger.error(
+        `Error fetching encounters: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * GET /api/clinical/diagnostic-reports
+   * Get normalized diagnostic reports for a patient
+   * Query params: patientId (required)
+   */
+  @ApiOperation({
+    summary: 'Get patient diagnostic reports',
+    description: 'Retrieves normalized diagnostic reports for a patient.',
+  })
+  @ApiQuery({
+    name: 'patientId',
+    required: true,
+    description: 'Patient ID from Epic',
+    example: 'Tbt3KuCY0B5PSrJvCu2j-PlK.aiHsu2xUjUM8bWpetXoB',
+  })
+  @ApiOkResponse({
+    description: 'Diagnostic reports retrieved successfully',
+    type: [NormalizedDiagnosticReportDto],
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid patient ID or patient not found',
+  })
+  @Get('diagnostic-reports')
+  async getDiagnosticReports(
+    @Query('patientId') patientId: string,
+  ): Promise<NormalizedDiagnosticReport[]> {
+    if (!patientId) {
+      throw new BadRequestException('patientId is required');
+    }
+
+    try {
+      return await this.clinicalService.getDiagnosticReports(patientId);
+    } catch (error) {
+      this.logger.error(
+        `Error fetching diagnostic reports: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * GET /api/clinical/diagnosis
+   * Get comprehensive diagnosis data for a patient
+   * Query params: patientId (required)
+   */
+  @ApiOperation({
+    summary: 'Get comprehensive diagnosis data',
+    description:
+      'Retrieves all diagnosis-related data for a patient including allergies, medications, procedures, encounters, diagnostic reports, observations, and conditions.',
+  })
+  @ApiQuery({
+    name: 'patientId',
+    required: true,
+    description: 'Patient ID from Epic',
+    example: 'Tbt3KuCY0B5PSrJvCu2j-PlK.aiHsu2xUjUM8bWpetXoB',
+  })
+  @ApiOkResponse({
+    description: 'Diagnosis data retrieved successfully',
+    type: DiagnosisDataResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid patient ID or patient not found',
+  })
+  @Get('diagnosis')
+  async getDiagnosisData(
+    @Query('patientId') patientId: string,
+  ): Promise<DiagnosisDataResponse> {
+    if (!patientId) {
+      throw new BadRequestException('patientId is required');
+    }
+
+    try {
+      return await this.clinicalService.getDiagnosisData(patientId);
+    } catch (error) {
+      this.logger.error(
+        `Error fetching diagnosis data: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * POST /api/clinical/patients/bulk
+   * Get bulk patient data
+   * Body: { patientIds: string[] }
+   */
+  @ApiOperation({
+    summary: 'Get bulk patient data',
+    description:
+      'Retrieves normalized patient information for multiple patients at once.',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        patientIds: {
+          type: 'array',
+          items: { type: 'string' },
+          example: [
+            'Tbt3KuCY0B5PSrJvCu2j-PlK.aiHsu2xUjUM8bWpetXoB',
+            'eBwfo7qYXcN8PpOaJ7E0lJcR8X4y5Z6A7B8C9D0E1F2G3',
+          ],
+        },
+      },
+      required: ['patientIds'],
+    },
+  })
+  @ApiOkResponse({
+    description: 'Patients retrieved successfully',
+    type: BulkPatientResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid request body',
+  })
+  @Post('patients/bulk')
+  async getBulkPatients(
+    @Body() body: { patientIds: string[] },
+  ): Promise<BulkPatientResponse> {
+    if (!body.patientIds || !Array.isArray(body.patientIds)) {
+      throw new BadRequestException(
+        'patientIds array is required in request body',
+      );
+    }
+
+    if (body.patientIds.length === 0) {
+      return { patients: [], total: 0 };
+    }
+
+    try {
+      return await this.clinicalService.getBulkPatients(body.patientIds);
+    } catch (error) {
+      this.logger.error(
+        `Error fetching bulk patients: ${error.message}`,
         error.stack,
       );
       throw error;

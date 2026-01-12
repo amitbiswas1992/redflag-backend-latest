@@ -279,6 +279,187 @@ curl "http://localhost:3000/api/clinical/data?patientId=Tbt3KuCY0B5PSrJvCu2j-PlK
 }
 ```
 
+#### Get Allergies
+
+```bash
+curl "http://localhost:3000/api/clinical/allergies?patientId=Tbt3KuCY0B5PSrJvCu2j-PlK.aiHsu2xUjUM8bWpetXoB"
+```
+
+**Response:**
+
+```json
+[
+  {
+    "id": "allergy-123",
+    "code": "419199007",
+    "display": "Allergy to peanuts",
+    "type": "allergy",
+    "category": ["food"],
+    "criticality": "high",
+    "status": "active",
+    "recordedDate": "2020-01-15T14:20:00Z"
+  }
+]
+```
+
+#### Get Medications
+
+```bash
+curl "http://localhost:3000/api/clinical/medications?patientId=Tbt3KuCY0B5PSrJvCu2j-PlK.aiHsu2xUjUM8bWpetXoB"
+```
+
+**Response:**
+
+```json
+[
+  {
+    "id": "med-123",
+    "code": "197806",
+    "display": "Lisinopril 10mg tablet",
+    "status": "active",
+    "startDate": "2020-01-15",
+    "endDate": null,
+    "dateAsserted": "2020-01-15T14:20:00Z",
+    "dosage": "Take 1 tablet by mouth once daily",
+    "route": "oral"
+  }
+]
+```
+
+#### Get Procedures
+
+```bash
+curl "http://localhost:3000/api/clinical/procedures?patientId=Tbt3KuCY0B5PSrJvCu2j-PlK.aiHsu2xUjUM8bWpetXoB"
+```
+
+**Response:**
+
+```json
+[
+  {
+    "id": "proc-123",
+    "code": "27447-1",
+    "display": "Appendectomy",
+    "status": "completed",
+    "category": "procedure",
+    "performedDate": "2020-06-15",
+    "outcome": "successful"
+  }
+]
+```
+
+#### Get Encounters
+
+```bash
+curl "http://localhost:3000/api/clinical/encounters?patientId=Tbt3KuCY0B5PSrJvCu2j-PlK.aiHsu2xUjUM8bWpetXoB"
+```
+
+**Response:**
+
+```json
+[
+  {
+    "id": "enc-123",
+    "status": "finished",
+    "type": "Office Visit",
+    "class": "ambulatory",
+    "startDate": "2024-01-15T10:00:00Z",
+    "endDate": "2024-01-15T10:30:00Z",
+    "reason": "Annual physical examination"
+  }
+]
+```
+
+#### Get Diagnostic Reports
+
+```bash
+curl "http://localhost:3000/api/clinical/diagnostic-reports?patientId=Tbt3KuCY0B5PSrJvCu2j-PlK.aiHsu2xUjUM8bWpetXoB"
+```
+
+**Response:**
+
+```json
+[
+  {
+    "id": "report-123",
+    "code": "58410-2",
+    "display": "Complete blood count",
+    "status": "final",
+    "category": "LAB",
+    "effectiveDate": "2024-01-15T10:00:00Z",
+    "issuedDate": "2024-01-15T14:00:00Z",
+    "conclusion": "All values within normal limits"
+  }
+]
+```
+
+#### Get Comprehensive Diagnosis Data
+
+```bash
+curl "http://localhost:3000/api/clinical/diagnosis?patientId=Tbt3KuCY0B5PSrJvCu2j-PlK.aiHsu2xUjUM8bWpetXoB"
+```
+
+**Response:**
+
+```json
+{
+  "patient": {
+    "id": "Tbt3KuCY0B5PSrJvCu2j-PlK.aiHsu2xUjUM8bWpetXoB",
+    "name": "John Doe",
+    "firstName": "John",
+    "lastName": "Doe",
+    "birthDate": "1980-01-01",
+    "gender": "male"
+  },
+  "allergies": [...],
+  "medications": [...],
+  "procedures": [...],
+  "encounters": [...],
+  "diagnosticReports": [...],
+  "observations": [...],
+  "conditions": [...]
+}
+```
+
+#### Get Bulk Patient Data
+
+```bash
+curl -X POST "http://localhost:3000/api/clinical/patients/bulk" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "patientIds": [
+      "Tbt3KuCY0B5PSrJvCu2j-PlK.aiHsu2xUjUM8bWpetXoB",
+      "eBwfo7qYXcN8PpOaJ7E0lJcR8X4y5Z6A7B8C9D0E1F2G3"
+    ]
+  }'
+```
+
+**Response:**
+
+```json
+{
+  "patients": [
+    {
+      "id": "Tbt3KuCY0B5PSrJvCu2j-PlK.aiHsu2xUjUM8bWpetXoB",
+      "name": "John Doe",
+      "firstName": "John",
+      "lastName": "Doe",
+      "birthDate": "1980-01-01",
+      "gender": "male"
+    },
+    {
+      "id": "eBwfo7qYXcN8PpOaJ7E0lJcR8X4y5Z6A7B8C9D0E1F2G3",
+      "name": "Jane Smith",
+      "firstName": "Jane",
+      "lastName": "Smith",
+      "birthDate": "1985-05-15",
+      "gender": "female"
+    }
+  ],
+  "total": 2
+}
+```
+
 ### Token Refresh
 
 Tokens are **automatically refreshed** when expired during API calls. You can also manually refresh:
