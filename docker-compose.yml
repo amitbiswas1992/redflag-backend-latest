@@ -30,8 +30,9 @@ services:
       - NODE_ENV=${NODE_ENV:-production}
 
     volumes:
-      - /private_key.pem:/app/private_key.pem
-      - /public_key.pem:/app/public_key.pem
+      - /opt/redflag/keys/private_key.pem:/app/private_key.pem:ro
+      - /opt/redflag/keys/public_key.pem:/app/public_key.pem:ro
+
     restart: unless-stopped
     healthcheck:
       test:
