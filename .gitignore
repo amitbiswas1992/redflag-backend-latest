@@ -3,8 +3,8 @@
 /node_modules
 
 # Private keys (NEVER commit these!)
-private_key.pem
-*.pem
+
+
 !public_key.pem.example
 /build
 
