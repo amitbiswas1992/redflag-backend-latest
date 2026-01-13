@@ -1,0 +1,53 @@
+services:
+  redflag-epic:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: redflag-epic
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      # Epic Configuration
+      - EPIC_CLIENT_ID=${EPIC_CLIENT_ID}
+      - EPIC_USE_SANDBOX=${EPIC_USE_SANDBOX:-true}
+      - EPIC_FHIR_BASE_URL=${EPIC_FHIR_BASE_URL}
+      - EPIC_TOKEN_URL=${EPIC_TOKEN_URL}
+      - EPIC_SCOPE=${EPIC_SCOPE:-system/Patient.read system/Observation.read system/Condition.read system/AllergyIntolerance.read system/MedicationStatement.read system/Procedure.read system/Encounter.read system/DiagnosticReport.read}
+
+      # JWT Backend Service Configuration
+      - EPIC_JWT_KEY_ID=${EPIC_JWT_KEY_ID}
+      - EPIC_JWT_ISSUER=${EPIC_JWT_ISSUER}
+      - EPIC_JWT_SUBJECT=${EPIC_JWT_SUBJECT}
+      - EPIC_JWT_AUDIENCE=${EPIC_JWT_AUDIENCE}
+
+      # JWT Private Key (can be file path or inline)
+      - EPIC_JWT_PRIVATE_KEY_PATH=${EPIC_JWT_PRIVATE_KEY_PATH}
+      - EPIC_JWT_PRIVATE_KEY=${EPIC_JWT_PRIVATE_KEY}
+
+      # Application Configuration
+      - PORT=${PORT:-3000}
+      - NODE_ENV=${NODE_ENV:-production}
+
+    volumes:
+      - ./private_key.pem:/app/private_key.pem
+      - ./public_key.pem:/app/public_key.pem
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://localhost:3000/.well-known/jwks.json', (r) => { process.exit(r.statusCode === 200 ? 0 : 1) })",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - redflag-network
+
+networks:
+  redflag-network:
+    driver: bridge

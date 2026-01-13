@@ -134,6 +134,58 @@ npm run start:prod
 
 The service will start on port 3000 (or the port specified in `.env`).
 
+## Docker Setup
+
+### Using Docker Compose
+
+#### Production
+
+1. Create a `.env` file with your Epic credentials (see step 4 above)
+
+2. Build and start the service:
+
+```bash
+docker-compose up -d
+```
+
+3. View logs:
+
+```bash
+docker-compose logs -f
+```
+
+4. Stop the service:
+
+```bash
+docker-compose down
+```
+
+#### Development
+
+For development with hot reload:
+
+```bash
+docker-compose -f docker-compose.dev.yml up
+```
+
+### Docker Compose Files
+
+- **`docker-compose.yml`** - Production configuration with optimized build
+- **`docker-compose.dev.yml`** - Development configuration with hot reload and volume mounts
+
+### Environment Variables
+
+All environment variables from your `.env` file are automatically passed to the container. Make sure to set:
+
+- `EPIC_CLIENT_ID`
+- `EPIC_JWT_PRIVATE_KEY_PATH` or `EPIC_JWT_PRIVATE_KEY`
+- `EPIC_JWT_KEY_ID`
+- Other Epic configuration variables
+
+### JWT Private Key File
+
+If using `EPIC_JWT_PRIVATE_KEY_PATH`, ensure the key file exists at the specified path. The docker-compose file will mount it as a read-only volume.
+
 ## Usage
 
 ### Step 1: Authenticate (Optional)
