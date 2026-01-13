@@ -31,6 +31,11 @@ COPY --from=builder /app/dist ./dist
 # Copy any necessary files (like scripts, configs)
 COPY --from=builder /app/scripts ./scripts
 
+# Copy private key
+COPY --from=builder /app/private_key.pem ./private_key.pem
+# Copy public key
+COPY --from=builder /app/public_key.pem ./public_key.pem
+
 
 # Expose port
 EXPOSE 3000
