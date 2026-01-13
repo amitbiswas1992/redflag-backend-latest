@@ -30,8 +30,8 @@ services:
       - NODE_ENV=${NODE_ENV:-production}
 
     volumes:
-      - ./private_key.pem:/app/private_key.pem
-      - ./public_key.pem:/app/public_key.pem
+      - /private_key.pem:/app/private_key.pem
+      - /public_key.pem:/app/public_key.pem
     restart: unless-stopped
     healthcheck:
       test:
