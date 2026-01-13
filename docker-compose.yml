@@ -6,7 +6,7 @@ services:
       target: production
     container_name: redflag-epic
     ports:
-      - "${PORT:-3000}:3000"
+      - "${PORT:-3000}"
     environment:
       # Epic Configuration
       - EPIC_CLIENT_ID=${EPIC_CLIENT_ID}
