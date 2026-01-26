@@ -8,6 +8,13 @@ COPY package*.json ./
 
 # Install dependencies
 RUN npm install --legacy-peer-deps
+
+# Copy Prisma schema
+COPY prisma ./prisma
+
+# Generate Prisma Client
+RUN npx prisma generate
+
 # Copy source code
 COPY . .
 
@@ -24,6 +31,13 @@ COPY package*.json ./
 
 # Install only production dependencies
 RUN npm install --only=production --legacy-peer-deps && npm cache clean --force
+
+# Copy Prisma schema
+COPY prisma ./prisma
+
+# Generate Prisma Client in production stage
+# (prisma is in dependencies, so it's available)
+RUN npx prisma generate
 
 # Copy built application from builder stage
 COPY --from=builder /app/dist ./dist
