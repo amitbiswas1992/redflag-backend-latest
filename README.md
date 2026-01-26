@@ -706,6 +706,9 @@ All server endpoints are prefixed with `/server`:
 - `POST /server/diagnostic-reports` - Create diagnostic report
 - `GET /server/diagnostic-reports/patient/:patientId` - Get diagnostic reports by patient
 
+**Sync Operations:**
+- `POST /server/sync/patient/:patientId` - Sync patient data from Epic to database (fetches all data and upserts)
+
 #### Example Usage
 
 **Create a Patient:**
@@ -740,6 +743,44 @@ curl -X POST "http://localhost:3000/server/observations" \
     "status": "final"
   }'
 ```
+
+**Sync Patient Data from Epic:**
+```bash
+curl -X POST "http://localhost:3000/server/sync/patient/eq081-VQEgP8drUUqCWzHfw3"
+```
+
+This endpoint will:
+1. Fetch all patient data from Epic FHIR API
+2. Create or update the patient in the database
+3. Sync all related clinical data:
+   - Observations
+   - Conditions
+   - Allergies
+   - Medications
+   - Procedures
+   - Encounters
+   - Diagnostic Reports
+
+**Response:**
+```json
+{
+  "success": true,
+  "patientId": "uuid-from-database",
+  "epicId": "eq081-VQEgP8drUUqCWzHfw3",
+  "synced": {
+    "observations": 25,
+    "conditions": 3,
+    "allergies": 2,
+    "medications": 5,
+    "procedures": 1,
+    "encounters": 10,
+    "diagnosticReports": 8
+  },
+  "forbiddenScopes": {}
+}
+```
+
+**Note:** The sync operation uses upsert logic - it will create new records if they don't exist, or update existing records if they do (based on Epic ID).
 
 #### Prisma Commands
 

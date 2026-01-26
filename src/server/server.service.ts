@@ -6,24 +6,31 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from './prisma.service';
+import { ClinicalService } from '../clinical/clinical.service';
 import {
   CreatePatientDto,
   UpdatePatientDto,
   CreatePractitionerDto,
-  CreateObservationDto,
-  CreateConditionDto,
-  CreateAllergyDto,
-  CreateMedicationDto,
-  CreateProcedureDto,
-  CreateEncounterDto,
-  CreateDiagnosticReportDto,
 } from './dto/server.dto';
+import {
+  NormalizedPatient,
+  NormalizedObservation,
+  NormalizedCondition,
+  NormalizedAllergy,
+  NormalizedMedication,
+  NormalizedProcedure,
+  NormalizedEncounter,
+  NormalizedDiagnosticReport,
+} from '../clinical/interfaces/clinical.interface';
 
 @Injectable()
 export class ServerService {
   private readonly logger = new Logger(ServerService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private clinicalService: ClinicalService,
+  ) {}
 
   // Patient CRUD
   async createPatient(createPatientDto: CreatePatientDto) {
@@ -220,35 +227,7 @@ export class ServerService {
     return practitioner;
   }
 
-  // Observation CRUD
-  async createObservation(createObservationDto: CreateObservationDto) {
-    try {
-      const observation = await this.prisma.observation.create({
-        data: {
-          ...createObservationDto,
-          date: new Date(createObservationDto.date),
-        },
-      });
-      return observation;
-    } catch (error) {
-      if (error.code === 'P2002') {
-        throw new BadRequestException(
-          `Observation with epicId ${createObservationDto.epicId} already exists`,
-        );
-      }
-      if (error.code === 'P2003') {
-        throw new BadRequestException(
-          `Patient with ID ${createObservationDto.patientId} not found`,
-        );
-      }
-      this.logger.error(
-        `Error creating observation: ${error.message}`,
-        error.stack,
-      );
-      throw error;
-    }
-  }
-
+  // Observation operations (read-only, data comes from Epic sync)
   async findObservationsByPatientId(patientId: string) {
     return this.prisma.observation.findMany({
       where: { patientId },
@@ -256,40 +235,7 @@ export class ServerService {
     });
   }
 
-  // Condition CRUD
-  async createCondition(createConditionDto: CreateConditionDto) {
-    try {
-      const condition = await this.prisma.condition.create({
-        data: {
-          ...createConditionDto,
-          onsetDate: createConditionDto.onsetDate
-            ? new Date(createConditionDto.onsetDate)
-            : null,
-          recordedDate: createConditionDto.recordedDate
-            ? new Date(createConditionDto.recordedDate)
-            : null,
-        },
-      });
-      return condition;
-    } catch (error) {
-      if (error.code === 'P2002') {
-        throw new BadRequestException(
-          `Condition with epicId ${createConditionDto.epicId} already exists`,
-        );
-      }
-      if (error.code === 'P2003') {
-        throw new BadRequestException(
-          `Patient with ID ${createConditionDto.patientId} not found`,
-        );
-      }
-      this.logger.error(
-        `Error creating condition: ${error.message}`,
-        error.stack,
-      );
-      throw error;
-    }
-  }
-
+  // Condition operations (read-only, data comes from Epic sync)
   async findConditionsByPatientId(patientId: string) {
     return this.prisma.condition.findMany({
       where: { patientId },
@@ -297,35 +243,7 @@ export class ServerService {
     });
   }
 
-  // Allergy CRUD
-  async createAllergy(createAllergyDto: CreateAllergyDto) {
-    try {
-      const allergy = await this.prisma.allergy.create({
-        data: {
-          ...createAllergyDto,
-          category: createAllergyDto.category || [],
-          recordedDate: createAllergyDto.recordedDate
-            ? new Date(createAllergyDto.recordedDate)
-            : null,
-        },
-      });
-      return allergy;
-    } catch (error) {
-      if (error.code === 'P2002') {
-        throw new BadRequestException(
-          `Allergy with epicId ${createAllergyDto.epicId} already exists`,
-        );
-      }
-      if (error.code === 'P2003') {
-        throw new BadRequestException(
-          `Patient with ID ${createAllergyDto.patientId} not found`,
-        );
-      }
-      this.logger.error(`Error creating allergy: ${error.message}`, error.stack);
-      throw error;
-    }
-  }
-
+  // Allergy operations (read-only, data comes from Epic sync)
   async findAllergiesByPatientId(patientId: string) {
     return this.prisma.allergy.findMany({
       where: { patientId },
@@ -333,43 +251,7 @@ export class ServerService {
     });
   }
 
-  // Medication CRUD
-  async createMedication(createMedicationDto: CreateMedicationDto) {
-    try {
-      const medication = await this.prisma.medication.create({
-        data: {
-          ...createMedicationDto,
-          startDate: createMedicationDto.startDate
-            ? new Date(createMedicationDto.startDate)
-            : null,
-          endDate: createMedicationDto.endDate
-            ? new Date(createMedicationDto.endDate)
-            : null,
-          dateAsserted: createMedicationDto.dateAsserted
-            ? new Date(createMedicationDto.dateAsserted)
-            : null,
-        },
-      });
-      return medication;
-    } catch (error) {
-      if (error.code === 'P2002') {
-        throw new BadRequestException(
-          `Medication with epicId ${createMedicationDto.epicId} already exists`,
-        );
-      }
-      if (error.code === 'P2003') {
-        throw new BadRequestException(
-          `Patient with ID ${createMedicationDto.patientId} not found`,
-        );
-      }
-      this.logger.error(
-        `Error creating medication: ${error.message}`,
-        error.stack,
-      );
-      throw error;
-    }
-  }
-
+  // Medication operations (read-only, data comes from Epic sync)
   async findMedicationsByPatientId(patientId: string) {
     return this.prisma.medication.findMany({
       where: { patientId },
@@ -377,40 +259,7 @@ export class ServerService {
     });
   }
 
-  // Procedure CRUD
-  async createProcedure(createProcedureDto: CreateProcedureDto) {
-    try {
-      const procedure = await this.prisma.procedure.create({
-        data: {
-          ...createProcedureDto,
-          date: createProcedureDto.date
-            ? new Date(createProcedureDto.date)
-            : null,
-          performedDate: createProcedureDto.performedDate
-            ? new Date(createProcedureDto.performedDate)
-            : null,
-        },
-      });
-      return procedure;
-    } catch (error) {
-      if (error.code === 'P2002') {
-        throw new BadRequestException(
-          `Procedure with epicId ${createProcedureDto.epicId} already exists`,
-        );
-      }
-      if (error.code === 'P2003') {
-        throw new BadRequestException(
-          `Patient with ID ${createProcedureDto.patientId} not found`,
-        );
-      }
-      this.logger.error(
-        `Error creating procedure: ${error.message}`,
-        error.stack,
-      );
-      throw error;
-    }
-  }
-
+  // Procedure operations (read-only, data comes from Epic sync)
   async findProceduresByPatientId(patientId: string) {
     return this.prisma.procedure.findMany({
       where: { patientId },
@@ -418,40 +267,7 @@ export class ServerService {
     });
   }
 
-  // Encounter CRUD
-  async createEncounter(createEncounterDto: CreateEncounterDto) {
-    try {
-      const encounter = await this.prisma.encounter.create({
-        data: {
-          ...createEncounterDto,
-          startDate: createEncounterDto.startDate
-            ? new Date(createEncounterDto.startDate)
-            : null,
-          endDate: createEncounterDto.endDate
-            ? new Date(createEncounterDto.endDate)
-            : null,
-        },
-      });
-      return encounter;
-    } catch (error) {
-      if (error.code === 'P2002') {
-        throw new BadRequestException(
-          `Encounter with epicId ${createEncounterDto.epicId} already exists`,
-        );
-      }
-      if (error.code === 'P2003') {
-        throw new BadRequestException(
-          `Patient with ID ${createEncounterDto.patientId} not found`,
-        );
-      }
-      this.logger.error(
-        `Error creating encounter: ${error.message}`,
-        error.stack,
-      );
-      throw error;
-    }
-  }
-
+  // Encounter operations (read-only, data comes from Epic sync)
   async findEncountersByPatientId(patientId: string) {
     return this.prisma.encounter.findMany({
       where: { patientId },
@@ -459,50 +275,382 @@ export class ServerService {
     });
   }
 
-  // DiagnosticReport CRUD
-  async createDiagnosticReport(
-    createDiagnosticReportDto: CreateDiagnosticReportDto,
-  ) {
+  // DiagnosticReport operations (read-only, data comes from Epic sync)
+  async findDiagnosticReportsByPatientId(patientId: string) {
+    return this.prisma.diagnosticReport.findMany({
+      where: { patientId },
+      orderBy: { date: 'desc' },
+    });
+  }
+
+  // Sync operations
+  /**
+   * Sync patient data from Epic to database
+   * Fetches all patient data from Epic and upserts into database
+   * @param patientId - Epic FHIR Patient ID
+   */
+  async syncPatientFromEpic(patientId: string) {
+    this.logger.log(`Starting sync for patient: ${patientId}`);
+
     try {
-      const diagnosticReport = await this.prisma.diagnosticReport.create({
-        data: {
-          ...createDiagnosticReportDto,
-          date: createDiagnosticReportDto.date
-            ? new Date(createDiagnosticReportDto.date)
-            : null,
-          effectiveDate: createDiagnosticReportDto.effectiveDate
-            ? new Date(createDiagnosticReportDto.effectiveDate)
-            : null,
-          issuedDate: createDiagnosticReportDto.issuedDate
-            ? new Date(createDiagnosticReportDto.issuedDate)
-            : null,
+      // Fetch all patient data from Epic
+      const diagnosisData = await this.clinicalService.getDiagnosisData(
+        patientId,
+      );
+
+      // Upsert patient
+      const patient = await this.upsertPatient(diagnosisData.patient);
+
+      // Upsert all related data in parallel
+      await Promise.all([
+        this.upsertObservations(patient.id, diagnosisData.observations),
+        this.upsertConditions(patient.id, diagnosisData.conditions),
+        this.upsertAllergies(patient.id, diagnosisData.allergies),
+        this.upsertMedications(patient.id, diagnosisData.medications),
+        this.upsertProcedures(patient.id, diagnosisData.procedures),
+        this.upsertEncounters(patient.id, diagnosisData.encounters),
+        this.upsertDiagnosticReports(
+          patient.id,
+          diagnosisData.diagnosticReports,
+        ),
+      ]);
+
+      this.logger.log(
+        `Successfully synced patient ${patientId} with all related data`,
+      );
+
+      return {
+        success: true,
+        patientId: patient.id,
+        epicId: patient.epicId,
+        synced: {
+          observations: diagnosisData.observations.length,
+          conditions: diagnosisData.conditions.length,
+          allergies: diagnosisData.allergies.length,
+          medications: diagnosisData.medications.length,
+          procedures: diagnosisData.procedures.length,
+          encounters: diagnosisData.encounters.length,
+          diagnosticReports: diagnosisData.diagnosticReports.length,
         },
-      });
-      return diagnosticReport;
+        forbiddenScopes: diagnosisData.forbiddenScopes,
+      };
     } catch (error) {
-      if (error.code === 'P2002') {
-        throw new BadRequestException(
-          `DiagnosticReport with epicId ${createDiagnosticReportDto.epicId} already exists`,
-        );
-      }
-      if (error.code === 'P2003') {
-        throw new BadRequestException(
-          `Patient with ID ${createDiagnosticReportDto.patientId} not found`,
-        );
-      }
       this.logger.error(
-        `Error creating diagnostic report: ${error.message}`,
+        `Error syncing patient ${patientId}: ${error.message}`,
         error.stack,
       );
       throw error;
     }
   }
 
-  async findDiagnosticReportsByPatientId(patientId: string) {
-    return this.prisma.diagnosticReport.findMany({
-      where: { patientId },
-      orderBy: { date: 'desc' },
+  // Helper methods for upserting data
+  private async upsertPatient(patient: NormalizedPatient) {
+    const birthDate = patient.birthDate
+      ? new Date(patient.birthDate)
+      : undefined;
+
+    return this.prisma.patient.upsert({
+      where: { epicId: patient.id },
+      update: {
+        name: patient.name,
+        firstName: patient.firstName,
+        lastName: patient.lastName,
+        birthDate,
+        gender: patient.gender,
+        identifiers: patient.identifiers
+          ? (patient.identifiers as Prisma.InputJsonValue)
+          : undefined,
+      },
+      create: {
+        epicId: patient.id,
+        name: patient.name,
+        firstName: patient.firstName,
+        lastName: patient.lastName,
+        birthDate,
+        gender: patient.gender,
+        identifiers: patient.identifiers
+          ? (patient.identifiers as Prisma.InputJsonValue)
+          : undefined,
+      },
     });
+  }
+
+  private async upsertObservations(
+    patientId: string,
+    observations: NormalizedObservation[],
+  ) {
+    const upsertPromises = observations.map((obs) => {
+      const date = obs.date ? new Date(obs.date) : new Date();
+      return this.prisma.observation.upsert({
+        where: { epicId: obs.id },
+        update: {
+          testName: obs.display,
+          value: obs.value?.toString() || '',
+          date,
+          status: obs.status,
+          code: obs.code,
+          display: obs.display,
+          category: obs.category,
+          unit: obs.unit,
+        },
+        create: {
+          epicId: obs.id,
+          patientId,
+          testName: obs.display,
+          value: obs.value?.toString() || '',
+          date,
+          status: obs.status,
+          code: obs.code,
+          display: obs.display,
+          category: obs.category,
+          unit: obs.unit,
+        },
+      });
+    });
+
+    return Promise.all(upsertPromises);
+  }
+
+  private async upsertConditions(
+    patientId: string,
+    conditions: NormalizedCondition[],
+  ) {
+    const upsertPromises = conditions.map((cond) => {
+      return this.prisma.condition.upsert({
+        where: { epicId: cond.id },
+        update: {
+          diagnosis: cond.display,
+          status: cond.status || 'unknown',
+          onsetDate: cond.onsetDate ? new Date(cond.onsetDate) : undefined,
+          recordedDate: cond.recordedDate
+            ? new Date(cond.recordedDate)
+            : undefined,
+          code: cond.code,
+          display: cond.display,
+          category: cond.category,
+        },
+        create: {
+          epicId: cond.id,
+          patientId,
+          diagnosis: cond.display,
+          status: cond.status || 'unknown',
+          onsetDate: cond.onsetDate ? new Date(cond.onsetDate) : undefined,
+          recordedDate: cond.recordedDate
+            ? new Date(cond.recordedDate)
+            : undefined,
+          code: cond.code,
+          display: cond.display,
+          category: cond.category,
+        },
+      });
+    });
+
+    return Promise.all(upsertPromises);
+  }
+
+  private async upsertAllergies(
+    patientId: string,
+    allergies: NormalizedAllergy[],
+  ) {
+    const upsertPromises = allergies.map((allergy) => {
+      return this.prisma.allergy.upsert({
+        where: { epicId: allergy.id },
+        update: {
+          allergen: allergy.display,
+          type: allergy.type || 'unknown',
+          severity: allergy.criticality,
+          status: allergy.status || 'unknown',
+          recordedDate: allergy.recordedDate
+            ? new Date(allergy.recordedDate)
+            : undefined,
+          code: allergy.code,
+          display: allergy.display,
+          category: allergy.category || [],
+          criticality: allergy.criticality,
+        },
+        create: {
+          epicId: allergy.id,
+          patientId,
+          allergen: allergy.display,
+          type: allergy.type || 'unknown',
+          severity: allergy.criticality,
+          status: allergy.status || 'unknown',
+          recordedDate: allergy.recordedDate
+            ? new Date(allergy.recordedDate)
+            : undefined,
+          code: allergy.code,
+          display: allergy.display,
+          category: allergy.category || [],
+          criticality: allergy.criticality,
+        },
+      });
+    });
+
+    return Promise.all(upsertPromises);
+  }
+
+  private async upsertMedications(
+    patientId: string,
+    medications: NormalizedMedication[],
+  ) {
+    const upsertPromises = medications.map((med) => {
+      return this.prisma.medication.upsert({
+        where: { epicId: med.id },
+        update: {
+          medication: med.display,
+          status: med.status,
+          dosage: med.dosage,
+          route: med.route,
+          startDate: med.startDate ? new Date(med.startDate) : undefined,
+          endDate: med.endDate ? new Date(med.endDate) : undefined,
+          dateAsserted: med.dateAsserted
+            ? new Date(med.dateAsserted)
+            : undefined,
+          code: med.code,
+          display: med.display,
+        },
+        create: {
+          epicId: med.id,
+          patientId,
+          medication: med.display,
+          status: med.status,
+          dosage: med.dosage,
+          route: med.route,
+          startDate: med.startDate ? new Date(med.startDate) : undefined,
+          endDate: med.endDate ? new Date(med.endDate) : undefined,
+          dateAsserted: med.dateAsserted
+            ? new Date(med.dateAsserted)
+            : undefined,
+          code: med.code,
+          display: med.display,
+        },
+      });
+    });
+
+    return Promise.all(upsertPromises);
+  }
+
+  private async upsertProcedures(
+    patientId: string,
+    procedures: NormalizedProcedure[],
+  ) {
+    const upsertPromises = procedures.map((proc) => {
+      return this.prisma.procedure.upsert({
+        where: { epicId: proc.id },
+        update: {
+          procedure: proc.display,
+          status: proc.status,
+          date: proc.performedDate
+            ? new Date(proc.performedDate)
+            : undefined,
+          outcome: proc.outcome,
+          code: proc.code,
+          display: proc.display,
+          category: proc.category,
+          performedDate: proc.performedDate
+            ? new Date(proc.performedDate)
+            : undefined,
+        },
+        create: {
+          epicId: proc.id,
+          patientId,
+          procedure: proc.display,
+          status: proc.status,
+          date: proc.performedDate ? new Date(proc.performedDate) : undefined,
+          outcome: proc.outcome,
+          code: proc.code,
+          display: proc.display,
+          category: proc.category,
+          performedDate: proc.performedDate
+            ? new Date(proc.performedDate)
+            : undefined,
+        },
+      });
+    });
+
+    return Promise.all(upsertPromises);
+  }
+
+  private async upsertEncounters(
+    patientId: string,
+    encounters: NormalizedEncounter[],
+  ) {
+    const upsertPromises = encounters.map((enc) => {
+      return this.prisma.encounter.upsert({
+        where: { epicId: enc.id },
+        update: {
+          visitType: enc.type || enc.class || 'unknown',
+          reason: enc.reason,
+          startDate: enc.startDate ? new Date(enc.startDate) : undefined,
+          endDate: enc.endDate ? new Date(enc.endDate) : undefined,
+          status: enc.status,
+          type: enc.type,
+          class: enc.class,
+        },
+        create: {
+          epicId: enc.id,
+          patientId,
+          visitType: enc.type || enc.class || 'unknown',
+          reason: enc.reason,
+          startDate: enc.startDate ? new Date(enc.startDate) : undefined,
+          endDate: enc.endDate ? new Date(enc.endDate) : undefined,
+          status: enc.status,
+          type: enc.type,
+          class: enc.class,
+        },
+      });
+    });
+
+    return Promise.all(upsertPromises);
+  }
+
+  private async upsertDiagnosticReports(
+    patientId: string,
+    reports: NormalizedDiagnosticReport[],
+  ) {
+    const upsertPromises = reports.map((report) => {
+      return this.prisma.diagnosticReport.upsert({
+        where: { epicId: report.id },
+        update: {
+          reportName: report.display,
+          status: report.status,
+          date: report.effectiveDate
+            ? new Date(report.effectiveDate)
+            : undefined,
+          conclusion: report.conclusion,
+          code: report.code,
+          display: report.display,
+          category: report.category,
+          effectiveDate: report.effectiveDate
+            ? new Date(report.effectiveDate)
+            : undefined,
+          issuedDate: report.issuedDate
+            ? new Date(report.issuedDate)
+            : undefined,
+        },
+        create: {
+          epicId: report.id,
+          patientId,
+          reportName: report.display,
+          status: report.status,
+          date: report.effectiveDate
+            ? new Date(report.effectiveDate)
+            : undefined,
+          conclusion: report.conclusion,
+          code: report.code,
+          display: report.display,
+          category: report.category,
+          effectiveDate: report.effectiveDate
+            ? new Date(report.effectiveDate)
+            : undefined,
+          issuedDate: report.issuedDate
+            ? new Date(report.issuedDate)
+            : undefined,
+        },
+      });
+    });
+
+    return Promise.all(upsertPromises);
   }
 }
 

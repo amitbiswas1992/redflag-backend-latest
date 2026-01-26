@@ -12,7 +12,6 @@ import {
   Logger,
 } from '@nestjs/common';
 import {
-  ApiTags,
   ApiOperation,
   ApiParam,
   ApiQuery,
@@ -27,16 +26,8 @@ import {
   CreatePatientDto,
   UpdatePatientDto,
   CreatePractitionerDto,
-  CreateObservationDto,
-  CreateConditionDto,
-  CreateAllergyDto,
-  CreateMedicationDto,
-  CreateProcedureDto,
-  CreateEncounterDto,
-  CreateDiagnosticReportDto,
 } from './dto/server.dto';
 
-@ApiTags('Server')
 @Controller('server')
 export class ServerController {
   private readonly logger = new Logger(ServerController.name);
@@ -153,15 +144,6 @@ export class ServerController {
   }
 
   // Observation endpoints
-  @ApiOperation({ summary: 'Create a new observation' })
-  @ApiBody({ type: CreateObservationDto })
-  @ApiCreatedResponse({ description: 'Observation created successfully' })
-  @ApiBadRequestResponse({ description: 'Invalid input' })
-  @Post('observations')
-  async createObservation(@Body() createObservationDto: CreateObservationDto) {
-    return this.serverService.createObservation(createObservationDto);
-  }
-
   @ApiOperation({ summary: 'Get observations by patient ID' })
   @ApiParam({ name: 'patientId', description: 'Patient UUID' })
   @ApiOkResponse({ description: 'Observations retrieved successfully' })
@@ -171,15 +153,6 @@ export class ServerController {
   }
 
   // Condition endpoints
-  @ApiOperation({ summary: 'Create a new condition' })
-  @ApiBody({ type: CreateConditionDto })
-  @ApiCreatedResponse({ description: 'Condition created successfully' })
-  @ApiBadRequestResponse({ description: 'Invalid input' })
-  @Post('conditions')
-  async createCondition(@Body() createConditionDto: CreateConditionDto) {
-    return this.serverService.createCondition(createConditionDto);
-  }
-
   @ApiOperation({ summary: 'Get conditions by patient ID' })
   @ApiParam({ name: 'patientId', description: 'Patient UUID' })
   @ApiOkResponse({ description: 'Conditions retrieved successfully' })
@@ -189,15 +162,6 @@ export class ServerController {
   }
 
   // Allergy endpoints
-  @ApiOperation({ summary: 'Create a new allergy' })
-  @ApiBody({ type: CreateAllergyDto })
-  @ApiCreatedResponse({ description: 'Allergy created successfully' })
-  @ApiBadRequestResponse({ description: 'Invalid input' })
-  @Post('allergies')
-  async createAllergy(@Body() createAllergyDto: CreateAllergyDto) {
-    return this.serverService.createAllergy(createAllergyDto);
-  }
-
   @ApiOperation({ summary: 'Get allergies by patient ID' })
   @ApiParam({ name: 'patientId', description: 'Patient UUID' })
   @ApiOkResponse({ description: 'Allergies retrieved successfully' })
@@ -207,15 +171,6 @@ export class ServerController {
   }
 
   // Medication endpoints
-  @ApiOperation({ summary: 'Create a new medication' })
-  @ApiBody({ type: CreateMedicationDto })
-  @ApiCreatedResponse({ description: 'Medication created successfully' })
-  @ApiBadRequestResponse({ description: 'Invalid input' })
-  @Post('medications')
-  async createMedication(@Body() createMedicationDto: CreateMedicationDto) {
-    return this.serverService.createMedication(createMedicationDto);
-  }
-
   @ApiOperation({ summary: 'Get medications by patient ID' })
   @ApiParam({ name: 'patientId', description: 'Patient UUID' })
   @ApiOkResponse({ description: 'Medications retrieved successfully' })
@@ -225,15 +180,6 @@ export class ServerController {
   }
 
   // Procedure endpoints
-  @ApiOperation({ summary: 'Create a new procedure' })
-  @ApiBody({ type: CreateProcedureDto })
-  @ApiCreatedResponse({ description: 'Procedure created successfully' })
-  @ApiBadRequestResponse({ description: 'Invalid input' })
-  @Post('procedures')
-  async createProcedure(@Body() createProcedureDto: CreateProcedureDto) {
-    return this.serverService.createProcedure(createProcedureDto);
-  }
-
   @ApiOperation({ summary: 'Get procedures by patient ID' })
   @ApiParam({ name: 'patientId', description: 'Patient UUID' })
   @ApiOkResponse({ description: 'Procedures retrieved successfully' })
@@ -243,15 +189,6 @@ export class ServerController {
   }
 
   // Encounter endpoints
-  @ApiOperation({ summary: 'Create a new encounter' })
-  @ApiBody({ type: CreateEncounterDto })
-  @ApiCreatedResponse({ description: 'Encounter created successfully' })
-  @ApiBadRequestResponse({ description: 'Invalid input' })
-  @Post('encounters')
-  async createEncounter(@Body() createEncounterDto: CreateEncounterDto) {
-    return this.serverService.createEncounter(createEncounterDto);
-  }
-
   @ApiOperation({ summary: 'Get encounters by patient ID' })
   @ApiParam({ name: 'patientId', description: 'Patient UUID' })
   @ApiOkResponse({ description: 'Encounters retrieved successfully' })
@@ -261,23 +198,58 @@ export class ServerController {
   }
 
   // DiagnosticReport endpoints
-  @ApiOperation({ summary: 'Create a new diagnostic report' })
-  @ApiBody({ type: CreateDiagnosticReportDto })
-  @ApiCreatedResponse({ description: 'Diagnostic report created successfully' })
-  @ApiBadRequestResponse({ description: 'Invalid input' })
-  @Post('diagnostic-reports')
-  async createDiagnosticReport(
-    @Body() createDiagnosticReportDto: CreateDiagnosticReportDto,
-  ) {
-    return this.serverService.createDiagnosticReport(createDiagnosticReportDto);
-  }
-
   @ApiOperation({ summary: 'Get diagnostic reports by patient ID' })
   @ApiParam({ name: 'patientId', description: 'Patient UUID' })
   @ApiOkResponse({ description: 'Diagnostic reports retrieved successfully' })
   @Get('diagnostic-reports/patient/:patientId')
   async findDiagnosticReportsByPatientId(@Param('patientId') patientId: string) {
     return this.serverService.findDiagnosticReportsByPatientId(patientId);
+  }
+
+  // Sync endpoints
+  @ApiOperation({
+    summary: 'Sync patient data from Epic to database',
+    description:
+      'Fetches all patient data from Epic FHIR API and syncs it to the database. Creates or updates patient and all related clinical data (observations, conditions, allergies, medications, procedures, encounters, diagnostic reports).',
+  })
+  @ApiParam({
+    name: 'patientId',
+    description: 'Epic FHIR Patient ID',
+    example: 'eq081-VQEgP8drUUqCWzHfw3',
+  })
+  @ApiOkResponse({
+    description: 'Patient data synced successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        patientId: { type: 'string', description: 'Database UUID' },
+        epicId: { type: 'string', description: 'Epic FHIR Patient ID' },
+        synced: {
+          type: 'object',
+          properties: {
+            observations: { type: 'number' },
+            conditions: { type: 'number' },
+            allergies: { type: 'number' },
+            medications: { type: 'number' },
+            procedures: { type: 'number' },
+            encounters: { type: 'number' },
+            diagnosticReports: { type: 'number' },
+          },
+        },
+        forbiddenScopes: {
+          type: 'object',
+          description: 'Scopes that are forbidden (if any)',
+        },
+      },
+    },
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid patient ID or patient not found in Epic',
+  })
+  @Post('sync/patient/:patientId')
+  async syncPatientFromEpic(@Param('patientId') patientId: string) {
+    return this.serverService.syncPatientFromEpic(patientId);
   }
 }
 

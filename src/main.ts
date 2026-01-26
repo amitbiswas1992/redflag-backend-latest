@@ -23,7 +23,6 @@ async function bootstrap() {
     .setVersion('1.0')
     .addTag('auth', 'SMART on FHIR authentication endpoints')
     .addTag('clinical', 'Internal clinical data APIs')
-    .addTag('server', 'Server database operations')
     .addTag('health', 'Health check endpoints')
     .build();
 
