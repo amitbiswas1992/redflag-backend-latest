@@ -13,7 +13,7 @@ services:
       - EPIC_USE_SANDBOX=${EPIC_USE_SANDBOX:-true}
       - EPIC_FHIR_BASE_URL=${EPIC_FHIR_BASE_URL}
       - EPIC_TOKEN_URL=${EPIC_TOKEN_URL}
-        - EPIC_SCOPE=${EPIC_SCOPE:-system/Patient.read system/Observation.read system/Condition.read system/AllergyIntolerance.read system/MedicationStatement.read system/Procedure.read system/Encounter.read system/DiagnosticReport.read system/Practitioner.read}
+      - EPIC_SCOPE=${EPIC_SCOPE:-system/Patient.read system/Observation.read system/Condition.read system/AllergyIntolerance.read system/MedicationStatement.read system/Procedure.read system/Encounter.read system/DiagnosticReport.read system/Practitioner.read}
 
       # JWT Backend Service Configuration
       - EPIC_JWT_KEY_ID=${EPIC_JWT_KEY_ID}
