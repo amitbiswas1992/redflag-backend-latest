@@ -100,7 +100,7 @@ EPIC_JWT_PRIVATE_KEY=-----BEGIN PRIVATE KEY-----\nYour private key here\n-----EN
 EPIC_JWT_KEY_ID=your-key-id-from-epic
 EPIC_JWT_ISSUER=your-client-id-here
 EPIC_JWT_SUBJECT=your-client-id-here
-EPIC_SCOPE=system/Patient.read system/Observation.read system/Condition.read
+EPIC_SCOPE=system/Patient.read system/Observation.read system/Condition.read system/AllergyIntolerance.read system/MedicationStatement.read system/Procedure.read system/Encounter.read system/DiagnosticReport.read system/Practitioner.read
 ```
 
 #### For Production
@@ -116,7 +116,7 @@ EPIC_JWT_ISSUER=your-client-id-here
 EPIC_JWT_SUBJECT=your-client-id-here
 EPIC_FHIR_BASE_URL=https://your-org.epic.com/interconnect-fhir-oauth/api/FHIR/R4
 EPIC_TOKEN_URL=https://your-org.epic.com/interconnect-fhir-oauth/oauth2/token
-EPIC_SCOPE=system/Patient.read system/Observation.read system/Condition.read
+EPIC_SCOPE=system/Patient.read system/Observation.read system/Condition.read system/AllergyIntolerance.read system/MedicationStatement.read system/Procedure.read system/Encounter.read system/DiagnosticReport.read system/Practitioner.read
 ```
 
 **📘 See `BACKEND_SYSTEMS_SETUP.md` for detailed setup guide.**

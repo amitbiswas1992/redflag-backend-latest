@@ -69,7 +69,7 @@ export default registerAs('epic', () => {
     tokenUrl,
     scope:
       process.env.EPIC_SCOPE ||
-      'system/Patient.read system/Observation.read system/Condition.read',
+      'system/Patient.read system/Observation.read system/Condition.read system/AllergyIntolerance.read system/MedicationStatement.read system/Procedure.read system/Encounter.read system/DiagnosticReport.read system/Practitioner.read',
     useSandbox,
     // JWT Backend Service configuration
     jwtPrivateKey: loadJwtPrivateKey(),

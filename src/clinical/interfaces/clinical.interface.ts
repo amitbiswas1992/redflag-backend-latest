@@ -11,6 +11,44 @@ export interface NormalizedPatient {
   }>;
 }
 
+export interface NormalizedPractitioner {
+  id: string;
+  name?: string;
+  firstName?: string;
+  lastName?: string;
+  prefix?: string[];
+  suffix?: string[];
+  gender?: string;
+  birthDate?: string;
+  identifiers?: Array<{
+    system?: string;
+    value?: string;
+    type?: string;
+  }>;
+  telecom?: Array<{
+    system?: string;
+    value?: string;
+    use?: string;
+  }>;
+  address?: Array<{
+    line?: string[];
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    country?: string;
+  }>;
+  qualifications?: Array<{
+    code?: string;
+    display?: string;
+    issuer?: string;
+    period?: {
+      start?: string;
+      end?: string;
+    };
+  }>;
+  languages?: string[];
+}
+
 export interface NormalizedObservation {
   id: string;
   code: string;
@@ -101,9 +139,94 @@ export interface DiagnosisDataResponse {
   diagnosticReports: NormalizedDiagnosticReport[];
   observations: NormalizedObservation[];
   conditions: NormalizedCondition[];
+  forbiddenScopes?: Record<string, 'forbidden'>;
 }
 
 export interface BulkPatientResponse {
   patients: NormalizedPatient[];
   total: number;
+}
+
+// Human-readable interfaces
+export interface HumanReadablePatient {
+  name: string;
+  age?: string;
+  gender?: string;
+  dateOfBirth?: string;
+  identifiers?: string[];
+}
+
+export interface HumanReadableObservation {
+  testName: string;
+  value: string;
+  date: string;
+  status: string;
+}
+
+export interface HumanReadableCondition {
+  diagnosis: string;
+  status: string;
+  onsetDate?: string;
+  recordedDate?: string;
+}
+
+export interface HumanReadableAllergy {
+  allergen: string;
+  type: string;
+  severity?: string;
+  status: string;
+  recordedDate?: string;
+}
+
+export interface HumanReadableMedication {
+  medication: string;
+  status: string;
+  dosage?: string;
+  route?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface HumanReadableProcedure {
+  procedure: string;
+  status: string;
+  date?: string;
+  outcome?: string;
+}
+
+export interface HumanReadableEncounter {
+  visitType: string;
+  reason?: string;
+  startDate?: string;
+  endDate?: string;
+  status: string;
+}
+
+export interface HumanReadableDiagnosticReport {
+  reportName: string;
+  status: string;
+  date?: string;
+  conclusion?: string;
+}
+
+export interface HumanReadableClinicalData {
+  patient: HumanReadablePatient;
+  summary: {
+    totalObservations: number;
+    totalConditions: number;
+    totalAllergies: number;
+    totalMedications: number;
+    totalProcedures: number;
+    totalEncounters: number;
+    totalReports: number;
+  };
+  observations: HumanReadableObservation[];
+  conditions: HumanReadableCondition[];
+  allergies: HumanReadableAllergy[];
+  medications: HumanReadableMedication[];
+  procedures: HumanReadableProcedure[];
+  encounters: HumanReadableEncounter[];
+  diagnosticReports: HumanReadableDiagnosticReport[];
+  narrative: string;
+  forbiddenScopes?: Record<string, 'forbidden'>;
 }

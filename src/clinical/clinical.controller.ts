@@ -18,6 +18,7 @@ import {
 import { ClinicalService } from './clinical.service';
 import {
   NormalizedPatient,
+  NormalizedPractitioner,
   NormalizedObservation,
   NormalizedCondition,
   NormalizedAllergy,
@@ -28,9 +29,11 @@ import {
   ClinicalDataResponse,
   DiagnosisDataResponse,
   BulkPatientResponse,
+  HumanReadableClinicalData,
 } from './interfaces/clinical.interface';
 import {
   NormalizedPatientDto,
+  NormalizedPractitionerDto,
   NormalizedObservationDto,
   NormalizedConditionDto,
   NormalizedAllergyDto,
@@ -41,6 +44,7 @@ import {
   ClinicalDataResponseDto,
   DiagnosisDataResponseDto,
   BulkPatientResponseDto,
+  HumanReadableClinicalDataDto,
 } from './dto/clinical.dto';
 
 @ApiTags('clinical')
@@ -87,6 +91,50 @@ export class ClinicalController {
       this.logger.error(
         `Error fetching patient: ${error.message}`,
         error.stack,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * GET /api/clinical/practitioner
+   * Get normalized practitioner information
+   * Query params: practitionerId (required)
+   */
+  @ApiOperation({
+    summary: 'Get practitioner information',
+    description:
+      'Retrieves normalized practitioner information from Epic FHIR API. Requires a practitioner ID.',
+  })
+  @ApiQuery({
+    name: 'practitionerId',
+    required: true,
+    description: 'Practitioner ID from Epic',
+    example: 'eBwfo7qYXcN8PpOaJ7E0lJcR8X4y5Z6A7B8C9D0E1F2G3',
+  })
+  @ApiOkResponse({
+    description: 'Practitioner information retrieved successfully',
+    type: NormalizedPractitionerDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid practitioner ID or practitioner not found',
+  })
+  @Get('practitioner')
+  async getPractitioner(
+    @Query('practitionerId') practitionerId: string,
+  ): Promise<NormalizedPractitioner> {
+    if (!practitionerId) {
+      throw new BadRequestException('practitionerId is required');
+    }
+
+    try {
+      return await this.clinicalService.getPractitioner(practitionerId);
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error occurred';
+      this.logger.error(
+        `Error fetching practitioner: ${errorMessage}`,
+        error instanceof Error ? error.stack : undefined,
       );
       throw error;
     }
@@ -526,6 +574,50 @@ export class ClinicalController {
       this.logger.error(
         `Error fetching bulk patients: ${error.message}`,
         error.stack,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * GET /api/clinical/human-readable
+   * Get human-readable clinical data for a patient
+   * Query params: patientId (required)
+   */
+  @ApiOperation({
+    summary: 'Get human-readable clinical data',
+    description:
+      'Retrieves all clinical data for a patient transformed into human-readable format with formatted dates, readable statuses, and a narrative summary.',
+  })
+  @ApiQuery({
+    name: 'patientId',
+    required: true,
+    description: 'Patient ID from Epic',
+    example: 'Tbt3KuCY0B5PSrJvCu2j-PlK.aiHsu2xUjUM8bWpetXoB',
+  })
+  @ApiOkResponse({
+    description: 'Human-readable clinical data retrieved successfully',
+    type: HumanReadableClinicalDataDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid patient ID or patient not found',
+  })
+  @Get('human-readable')
+  async getHumanReadableData(
+    @Query('patientId') patientId: string,
+  ): Promise<HumanReadableClinicalData> {
+    if (!patientId) {
+      throw new BadRequestException('patientId is required');
+    }
+
+    try {
+      return await this.clinicalService.getHumanReadableData(patientId);
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error occurred';
+      this.logger.error(
+        `Error fetching human-readable data: ${errorMessage}`,
+        error instanceof Error ? error.stack : undefined,
       );
       throw error;
     }

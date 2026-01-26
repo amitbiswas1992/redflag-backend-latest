@@ -270,6 +270,70 @@ export interface FhirDiagnosticReport {
   };
 }
 
+export interface FhirPractitioner {
+  id: string;
+  name?: Array<{
+    family?: string;
+    given?: string[];
+    prefix?: string[];
+    suffix?: string[];
+    text?: string;
+  }>;
+  identifier?: Array<{
+    system?: string;
+    value?: string;
+    type?: {
+      coding?: Array<{
+        system?: string;
+        code?: string;
+        display?: string;
+      }>;
+    };
+  }>;
+  telecom?: Array<{
+    system?: string;
+    value?: string;
+    use?: string;
+  }>;
+  address?: Array<{
+    line?: string[];
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    country?: string;
+  }>;
+  gender?: string;
+  birthDate?: string;
+  qualification?: Array<{
+    identifier?: Array<{
+      system?: string;
+      value?: string;
+    }>;
+    code?: {
+      coding?: Array<{
+        system?: string;
+        code?: string;
+        display?: string;
+      }>;
+      text?: string;
+    };
+    issuer?: {
+      display?: string;
+    };
+    period?: {
+      start?: string;
+      end?: string;
+    };
+  }>;
+  communication?: Array<{
+    coding?: Array<{
+      system?: string;
+      code?: string;
+      display?: string;
+    }>;
+  }>;
+}
+
 export interface FhirBundle {
   resourceType: 'Bundle';
   type: string;

@@ -2,6 +2,20 @@ import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosInstance, AxiosError } from 'axios';
 import { AuthService } from '../auth/auth.service';
+
+/**
+ * Custom exception for forbidden scope errors
+ * This allows us to catch and handle 403 errors gracefully
+ */
+export class ForbiddenScopeException extends Error {
+  constructor(
+    public readonly scope: string,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'ForbiddenScopeException';
+  }
+}
 import {
   FhirPatient,
   FhirObservation,
@@ -11,6 +25,7 @@ import {
   FhirProcedure,
   FhirEncounter,
   FhirDiagnosticReport,
+  FhirPractitioner,
   FhirBundle,
 } from './interfaces/fhir.interface';
 
@@ -413,6 +428,34 @@ export class FhirService {
   }
 
   /**
+   * Fetch practitioner information
+   * @param practitionerId - Required practitioner ID
+   */
+  async getPractitioner(practitionerId: string): Promise<FhirPractitioner> {
+    if (!practitionerId) {
+      throw new BadRequestException('Practitioner ID is required');
+    }
+
+    const accessToken = await this.authService.getAccessToken();
+
+    try {
+      const response = await this.httpClient.get<FhirPractitioner>(
+        `${this.epicConfig.fhirBaseUrl}/Practitioner/${practitionerId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        },
+      );
+
+      return response.data;
+    } catch (error) {
+      this.handleFhirError(error, 'Failed to fetch practitioner');
+      throw error;
+    }
+  }
+
+  /**
    * Handle FHIR API errors
    */
   private handleFhirError(error: any, defaultMessage: string): void {
@@ -430,20 +473,48 @@ export class FhirService {
             'Authentication failed. Token may be invalid or expired.',
           );
         } else if (status === 403) {
-          // Determine which resource failed based on the error message
+          // Determine which resource failed based on the error message (case-insensitive)
+          const messageLower = defaultMessage.toLowerCase();
           let resourceHint = '';
-          if (defaultMessage.includes('Observation')) {
-            resourceHint =
-              ' Observation resource. Please verify that system/Observation.read scope is enabled in your Epic App Orchard application.';
-          } else if (defaultMessage.includes('Condition')) {
-            resourceHint =
-              ' Condition resource. Please verify that system/Condition.read scope is enabled in your Epic App Orchard application.';
-          } else if (defaultMessage.includes('Patient')) {
-            resourceHint =
-              ' Patient resource. Please verify that system/Patient.read scope is enabled in your Epic App Orchard application.';
+          let scopeHint = '';
+          
+          if (messageLower.includes('observation')) {
+            resourceHint = 'Observation resource';
+            scopeHint = 'system/Observation.read';
+          } else if (messageLower.includes('condition')) {
+            resourceHint = 'Condition resource';
+            scopeHint = 'system/Condition.read';
+          } else if (messageLower.includes('patient')) {
+            resourceHint = 'Patient resource';
+            scopeHint = 'system/Patient.read';
+          } else if (messageLower.includes('allergy')) {
+            resourceHint = 'AllergyIntolerance resource';
+            scopeHint = 'system/AllergyIntolerance.read';
+          } else if (messageLower.includes('medication')) {
+            resourceHint = 'MedicationStatement resource';
+            scopeHint = 'system/MedicationStatement.read';
+          } else if (messageLower.includes('procedure')) {
+            resourceHint = 'Procedure resource';
+            scopeHint = 'system/Procedure.read';
+          } else if (messageLower.includes('encounter')) {
+            resourceHint = 'Encounter resource';
+            scopeHint = 'system/Encounter.read';
+          } else if (messageLower.includes('diagnosticreport') || messageLower.includes('diagnostic report')) {
+            resourceHint = 'DiagnosticReport resource';
+            scopeHint = 'system/DiagnosticReport.read';
+          } else if (messageLower.includes('practitioner')) {
+            resourceHint = 'Practitioner resource';
+            scopeHint = 'system/Practitioner.read';
+          } else {
+            resourceHint = 'a FHIR resource';
+            scopeHint = 'the required scope';
           }
-          throw new BadRequestException(
-            `Access forbidden. Insufficient permissions to access${resourceHint} Contact your Epic support team to enable the required scopes. See docs/SCOPE_TROUBLESHOOTING.md for details.`,
+          
+          // Throw ForbiddenScopeException instead of BadRequestException
+          // This allows the clinical service to catch it and handle gracefully
+          throw new ForbiddenScopeException(
+            scopeHint,
+            `Access forbidden. Insufficient permissions to access ${resourceHint}. Please verify that ${scopeHint} scope is enabled in your Epic App Orchard application.`,
           );
         } else if (status === 404) {
           throw new BadRequestException('Resource not found.');
