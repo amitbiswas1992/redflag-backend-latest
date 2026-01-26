@@ -1,7 +1,9 @@
-# Build stage
-FROM node:20-slim AS builder
+FROM node:20-slim
 
 WORKDIR /app
+
+# Install OpenSSL for Prisma
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 # Copy package files
 COPY package*.json ./
@@ -20,35 +22,6 @@ COPY . .
 
 # Build the application
 RUN npm run build
-
-# Production stage
-FROM node:20-slim AS production
-
-WORKDIR /app
-
-# Copy package files
-COPY package*.json ./
-
-# Install only production dependencies
-RUN npm install --only=production --legacy-peer-deps && npm cache clean --force
-
-# Copy Prisma schema
-COPY prisma ./prisma
-
-# Generate Prisma Client in production stage
-RUN npx prisma generate
-
-# Copy built application from builder stage
-COPY --from=builder /app/dist ./dist
-
-# Copy any necessary files (like scripts, configs)
-COPY --from=builder /app/scripts ./scripts
-
-# Copy private key
-COPY --from=builder /app/private_key.pem ./private_key.pem
-# Copy public key
-COPY --from=builder /app/public_key.pem ./public_key.pem
-
 
 # Expose port
 EXPOSE 3000
