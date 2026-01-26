@@ -32,6 +32,19 @@ export class AuthService {
       throw new Error('Epic configuration is missing');
     }
 
+    // Validate required URLs
+    if (!config.tokenUrl || config.tokenUrl.trim() === '') {
+      throw new Error(
+        'EPIC_TOKEN_URL is required. Either set EPIC_USE_SANDBOX=true or provide EPIC_TOKEN_URL environment variable.',
+      );
+    }
+
+    if (!config.fhirBaseUrl || config.fhirBaseUrl.trim() === '') {
+      throw new Error(
+        'EPIC_FHIR_BASE_URL is required. Either set EPIC_USE_SANDBOX=true or provide EPIC_FHIR_BASE_URL environment variable.',
+      );
+    }
+
     // Validate JWT configuration (required for Backend Systems)
     try {
       validateJwtConfig({
@@ -45,9 +58,7 @@ export class AuthService {
       this.logger.error(
         `JWT configuration validation failed: ${error.message}`,
       );
-      throw new Error(
-        `Invalid JWT configuration: ${error.message}`,
-      );
+      throw new Error(`Invalid JWT configuration: ${error.message}`);
     }
 
     this.epicConfig = {
@@ -117,12 +128,21 @@ export class AuthService {
       this.logger.log('Backend System authenticated successfully');
       return tokenData;
     } catch (error) {
+      // Provide more helpful error messages
+      let errorMessage = error.message;
+      if (
+        error.message === 'Invalid URL' ||
+        error.message.includes('Invalid URL')
+      ) {
+        errorMessage = `Invalid token URL: ${this.epicConfig.tokenUrl}. Please check your EPIC_TOKEN_URL environment variable.`;
+      }
+
       this.logger.error(
-        `Backend System authentication failed: ${error.message}`,
+        `Backend System authentication failed: ${errorMessage}`,
         error.stack,
       );
       throw new BadRequestException(
-        `Failed to authenticate Backend System: ${error.message}`,
+        `Failed to authenticate Backend System: ${errorMessage}`,
       );
     }
   }

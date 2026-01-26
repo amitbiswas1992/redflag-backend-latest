@@ -63,6 +63,19 @@ export default registerAs('epic', () => {
       ? EPIC_SANDBOX_TOKEN_URL
       : process.env.EPIC_TOKEN_URL || '';
 
+  // Validate required URLs
+  if (!tokenUrl) {
+    throw new Error(
+      'EPIC_TOKEN_URL is required. Either set EPIC_USE_SANDBOX=true or provide EPIC_TOKEN_URL environment variable.',
+    );
+  }
+
+  if (!fhirBaseUrl) {
+    throw new Error(
+      'EPIC_FHIR_BASE_URL is required. Either set EPIC_USE_SANDBOX=true or provide EPIC_FHIR_BASE_URL environment variable.',
+    );
+  }
+
   return {
     clientId: process.env.EPIC_CLIENT_ID || '',
     fhirBaseUrl,
