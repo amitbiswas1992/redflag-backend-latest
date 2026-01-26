@@ -23,7 +23,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      target: production
     container_name: redflag-epic
     ports:
       - "${PORT:-3000}"
