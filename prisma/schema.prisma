@@ -1,0 +1,215 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Patient {
+  id          String    @id @default(uuid())
+  epicId      String    @unique // Epic FHIR Patient ID
+  name        String?
+  firstName   String?
+  lastName    String?
+  birthDate   DateTime?
+  gender      String?
+  age         String?
+  dateOfBirth String?
+  identifiers Json? // Array of identifier objects
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  observations      Observation[]
+  conditions        Condition[]
+  allergies         Allergy[]
+  medications       Medication[]
+  procedures        Procedure[]
+  encounters        Encounter[]
+  diagnosticReports DiagnosticReport[]
+
+  @@index([epicId])
+  @@map("patients")
+}
+
+model Practitioner {
+  id             String    @id @default(uuid())
+  epicId         String    @unique // Epic FHIR Practitioner ID
+  name           String?
+  firstName      String?
+  lastName       String?
+  prefix         String[]
+  suffix         String[]
+  gender         String?
+  birthDate      DateTime?
+  identifiers    Json? // Array of identifier objects
+  telecom        Json? // Array of telecom objects
+  address        Json? // Array of address objects
+  qualifications Json? // Array of qualification objects
+  languages      String[]
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([epicId])
+  @@map("practitioners")
+}
+
+model Observation {
+  id        String   @id @default(uuid())
+  epicId    String   @unique // Epic FHIR Observation ID
+  patientId String
+  testName  String
+  value     String
+  date      DateTime
+  status    String
+  code      String? // Original code
+  display   String? // Original display
+  category  String?
+  unit      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+  @@index([epicId])
+  @@map("observations")
+}
+
+model Condition {
+  id           String    @id @default(uuid())
+  epicId       String    @unique // Epic FHIR Condition ID
+  patientId    String
+  diagnosis    String
+  status       String
+  onsetDate    DateTime?
+  recordedDate DateTime?
+  code         String? // Original code
+  display      String? // Original display
+  category     String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+  @@index([epicId])
+  @@map("conditions")
+}
+
+model Allergy {
+  id           String    @id @default(uuid())
+  epicId       String    @unique // Epic FHIR AllergyIntolerance ID
+  patientId    String
+  allergen     String
+  type         String
+  severity     String?
+  status       String
+  recordedDate DateTime?
+  code         String? // Original code
+  display      String? // Original display
+  category     String[]
+  criticality  String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+  @@index([epicId])
+  @@map("allergies")
+}
+
+model Medication {
+  id           String    @id @default(uuid())
+  epicId       String    @unique // Epic FHIR MedicationStatement ID
+  patientId    String
+  medication   String
+  status       String
+  dosage       String?
+  route        String?
+  startDate    DateTime?
+  endDate      DateTime?
+  dateAsserted DateTime?
+  code         String? // Original code
+  display      String? // Original display
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+  @@index([epicId])
+  @@map("medications")
+}
+
+model Procedure {
+  id            String    @id @default(uuid())
+  epicId        String    @unique // Epic FHIR Procedure ID
+  patientId     String
+  procedure     String
+  status        String
+  date          DateTime?
+  outcome       String?
+  code          String? // Original code
+  display       String? // Original display
+  category      String?
+  performedDate DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+  @@index([epicId])
+  @@map("procedures")
+}
+
+model Encounter {
+  id        String    @id @default(uuid())
+  epicId    String    @unique // Epic FHIR Encounter ID
+  patientId String
+  visitType String
+  reason    String?
+  startDate DateTime?
+  endDate   DateTime?
+  status    String
+  type      String? // Original type
+  class     String? // Original class
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+  @@index([epicId])
+  @@map("encounters")
+}
+
+model DiagnosticReport {
+  id            String    @id @default(uuid())
+  epicId        String    @unique // Epic FHIR DiagnosticReport ID
+  patientId     String
+  reportName    String
+  status        String
+  date          DateTime?
+  conclusion    String?
+  code          String? // Original code
+  display       String? // Original display
+  category      String?
+  effectiveDate DateTime?
+  issuedDate    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+  @@index([epicId])
+  @@map("diagnostic_reports")
+}

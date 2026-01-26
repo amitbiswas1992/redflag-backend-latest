@@ -1,9 +1,19 @@
 import { NestFactory } from '@nestjs/core';
+import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // Enable validation pipes globally
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  );
 
   const config = new DocumentBuilder()
     .setTitle('Redflag Epic Integration API')
@@ -13,6 +23,7 @@ async function bootstrap() {
     .setVersion('1.0')
     .addTag('auth', 'SMART on FHIR authentication endpoints')
     .addTag('clinical', 'Internal clinical data APIs')
+    .addTag('server', 'Server database operations')
     .addTag('health', 'Health check endpoints')
     .build();
 

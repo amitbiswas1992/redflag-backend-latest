@@ -36,10 +36,12 @@ A NestJS microservice that integrates with Epic EHR via SMART on FHIR (R4) using
 - **TokenModule**: In-memory token storage and session management
 - **FhirModule**: Epic FHIR API client
 - **ClinicalModule**: Internal REST APIs with normalized data
+- **ServerModule**: Database operations with Prisma ORM and PostgreSQL
 
 ## Prerequisites
 
 - Node.js 18+
+- PostgreSQL 12+ (for server module)
 - Epic App Orchard account with **Backend Systems** application
 - RSA key pair (public/private keys)
 - Epic FHIR API access credentials
@@ -79,7 +81,33 @@ This creates:
 - The JWK Set URL must be publicly accessible over HTTPS (production) or via tunnel (local development)
 - The Key ID (KID) is configured in your `.env` file (you choose this value)
 
-### 4. Configure Environment
+### 4. Set Up Database
+
+#### Using Docker Compose (Recommended)
+
+```bash
+docker-compose up -d postgres
+```
+
+This will start a PostgreSQL container. The database connection string is automatically configured.
+
+#### Manual PostgreSQL Setup
+
+1. Install PostgreSQL 12+ on your system
+2. Create a database:
+   ```sql
+   CREATE DATABASE redflag_epic;
+   ```
+3. Run Prisma migrations:
+   ```bash
+   npm run prisma:migrate
+   ```
+4. Generate Prisma Client:
+   ```bash
+   npm run prisma:generate
+   ```
+
+### 5. Configure Environment
 
 Copy `.env.example` to `.env`:
 
@@ -615,9 +643,118 @@ src/
 │   ├── clinical.service.ts
 │   └── interfaces/
 │       └── clinical.interface.ts
+├── server/              # Server database module
+│   ├── server.module.ts
+│   ├── server.controller.ts
+│   ├── server.service.ts
+│   ├── prisma.service.ts
+│   └── dto/
+│       └── server.dto.ts
 ├── app.module.ts
 ├── app.controller.ts
 └── main.ts
+```
+
+### Server Module (Database Operations)
+
+The server module provides CRUD operations for storing and retrieving clinical data from PostgreSQL using Prisma ORM.
+
+#### Database Schema
+
+The database includes the following tables:
+- **Patient** - Patient information
+- **Practitioner** - Healthcare provider information
+- **Observation** - Lab results and vital signs
+- **Condition** - Diagnoses and medical conditions
+- **Allergy** - Patient allergies
+- **Medication** - Current and past medications
+- **Procedure** - Medical procedures
+- **Encounter** - Patient visits/encounters
+- **DiagnosticReport** - Diagnostic test reports
+
+#### API Endpoints
+
+All server endpoints are prefixed with `/server`:
+
+**Patient Operations:**
+- `POST /server/patients` - Create a new patient
+- `GET /server/patients` - Get all patients (with pagination)
+- `GET /server/patients/:id` - Get patient by UUID
+- `GET /server/patients/epic/:epicId` - Get patient by Epic ID
+- `PUT /server/patients/:id` - Update patient
+- `DELETE /server/patients/:id` - Delete patient
+
+**Practitioner Operations:**
+- `POST /server/practitioners` - Create a new practitioner
+- `GET /server/practitioners` - Get all practitioners (with pagination)
+- `GET /server/practitioners/:id` - Get practitioner by UUID
+- `GET /server/practitioners/epic/:epicId` - Get practitioner by Epic ID
+
+**Clinical Data Operations:**
+- `POST /server/observations` - Create observation
+- `GET /server/observations/patient/:patientId` - Get observations by patient
+- `POST /server/conditions` - Create condition
+- `GET /server/conditions/patient/:patientId` - Get conditions by patient
+- `POST /server/allergies` - Create allergy
+- `GET /server/allergies/patient/:patientId` - Get allergies by patient
+- `POST /server/medications` - Create medication
+- `GET /server/medications/patient/:patientId` - Get medications by patient
+- `POST /server/procedures` - Create procedure
+- `GET /server/procedures/patient/:patientId` - Get procedures by patient
+- `POST /server/encounters` - Create encounter
+- `GET /server/encounters/patient/:patientId` - Get encounters by patient
+- `POST /server/diagnostic-reports` - Create diagnostic report
+- `GET /server/diagnostic-reports/patient/:patientId` - Get diagnostic reports by patient
+
+#### Example Usage
+
+**Create a Patient:**
+```bash
+curl -X POST "http://localhost:3000/server/patients" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "epicId": "eq081-VQEgP8drUUqCWzHfw3",
+    "name": "John Doe",
+    "firstName": "John",
+    "lastName": "Doe",
+    "birthDate": "1980-01-01",
+    "gender": "male"
+  }'
+```
+
+**Get Patient with All Related Data:**
+```bash
+curl "http://localhost:3000/server/patients/{uuid}"
+```
+
+**Create an Observation:**
+```bash
+curl -X POST "http://localhost:3000/server/observations" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "epicId": "obs-123",
+    "patientId": "{patient-uuid}",
+    "testName": "Hemoglobin",
+    "value": "14.2 g/dL",
+    "date": "2024-01-15T10:00:00Z",
+    "status": "final"
+  }'
+```
+
+#### Prisma Commands
+
+```bash
+# Generate Prisma Client
+npm run prisma:generate
+
+# Create and run migrations
+npm run prisma:migrate
+
+# Deploy migrations (production)
+npm run prisma:migrate:deploy
+
+# Open Prisma Studio (database GUI)
+npm run prisma:studio
 ```
 
 ### Testing

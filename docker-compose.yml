@@ -1,4 +1,24 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: redflag-epic-postgres
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_DB=${POSTGRES_DB:-redflag_epic}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - redflag-network
+    restart: unless-stopped
+
   redflag-epic:
     build:
       context: .
@@ -8,6 +28,9 @@ services:
     ports:
       - "${PORT:-3000}"
     environment:
+      # Database Configuration
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/redflag_epic}
+
       # Epic Configuration
       - EPIC_CLIENT_ID=${EPIC_CLIENT_ID}
       - EPIC_USE_SANDBOX=${EPIC_USE_SANDBOX:-true}
@@ -29,6 +52,9 @@ services:
       - PORT=${PORT:-3000}
       - NODE_ENV=${NODE_ENV:-production}
 
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test:
@@ -44,6 +70,9 @@ services:
       start_period: 40s
     networks:
       - redflag-network
+
+volumes:
+  postgres_data:
 
 networks:
   redflag-network:

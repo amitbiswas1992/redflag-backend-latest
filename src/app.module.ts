@@ -6,9 +6,17 @@ import { TokenModule } from './token/token.module';
 import { AuthModule } from './auth/auth.module';
 import { FhirModule } from './fhir/fhir.module';
 import { ClinicalModule } from './clinical/clinical.module';
+import { ServerModule } from './server/server.module';
 
 @Module({
-  imports: [ConfigModule, TokenModule, AuthModule, FhirModule, ClinicalModule],
+  imports: [
+    ConfigModule,
+    TokenModule,
+    AuthModule,
+    FhirModule,
+    ClinicalModule,
+    ServerModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })
