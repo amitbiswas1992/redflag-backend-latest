@@ -42,7 +42,7 @@ export class ServerService {
             ? new Date(createPatientDto.birthDate)
             : null,
           identifiers: createPatientDto.identifiers
-            ? (createPatientDto.identifiers as Prisma.InputJsonValue)
+            ? (createPatientDto.identifiers as any)
             : undefined,
         },
       });
@@ -160,16 +160,16 @@ export class ServerService {
           suffix: createPractitionerDto.suffix || [],
           languages: createPractitionerDto.languages || [],
           identifiers: createPractitionerDto.identifiers
-            ? (createPractitionerDto.identifiers as Prisma.InputJsonValue)
+            ? (createPractitionerDto.identifiers as any)
             : undefined,
           telecom: createPractitionerDto.telecom
-            ? (createPractitionerDto.telecom as Prisma.InputJsonValue)
+            ? (createPractitionerDto.telecom as any)
             : undefined,
           address: createPractitionerDto.address
-            ? (createPractitionerDto.address as Prisma.InputJsonValue)
+            ? (createPractitionerDto.address as any)
             : undefined,
           qualifications: createPractitionerDto.qualifications
-            ? (createPractitionerDto.qualifications as Prisma.InputJsonValue)
+            ? (createPractitionerDto.qualifications as any)
             : undefined,
         },
       });
@@ -357,9 +357,9 @@ export class ServerService {
         lastName: patient.lastName,
         birthDate,
         gender: patient.gender,
-        identifiers: patient.identifiers
-          ? (patient.identifiers as Prisma.InputJsonValue)
-          : undefined,
+          identifiers: patient.identifiers
+            ? (patient.identifiers as any)
+            : undefined,
       },
       create: {
         epicId: patient.id,
@@ -368,9 +368,9 @@ export class ServerService {
         lastName: patient.lastName,
         birthDate,
         gender: patient.gender,
-        identifiers: patient.identifiers
-          ? (patient.identifiers as Prisma.InputJsonValue)
-          : undefined,
+          identifiers: patient.identifiers
+            ? (patient.identifiers as any)
+            : undefined,
       },
     });
   }
