@@ -25,7 +25,7 @@ services:
       dockerfile: Dockerfile
     container_name: redflag-epic
     ports:
-      - "${PORT:-3000}:${PORT:-3000}"
+      - "${PORT:-3000}"
     environment:
       # Database Configuration
       - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/redflag_epic}
