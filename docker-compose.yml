@@ -1,19 +1,4 @@
 services:
-  redflag-db:
-    image: postgres:16-alpine
-    container_name: redflag-db
-    environment:
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
-    ports:
-      - "${POSTGRES_PORT}:5432"
-    volumes:
-      - redflag_data:/var/lib/postgresql/data
-    networks:
-      - redflag-network
-    restart: unless-stopped
-
   redflag-epic:
     build:
       context: .
@@ -49,9 +34,6 @@ services:
     restart: unless-stopped
     networks:
       - redflag-network
-
-volumes:
-  redflag_data:
 
 networks:
   redflag-network:
