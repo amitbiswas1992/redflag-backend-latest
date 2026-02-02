@@ -9,7 +9,7 @@ RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists
 COPY package*.json ./
 
 # Install dependencies
-RUN npm install --legacy-peer-deps
+RUN npm install  --legacy-peer-deps
 
 # Copy Prisma schema
 COPY prisma ./prisma
@@ -22,9 +22,6 @@ COPY . .
 
 # Build the application
 RUN npm run build
-
-# Expose port
-EXPOSE 3000
 
 # Set NODE_ENV
 ENV NODE_ENV=production
