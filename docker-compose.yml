@@ -1,20 +1,15 @@
 services:
   redflag-db:
     image: postgres:16-alpine
-    container_name: redflag-epic-db
+    container_name: redflag-db
     environment:
-      - POSTGRES_USER=${POSTGRES_USER:-postgres}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
-      - POSTGRES_DB=${POSTGRES_DB:-redflag_epic}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
     ports:
-      - "${POSTGRES_PORT:-5434}:5432"
+      - "${POSTGRES_PORT}:5432"
     volumes:
-      - redflag_postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - redflag_data:/var/lib/postgresql/data
     networks:
       - redflag-network
     restart: unless-stopped
@@ -28,7 +23,7 @@ services:
       - "${PORT:-3000}"
     environment:
       # Database Configuration
-      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/redflag_epic}
+      - DATABASE_URL=${DATABASE_URL}
 
       # Epic Configuration
       - EPIC_CLIENT_ID=${EPIC_CLIENT_ID}
@@ -55,23 +50,11 @@ services:
       redflag-db:
         condition: service_healthy
     restart: unless-stopped
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "node",
-          "-e",
-          "require('http').get('http://localhost:3000/.well-known/jwks.json', (r) => { process.exit(r.statusCode === 200 ? 0 : 1) })",
-        ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
     networks:
       - redflag-network
 
 volumes:
-  redflag_postgres_data:
+  redflag_data:
 
 networks:
   redflag-network:
