@@ -46,9 +46,6 @@ services:
       - PORT=${PORT:-3000}
       - NODE_ENV=${NODE_ENV:-production}
 
-    depends_on:
-      redflag-db:
-        condition: service_healthy
     restart: unless-stopped
     networks:
       - redflag-network
