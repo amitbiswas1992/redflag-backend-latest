@@ -7,6 +7,7 @@ import { AuthModule } from './auth/auth.module';
 import { FhirModule } from './fhir/fhir.module';
 import { ClinicalModule } from './clinical/clinical.module';
 import { ServerModule } from './server/server.module';
+import { RiskEngineModule } from './risk-engine/risk-engine.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { ServerModule } from './server/server.module';
     FhirModule,
     ClinicalModule,
     ServerModule,
+    RiskEngineModule,
   ],
   controllers: [AppController],
   providers: [AppService],

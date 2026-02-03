@@ -32,6 +32,7 @@ model Patient {
   procedures        Procedure[]
   encounters        Encounter[]
   diagnosticReports DiagnosticReport[]
+  riskEvaluations   RiskEvaluation[]
 
   @@index([epicId])
   @@map("patients")
@@ -212,4 +213,44 @@ model DiagnosticReport {
   @@index([patientId])
   @@index([epicId])
   @@map("diagnostic_reports")
+}
+
+model RiskRule {
+  id        String   @id @default(uuid())
+  roleName  String   // Name of the role/rule
+  riskLevel String   // Risk level (e.g., "low", "medium", "high", "critical")
+  eventName String   // Event/activity type: Observation, Condition, Allergy, Medication, Procedure, Encounter, DiagnosticReport
+  field     String   // Field name to check (e.g., "value", "diagnosis", "severity", "status")
+  operator  String   // Operator: "=", "<", ">", "<=", ">=", "!=", "contains", "startsWith", "endsWith"
+  value     String   // Comparison value
+  score     Int      // Score/points assigned when rule matches
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  evaluations RiskEvaluation[]
+
+  @@index([eventName])
+  @@index([isActive])
+  @@map("risk_rules")
+}
+
+model RiskEvaluation {
+  id            String    @id @default(uuid())
+  patientId     String
+  patient       Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  ruleId        String
+  rule          RiskRule  @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  matched       Boolean   // Whether the rule matched
+  matchedValue  String?   // The actual value that matched
+  score         Int       // Score from the rule
+  evaluatedAt   DateTime  @default(now())
+  eventType     String    // Type of event that triggered evaluation
+  eventId       String?   // ID of the specific event that matched (e.g., observation ID)
+
+  @@index([patientId])
+  @@index([ruleId])
+  @@index([evaluatedAt])
+  @@index([eventType])
+  @@map("risk_evaluations")
 }

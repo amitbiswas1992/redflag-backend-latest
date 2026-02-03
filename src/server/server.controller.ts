@@ -210,7 +210,7 @@ export class ServerController {
   @ApiOperation({
     summary: 'Sync patient data from Epic to database',
     description:
-      'Fetches all patient data from Epic FHIR API and syncs it to the database. Creates or updates patient and all related clinical data (observations, conditions, allergies, medications, procedures, encounters, diagnostic reports).',
+      'Fetches all patient data from Epic FHIR API and syncs it to the database. Creates or updates patient and all related clinical data (observations, conditions, allergies, medications, procedures, encounters, diagnostic reports). Automatically triggers risk rule evaluation after sync.',
   })
   @ApiParam({
     name: 'patientId',
@@ -240,6 +240,19 @@ export class ServerController {
         forbiddenScopes: {
           type: 'object',
           description: 'Scopes that are forbidden (if any)',
+        },
+        riskEvaluation: {
+          type: 'object',
+          description: 'Risk rule evaluation results (if evaluation was successful)',
+          properties: {
+            totalScore: { type: 'number', example: 25 },
+            matchedRulesCount: { type: 'number', example: 3 },
+            highestRiskLevel: {
+              type: 'string',
+              enum: ['low', 'medium', 'high', 'critical'],
+              example: 'high',
+            },
+          },
         },
       },
     },

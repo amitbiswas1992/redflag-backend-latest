@@ -3,9 +3,10 @@ import { ServerController } from './server.controller';
 import { ServerService } from './server.service';
 import { PrismaService } from './prisma.service';
 import { ClinicalModule } from '../clinical/clinical.module';
+import { RiskEngineModule } from '../risk-engine/risk-engine.module';
 
 @Module({
-  imports: [ClinicalModule],
+  imports: [ClinicalModule, RiskEngineModule], 
   controllers: [ServerController],
   providers: [ServerService, PrismaService],
   exports: [ServerService, PrismaService],

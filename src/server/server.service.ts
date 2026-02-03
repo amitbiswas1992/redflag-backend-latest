@@ -7,6 +7,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { PrismaService } from './prisma.service';
 import { ClinicalService } from '../clinical/clinical.service';
+import { RiskEngineService } from '../risk-engine/risk-engine.service';
 import {
   CreatePatientDto,
   UpdatePatientDto,
@@ -30,6 +31,7 @@ export class ServerService {
   constructor(
     private prisma: PrismaService,
     private clinicalService: ClinicalService,
+    private riskEngineService: RiskEngineService,
   ) {}
 
   // Patient CRUD
@@ -319,6 +321,24 @@ export class ServerService {
         `Successfully synced patient ${patientId} with all related data`,
       );
 
+      // Trigger risk rule evaluation after sync
+      let riskEvaluation: any | null = null;
+      try {
+        this.logger.log(`Triggering risk rule evaluation for patient: ${patient.id}`);
+        riskEvaluation = await this.riskEngineService.evaluatePatientRules(
+          patient.id,
+        );
+        this.logger.log(
+          `Risk evaluation complete: ${riskEvaluation.matchedRulesCount} rules matched, total score: ${riskEvaluation.totalScore}`,
+        );
+      } catch (error) {
+        this.logger.error(
+          `Error evaluating risk rules for patient ${patient.id}: ${error.message}`,
+          error.stack,
+        );
+        // Don't fail the sync if risk evaluation fails
+      }
+
       return {
         success: true,
         patientId: patient.id,
@@ -333,6 +353,13 @@ export class ServerService {
           diagnosticReports: diagnosisData.diagnosticReports.length,
         },
         forbiddenScopes: diagnosisData.forbiddenScopes,
+        riskEvaluation: riskEvaluation
+          ? {
+              totalScore: riskEvaluation.totalScore,
+              matchedRulesCount: riskEvaluation.matchedRulesCount,
+              highestRiskLevel: riskEvaluation.highestRiskLevel,
+            }
+          : null,
       };
     } catch (error) {
       this.logger.error(
