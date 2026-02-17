@@ -216,23 +216,50 @@ model DiagnosticReport {
 }
 
 model RiskRule {
-  id        String   @id @default(uuid())
-  roleName  String   // Name of the role/rule
-  riskLevel String   // Risk level (e.g., "low", "medium", "high", "critical")
-  eventName String   // Event/activity type: Observation, Condition, Allergy, Medication, Procedure, Encounter, DiagnosticReport
-  field     String   // Field name to check (e.g., "value", "diagnosis", "severity", "status")
-  operator  String   // Operator: "=", "<", ">", "<=", ">=", "!=", "contains", "startsWith", "endsWith"
-  value     String   // Comparison value
-  score     Int      // Score/points assigned when rule matches
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                  String          @id @default(uuid())
+  roleName            String          // Name of the role/rule
+  ruleCode            String?         // Rule code (e.g., "TH-001")
+  riskLevel           String          // Risk level (e.g., "low", "medium", "high", "critical")
+  eventName           String?         // Event/activity type: Observation, Condition, Allergy, Medication, Procedure, Encounter, DiagnosticReport (optional for multi-condition rules)
+  score               Int             // Score/points assigned when rule matches
+  conditionLogic      String          @default("AND") // Logic to combine conditions: "AND" or "OR"
+  affectedVariables   String[]        // List of affected variables
+  taxonomy            String?         // Taxonomy classification (e.g., "HSCR2: Regulatory Risk → HSCR3: Federal DEA Compliance Violation")
+  regulatoryCitation  String?         // Regulatory citation (e.g., "21 USC § 829(e)")
+  redFlags            String[]        // Array of red flag descriptions
+  isActive            Boolean         @default(true)
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
 
-  evaluations RiskEvaluation[]
+  // Relations
+  conditions          RuleCondition[]
+  evaluations         RiskEvaluation[]
+
+  // Legacy fields for backward compatibility (deprecated)
+  field               String?         // Field name to check (deprecated - use conditions instead)
+  operator            String?         // Operator (deprecated - use conditions instead)
+  value               String?         // Comparison value (deprecated - use conditions instead)
 
   @@index([eventName])
   @@index([isActive])
+  @@index([ruleCode])
   @@map("risk_rules")
+}
+
+model RuleCondition {
+  id        String   @id @default(uuid())
+  ruleId    String
+  rule      RiskRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  field     String   // Field name to check (e.g., "controlled_substance_prescribed", "patient_identity_verified")
+  operator  String   // Operator: "=", "!=", "<", ">", "<=", ">=", "contains", "startsWith", "endsWith", "IS_NULL", "IS_NOT_NULL"
+  value     String?  // Comparison value (nullable for IS_NULL/IS_NOT_NULL operators)
+  order     Int      // Order of condition in the rule (for proper evaluation sequence)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ruleId])
+  @@index([ruleId, order])
+  @@map("rule_conditions")
 }
 
 model RiskEvaluation {
