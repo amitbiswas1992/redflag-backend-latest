@@ -371,7 +371,7 @@ export class ClinicalService {
   /**
    * Normalize FHIR Patient to simplified format
    */
-  private normalizePatient(fhirPatient: FhirPatient): NormalizedPatient {
+  normalizePatient(fhirPatient: FhirPatient): NormalizedPatient {
     const nameParts = fhirPatient.name?.[0];
     const firstName = nameParts?.given?.join(' ');
     const lastName = nameParts?.family;
@@ -391,7 +391,7 @@ export class ClinicalService {
   /**
    * Normalize FHIR Practitioner to simplified format
    */
-  private normalizePractitioner(
+  normalizePractitioner(
     fhirPractitioner: FhirPractitioner,
   ): NormalizedPractitioner {
     const nameParts = fhirPractitioner.name?.[0];
@@ -461,7 +461,7 @@ export class ClinicalService {
   /**
    * Normalize FHIR Observation to simplified format
    */
-  private normalizeObservation(obs: FhirObservation): NormalizedObservation {
+  normalizeObservation(obs: FhirObservation): NormalizedObservation {
     const code = obs.code.coding?.[0]?.code || '';
     const display = obs.code.text || obs.code.coding?.[0]?.display || code;
     const category =
@@ -498,7 +498,7 @@ export class ClinicalService {
   /**
    * Normalize FHIR Condition to simplified format
    */
-  private normalizeCondition(cond: FhirCondition): NormalizedCondition {
+  normalizeCondition(cond: FhirCondition): NormalizedCondition {
     const code = cond.code.coding?.[0]?.code || '';
     const display = cond.code.text || cond.code.coding?.[0]?.display || code;
     const category =
@@ -522,7 +522,7 @@ export class ClinicalService {
   /**
    * Normalize FHIR AllergyIntolerance to simplified format
    */
-  private normalizeAllergy(
+  normalizeAllergy(
     allergy: FhirAllergyIntolerance,
   ): NormalizedAllergy {
     const code = allergy.code.coding?.[0]?.code || '';
@@ -547,7 +547,7 @@ export class ClinicalService {
   /**
    * Normalize FHIR MedicationStatement to simplified format
    */
-  private normalizeMedication(
+  normalizeMedication(
     med: FhirMedicationStatement,
   ): NormalizedMedication {
     const medication =
@@ -583,7 +583,7 @@ export class ClinicalService {
   /**
    * Normalize FHIR Procedure to simplified format
    */
-  private normalizeProcedure(proc: FhirProcedure): NormalizedProcedure {
+  normalizeProcedure(proc: FhirProcedure): NormalizedProcedure {
     const code = proc.code.coding?.[0]?.code || '';
     const display = proc.code.text || proc.code.coding?.[0]?.display || code;
     const category = proc.category?.coding?.[0]?.code;
@@ -605,7 +605,7 @@ export class ClinicalService {
   /**
    * Normalize FHIR Encounter to simplified format
    */
-  private normalizeEncounter(enc: FhirEncounter): NormalizedEncounter {
+  normalizeEncounter(enc: FhirEncounter): NormalizedEncounter {
     const type = enc.type?.[0]?.coding?.[0]?.display || enc.type?.[0]?.coding?.[0]?.code;
     const reason =
       enc.reasonCode?.[0]?.text ||
@@ -626,7 +626,7 @@ export class ClinicalService {
   /**
    * Normalize FHIR DiagnosticReport to simplified format
    */
-  private normalizeDiagnosticReport(
+  normalizeDiagnosticReport(
     report: FhirDiagnosticReport,
   ): NormalizedDiagnosticReport {
     const code = report.code.coding?.[0]?.code || '';
