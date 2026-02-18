@@ -1,5 +1,15 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsObject, IsString, IsNotEmpty, IsOptional } from 'class-validator';
+import {
+  IsObject,
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsArray,
+  ValidateNested,
+  IsDateString,
+  ValidateIf,
+} from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class IngestFhirJsonDto {
   @ApiProperty({
@@ -12,14 +22,655 @@ export class IngestFhirJsonDto {
           resource: {
             resourceType: 'Patient',
             id: 'example-patient-id',
+            identifier: [
+              {
+                system: 'http://hospital.example.org',
+                value: 'MRN-12345',
+              },
+            ],
             name: [
               {
                 family: 'Doe',
-                given: ['John'],
+                given: ['John', 'Michael'],
+                use: 'official',
               },
             ],
-            birthDate: '1990-01-01',
+            telecom: [
+              {
+                system: 'phone',
+                value: '555-123-4567',
+                use: 'home',
+              },
+              {
+                system: 'email',
+                value: 'john.doe@example.com',
+              },
+            ],
             gender: 'male',
+            birthDate: '1990-01-15',
+            address: [
+              {
+                line: ['123 Main Street'],
+                city: 'Springfield',
+                state: 'IL',
+                postalCode: '62701',
+                country: 'USA',
+              },
+            ],
+            maritalStatus: {
+              coding: [
+                {
+                  system: 'http://terminology.hl7.org/CodeSystem/v3-MaritalStatus',
+                  code: 'M',
+                  display: 'Married',
+                },
+              ],
+            },
+          },
+        },
+        {
+          resource: {
+            resourceType: 'Observation',
+            id: 'obs-blood-pressure-1',
+            status: 'final',
+            category: [
+              {
+                coding: [
+                  {
+                    system: 'http://terminology.hl7.org/CodeSystem/observation-category',
+                    code: 'vital-signs',
+                    display: 'Vital Signs',
+                  },
+                ],
+              },
+            ],
+            code: {
+              coding: [
+                {
+                  system: 'http://loinc.org',
+                  code: '85354-9',
+                  display: 'Blood pressure panel with all children optional',
+                },
+              ],
+            },
+            subject: {
+              reference: 'Patient/example-patient-id',
+            },
+            effectiveDateTime: '2024-01-15T10:30:00Z',
+            component: [
+              {
+                code: {
+                  coding: [
+                    {
+                      system: 'http://loinc.org',
+                      code: '8480-6',
+                      display: 'Systolic blood pressure',
+                    },
+                  ],
+                },
+                valueQuantity: {
+                  value: 120,
+                  unit: 'mmHg',
+                  system: 'http://unitsofmeasure.org',
+                  code: 'mm[Hg]',
+                },
+              },
+              {
+                code: {
+                  coding: [
+                    {
+                      system: 'http://loinc.org',
+                      code: '8462-4',
+                      display: 'Diastolic blood pressure',
+                    },
+                  ],
+                },
+                valueQuantity: {
+                  value: 80,
+                  unit: 'mmHg',
+                  system: 'http://unitsofmeasure.org',
+                  code: 'mm[Hg]',
+                },
+              },
+            ],
+          },
+        },
+        {
+          resource: {
+            resourceType: 'Observation',
+            id: 'obs-blood-glucose',
+            status: 'final',
+            category: [
+              {
+                coding: [
+                  {
+                    system: 'http://terminology.hl7.org/CodeSystem/observation-category',
+                    code: 'laboratory',
+                    display: 'Laboratory',
+                  },
+                ],
+              },
+            ],
+            code: {
+              coding: [
+                {
+                  system: 'http://loinc.org',
+                  code: '2339-0',
+                  display: 'Glucose [Mass/volume] in Blood',
+                },
+              ],
+            },
+            subject: {
+              reference: 'Patient/example-patient-id',
+            },
+            effectiveDateTime: '2024-01-15T08:00:00Z',
+            valueQuantity: {
+              value: 95,
+              unit: 'mg/dL',
+              system: 'http://unitsofmeasure.org',
+              code: 'mg/dL',
+            },
+            interpretation: [
+              {
+                coding: [
+                  {
+                    system: 'http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation',
+                    code: 'N',
+                    display: 'Normal',
+                  },
+                ],
+              },
+            ],
+          },
+        },
+        {
+          resource: {
+            resourceType: 'Condition',
+            id: 'condition-diabetes',
+            clinicalStatus: {
+              coding: [
+                {
+                  system: 'http://terminology.hl7.org/CodeSystem/condition-clinical',
+                  code: 'active',
+                  display: 'Active',
+                },
+              ],
+            },
+            verificationStatus: {
+              coding: [
+                {
+                  system: 'http://terminology.hl7.org/CodeSystem/condition-ver-status',
+                  code: 'confirmed',
+                  display: 'Confirmed',
+                },
+              ],
+            },
+            category: [
+              {
+                coding: [
+                  {
+                    system: 'http://snomed.info/sct',
+                    code: '64572001',
+                    display: 'Disease',
+                  },
+                ],
+              },
+            ],
+            code: {
+              coding: [
+                {
+                  system: 'http://snomed.info/sct',
+                  code: '44054006',
+                  display: 'Diabetes mellitus type 2',
+                },
+                {
+                  system: 'http://hl7.org/fhir/sid/icd-10-cm',
+                  code: 'E11.9',
+                  display: 'Type 2 diabetes mellitus without complications',
+                },
+              ],
+            },
+            subject: {
+              reference: 'Patient/example-patient-id',
+            },
+            onsetDateTime: '2020-03-15',
+            recordedDate: '2020-03-20',
+          },
+        },
+        {
+          resource: {
+            resourceType: 'Condition',
+            id: 'condition-hypertension',
+            clinicalStatus: {
+              coding: [
+                {
+                  system: 'http://terminology.hl7.org/CodeSystem/condition-clinical',
+                  code: 'active',
+                  display: 'Active',
+                },
+              ],
+            },
+            verificationStatus: {
+              coding: [
+                {
+                  system: 'http://terminology.hl7.org/CodeSystem/condition-ver-status',
+                  code: 'confirmed',
+                  display: 'Confirmed',
+                },
+              ],
+            },
+            code: {
+              coding: [
+                {
+                  system: 'http://snomed.info/sct',
+                  code: '38341003',
+                  display: 'Hypertensive disorder',
+                },
+                {
+                  system: 'http://hl7.org/fhir/sid/icd-10-cm',
+                  code: 'I10',
+                  display: 'Essential (primary) hypertension',
+                },
+              ],
+            },
+            subject: {
+              reference: 'Patient/example-patient-id',
+            },
+            onsetDateTime: '2019-06-10',
+          },
+        },
+        {
+          resource: {
+            resourceType: 'AllergyIntolerance',
+            id: 'allergy-penicillin',
+            clinicalStatus: {
+              coding: [
+                {
+                  system: 'http://terminology.hl7.org/CodeSystem/allergyintolerance-clinical',
+                  code: 'active',
+                  display: 'Active',
+                },
+              ],
+            },
+            verificationStatus: {
+              coding: [
+                {
+                  system: 'http://terminology.hl7.org/CodeSystem/allergyintolerance-verification',
+                  code: 'confirmed',
+                  display: 'Confirmed',
+                },
+              ],
+            },
+            type: 'allergy',
+            category: ['medication'],
+            criticality: 'high',
+            code: {
+              coding: [
+                {
+                  system: 'http://www.nlm.nih.gov/research/umls/rxnorm',
+                  code: '7980',
+                  display: 'Penicillin',
+                },
+              ],
+            },
+            patient: {
+              reference: 'Patient/example-patient-id',
+            },
+            recordedDate: '2018-05-10',
+            reaction: [
+              {
+                substance: {
+                  coding: [
+                    {
+                      system: 'http://www.nlm.nih.gov/research/umls/rxnorm',
+                      code: '7980',
+                      display: 'Penicillin',
+                    },
+                  ],
+                },
+                manifestation: [
+                  {
+                    coding: [
+                      {
+                        system: 'http://snomed.info/sct',
+                        code: '271807003',
+                        display: 'Rash',
+                      },
+                    ],
+                  },
+                ],
+                severity: 'severe',
+              },
+            ],
+          },
+        },
+        {
+          resource: {
+            resourceType: 'MedicationStatement',
+            id: 'medication-metformin',
+            status: 'active',
+            medicationCodeableConcept: {
+              coding: [
+                {
+                  system: 'http://www.nlm.nih.gov/research/umls/rxnorm',
+                  code: '6809',
+                  display: 'Metformin hydrochloride 500 MG Oral Tablet',
+                },
+              ],
+              text: 'Metformin 500mg',
+            },
+            subject: {
+              reference: 'Patient/example-patient-id',
+            },
+            effectivePeriod: {
+              start: '2020-03-20',
+            },
+            dosage: [
+              {
+                text: 'Take 1 tablet by mouth twice daily with meals',
+                timing: {
+                  repeat: {
+                    frequency: 2,
+                    period: 1,
+                    periodUnit: 'd',
+                  },
+                },
+                route: {
+                  coding: [
+                    {
+                      system: 'http://snomed.info/sct',
+                      code: '26643006',
+                      display: 'Oral route',
+                    },
+                  ],
+                },
+                doseAndRate: [
+                  {
+                    doseQuantity: {
+                      value: 1,
+                      unit: 'tablet',
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+        },
+        {
+          resource: {
+            resourceType: 'MedicationStatement',
+            id: 'medication-lisinopril',
+            status: 'active',
+            medicationCodeableConcept: {
+              coding: [
+                {
+                  system: 'http://www.nlm.nih.gov/research/umls/rxnorm',
+                  code: '314076',
+                  display: 'Lisinopril 10 MG Oral Tablet',
+                },
+              ],
+              text: 'Lisinopril 10mg',
+            },
+            subject: {
+              reference: 'Patient/example-patient-id',
+            },
+            effectivePeriod: {
+              start: '2019-06-15',
+            },
+            dosage: [
+              {
+                text: 'Take 1 tablet by mouth once daily',
+                timing: {
+                  repeat: {
+                    frequency: 1,
+                    period: 1,
+                    periodUnit: 'd',
+                  },
+                },
+                route: {
+                  coding: [
+                    {
+                      system: 'http://snomed.info/sct',
+                      code: '26643006',
+                      display: 'Oral route',
+                    },
+                  ],
+                },
+                doseAndRate: [
+                  {
+                    doseQuantity: {
+                      value: 1,
+                      unit: 'tablet',
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+        },
+        {
+          resource: {
+            resourceType: 'Procedure',
+            id: 'procedure-echocardiogram',
+            status: 'completed',
+            code: {
+              coding: [
+                {
+                  system: 'http://www.ama-assn.org/go/cpt',
+                  code: '93307',
+                  display: 'Echocardiogram, transthoracic, real-time with image documentation',
+                },
+                {
+                  system: 'http://snomed.info/sct',
+                  code: '399208008',
+                  display: 'Echocardiography',
+                },
+              ],
+            },
+            subject: {
+              reference: 'Patient/example-patient-id',
+            },
+            performedDateTime: '2023-11-20T14:00:00Z',
+            performer: [
+              {
+                actor: {
+                  reference: 'Practitioner/cardiologist-001',
+                  display: 'Dr. Jane Smith, Cardiologist',
+                },
+              },
+            ],
+            reasonCode: [
+              {
+                coding: [
+                  {
+                    system: 'http://snomed.info/sct',
+                    code: '38341003',
+                    display: 'Hypertensive disorder',
+                  },
+                ],
+              },
+            ],
+          },
+        },
+        {
+          resource: {
+            resourceType: 'Encounter',
+            id: 'encounter-routine-visit',
+            status: 'finished',
+            class: {
+              system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
+              code: 'AMB',
+              display: 'ambulatory',
+            },
+            type: [
+              {
+                coding: [
+                  {
+                    system: 'http://www.ama-assn.org/go/cpt',
+                    code: '99213',
+                    display: 'Office or other outpatient visit',
+                  },
+                ],
+              },
+            ],
+            subject: {
+              reference: 'Patient/example-patient-id',
+            },
+            period: {
+              start: '2024-01-15T09:00:00Z',
+              end: '2024-01-15T09:30:00Z',
+            },
+            reasonCode: [
+              {
+                coding: [
+                  {
+                    system: 'http://snomed.info/sct',
+                    code: '185349003',
+                    display: 'Consultation for treatment',
+                  },
+                ],
+              },
+            ],
+            serviceProvider: {
+              reference: 'Organization/hospital-001',
+              display: 'Springfield General Hospital',
+            },
+          },
+        },
+        {
+          resource: {
+            resourceType: 'Encounter',
+            id: 'encounter-emergency',
+            status: 'finished',
+            class: {
+              system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
+              code: 'EMER',
+              display: 'emergency',
+            },
+            type: [
+              {
+                coding: [
+                  {
+                    system: 'http://www.ama-assn.org/go/cpt',
+                    code: '99284',
+                    display: 'Emergency department visit',
+                  },
+                ],
+              },
+            ],
+            subject: {
+              reference: 'Patient/example-patient-id',
+            },
+            period: {
+              start: '2023-08-10T22:15:00Z',
+              end: '2023-08-11T01:30:00Z',
+            },
+            reasonCode: [
+              {
+                coding: [
+                  {
+                    system: 'http://snomed.info/sct',
+                    code: '22298006',
+                    display: 'Myocardial infarction',
+                  },
+                ],
+              },
+            ],
+          },
+        },
+        {
+          resource: {
+            resourceType: 'DiagnosticReport',
+            id: 'diagnostic-report-lab-panel',
+            status: 'final',
+            category: [
+              {
+                coding: [
+                  {
+                    system: 'http://terminology.hl7.org/CodeSystem/v2-0074',
+                    code: 'LAB',
+                    display: 'Laboratory',
+                  },
+                ],
+              },
+            ],
+            code: {
+              coding: [
+                {
+                  system: 'http://loinc.org',
+                  code: '24323-8',
+                  display: 'Comprehensive metabolic panel',
+                },
+              ],
+            },
+            subject: {
+              reference: 'Patient/example-patient-id',
+            },
+            effectiveDateTime: '2024-01-15T08:00:00Z',
+            issued: '2024-01-15T10:00:00Z',
+            performer: [
+              {
+                reference: 'Organization/lab-001',
+                display: 'Springfield Lab Services',
+              },
+            ],
+            result: [
+              {
+                reference: 'Observation/obs-blood-glucose',
+                display: 'Blood Glucose',
+              },
+            ],
+            conclusion: 'All values within normal limits',
+          },
+        },
+        {
+          resource: {
+            resourceType: 'DiagnosticReport',
+            id: 'diagnostic-report-echocardiogram',
+            status: 'final',
+            category: [
+              {
+                coding: [
+                  {
+                    system: 'http://terminology.hl7.org/CodeSystem/v2-0074',
+                    code: 'CUS',
+                    display: 'Cardiac Ultrasound',
+                  },
+                ],
+              },
+            ],
+            code: {
+              coding: [
+                {
+                  system: 'http://loinc.org',
+                  code: '34555-2',
+                  display: 'Echocardiogram',
+                },
+              ],
+            },
+            subject: {
+              reference: 'Patient/example-patient-id',
+            },
+            effectiveDateTime: '2023-11-20T14:00:00Z',
+            issued: '2023-11-20T16:00:00Z',
+            performer: [
+              {
+                reference: 'Practitioner/cardiologist-001',
+                display: 'Dr. Jane Smith, Cardiologist',
+              },
+            ],
+            conclusion: 'Normal left ventricular function. No significant valvular abnormalities.',
+            conclusionCode: [
+              {
+                coding: [
+                  {
+                    system: 'http://snomed.info/sct',
+                    code: '17621005',
+                    display: 'Normal',
+                  },
+                ],
+              },
+            ],
           },
         },
       ],
@@ -91,5 +742,567 @@ export class IngestionResponseDto {
     matchedRulesCount: number;
     highestRiskLevel: string | null;
   };
+}
+
+// Simplified Bulk Ingestion DTOs
+export class SimplePatientDto {
+  @ApiProperty({ description: 'Epic/FHIR Patient ID', example: 'eq081-VQEgP8drUUqCWzHfw3' })
+  @IsString()
+  @IsNotEmpty()
+  epicId: string;
+
+  @ApiPropertyOptional({ description: 'Full name', example: 'John Doe' })
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiPropertyOptional({ description: 'First name', example: 'John' })
+  @IsOptional()
+  @IsString()
+  firstName?: string;
+
+  @ApiPropertyOptional({ description: 'Last name', example: 'Doe' })
+  @IsOptional()
+  @IsString()
+  lastName?: string;
+
+  @ApiPropertyOptional({ description: 'Birth date', example: '1990-01-15' })
+  @IsOptional()
+  @IsDateString()
+  birthDate?: string;
+
+  @ApiPropertyOptional({ description: 'Gender', example: 'male' })
+  @IsOptional()
+  @IsString()
+  gender?: string;
+
+  @ApiPropertyOptional({ description: 'Age', example: '45 years' })
+  @IsOptional()
+  @IsString()
+  age?: string;
+
+  @ApiPropertyOptional({ description: 'Date of birth (formatted)', example: 'May 15, 1975' })
+  @IsOptional()
+  @IsString()
+  dateOfBirth?: string;
+
+  @ApiPropertyOptional({ description: 'Identifiers', type: 'array' })
+  @IsOptional()
+  @IsArray()
+  identifiers?: Array<{ system?: string; value?: string }>;
+}
+
+export class SimpleObservationDto {
+  @ApiProperty({ description: 'Epic/FHIR Observation ID', example: 'obs-123' })
+  @IsString()
+  @IsNotEmpty()
+  epicId: string;
+
+  @ApiPropertyOptional({ description: 'Patient Epic ID (identifier for patient). If not provided, will use root-level epicId', example: 'patient-123' })
+  @IsOptional()
+  @IsString()
+  patientEpicId?: string;
+
+  @ApiProperty({ description: 'Test name', example: 'Blood Pressure' })
+  @IsString()
+  @IsNotEmpty()
+  testName: string;
+
+  @ApiProperty({ description: 'Test value', example: '120/80' })
+  @IsString()
+  @IsNotEmpty()
+  value: string;
+
+  @ApiProperty({ description: 'Observation date', example: '2024-01-15T10:30:00Z' })
+  @IsDateString()
+  @IsNotEmpty()
+  date: string;
+
+  @ApiProperty({ description: 'Status', example: 'final' })
+  @IsString()
+  @IsNotEmpty()
+  status: string;
+
+  @ApiPropertyOptional({ description: 'Category', example: 'vital-signs' })
+  @IsOptional()
+  @IsString()
+  category?: string;
+
+  @ApiPropertyOptional({ description: 'Unit', example: 'mmHg' })
+  @IsOptional()
+  @IsString()
+  unit?: string;
+
+  @ApiPropertyOptional({ description: 'Code', example: '85354-9' })
+  @IsOptional()
+  @IsString()
+  code?: string;
+
+  @ApiPropertyOptional({ description: 'Display name', example: 'Blood pressure panel' })
+  @IsOptional()
+  @IsString()
+  display?: string;
+}
+
+export class SimpleConditionDto {
+  @ApiProperty({ description: 'Epic/FHIR Condition ID', example: 'cond-123' })
+  @IsString()
+  @IsNotEmpty()
+  epicId: string;
+
+  @ApiPropertyOptional({ description: 'Patient Epic ID (identifier for patient). If not provided, will use root-level epicId', example: 'patient-123' })
+  @IsOptional()
+  @IsString()
+  patientEpicId?: string;
+
+  @ApiProperty({ description: 'Diagnosis', example: 'Type 2 diabetes mellitus' })
+  @IsString()
+  @IsNotEmpty()
+  diagnosis: string;
+
+  @ApiProperty({ description: 'Status', example: 'active' })
+  @IsString()
+  @IsNotEmpty()
+  status: string;
+
+  @ApiPropertyOptional({ description: 'Onset date', example: '2020-03-15' })
+  @IsOptional()
+  @IsDateString()
+  onsetDate?: string;
+
+  @ApiPropertyOptional({ description: 'Recorded date', example: '2020-03-20' })
+  @IsOptional()
+  @IsDateString()
+  recordedDate?: string;
+
+  @ApiPropertyOptional({ description: 'Category', example: 'Disease' })
+  @IsOptional()
+  @IsString()
+  category?: string;
+
+  @ApiPropertyOptional({ description: 'Code', example: '44054006' })
+  @IsOptional()
+  @IsString()
+  code?: string;
+
+  @ApiPropertyOptional({ description: 'Display name', example: 'Diabetes mellitus type 2' })
+  @IsOptional()
+  @IsString()
+  display?: string;
+}
+
+export class SimpleAllergyDto {
+  @ApiProperty({ description: 'Epic/FHIR AllergyIntolerance ID', example: 'allergy-123' })
+  @IsString()
+  @IsNotEmpty()
+  epicId: string;
+
+  @ApiPropertyOptional({ description: 'Patient Epic ID (identifier for patient). If not provided, will use root-level epicId', example: 'patient-123' })
+  @IsOptional()
+  @IsString()
+  patientEpicId?: string;
+
+  @ApiProperty({ description: 'Allergen name', example: 'Penicillin' })
+  @IsString()
+  @IsNotEmpty()
+  allergen: string;
+
+  @ApiProperty({ description: 'Type', example: 'allergy' })
+  @IsString()
+  @IsNotEmpty()
+  type: string;
+
+  @ApiProperty({ description: 'Status', example: 'active' })
+  @IsString()
+  @IsNotEmpty()
+  status: string;
+
+  @ApiPropertyOptional({ description: 'Severity', example: 'severe' })
+  @IsOptional()
+  @IsString()
+  severity?: string;
+
+  @ApiPropertyOptional({ description: 'Criticality', example: 'high' })
+  @IsOptional()
+  @IsString()
+  criticality?: string;
+
+  @ApiPropertyOptional({ description: 'Recorded date', example: '2018-05-10' })
+  @IsOptional()
+  @IsDateString()
+  recordedDate?: string;
+
+  @ApiPropertyOptional({ description: 'Categories', type: 'array', example: ['medication'] })
+  @IsOptional()
+  @IsArray()
+  category?: string[];
+
+  @ApiPropertyOptional({ description: 'Code', example: '7980' })
+  @IsOptional()
+  @IsString()
+  code?: string;
+
+  @ApiPropertyOptional({ description: 'Display name', example: 'Penicillin' })
+  @IsOptional()
+  @IsString()
+  display?: string;
+}
+
+export class SimpleMedicationDto {
+  @ApiProperty({ description: 'Epic/FHIR MedicationStatement ID', example: 'med-123' })
+  @IsString()
+  @IsNotEmpty()
+  epicId: string;
+
+  @ApiPropertyOptional({ description: 'Patient Epic ID (identifier for patient). If not provided, will use root-level epicId', example: 'patient-123' })
+  @IsOptional()
+  @IsString()
+  patientEpicId?: string;
+
+  @ApiProperty({ description: 'Medication name', example: 'Metformin 500mg' })
+  @IsString()
+  @IsNotEmpty()
+  medication: string;
+
+  @ApiProperty({ description: 'Status', example: 'active' })
+  @IsString()
+  @IsNotEmpty()
+  status: string;
+
+  @ApiPropertyOptional({ description: 'Dosage', example: 'Take 1 tablet by mouth twice daily' })
+  @IsOptional()
+  @IsString()
+  dosage?: string;
+
+  @ApiPropertyOptional({ description: 'Route', example: 'oral' })
+  @IsOptional()
+  @IsString()
+  route?: string;
+
+  @ApiPropertyOptional({ description: 'Start date', example: '2020-03-20' })
+  @IsOptional()
+  @IsDateString()
+  startDate?: string;
+
+  @ApiPropertyOptional({ description: 'End date', example: '2024-12-31' })
+  @IsOptional()
+  @IsDateString()
+  endDate?: string;
+
+  @ApiPropertyOptional({ description: 'Date asserted', example: '2020-03-20' })
+  @IsOptional()
+  @IsDateString()
+  dateAsserted?: string;
+
+  @ApiPropertyOptional({ description: 'Code', example: '6809' })
+  @IsOptional()
+  @IsString()
+  code?: string;
+
+  @ApiPropertyOptional({ description: 'Display name', example: 'Metformin hydrochloride 500 MG Oral Tablet' })
+  @IsOptional()
+  @IsString()
+  display?: string;
+}
+
+export class SimpleProcedureDto {
+  @ApiProperty({ description: 'Epic/FHIR Procedure ID', example: 'proc-123' })
+  @IsString()
+  @IsNotEmpty()
+  epicId: string;
+
+  @ApiPropertyOptional({ description: 'Patient Epic ID (identifier for patient). If not provided, will use root-level epicId', example: 'patient-123' })
+  @IsOptional()
+  @IsString()
+  patientEpicId?: string;
+
+  @ApiProperty({ description: 'Procedure name', example: 'Echocardiogram' })
+  @IsString()
+  @IsNotEmpty()
+  procedure: string;
+
+  @ApiProperty({ description: 'Status', example: 'completed' })
+  @IsString()
+  @IsNotEmpty()
+  status: string;
+
+  @ApiPropertyOptional({ description: 'Procedure date', example: '2023-11-20T14:00:00Z' })
+  @IsOptional()
+  @IsDateString()
+  date?: string;
+
+  @ApiPropertyOptional({ description: 'Performed date', example: '2023-11-20T14:00:00Z' })
+  @IsOptional()
+  @IsDateString()
+  performedDate?: string;
+
+  @ApiPropertyOptional({ description: 'Outcome', example: 'Successful' })
+  @IsOptional()
+  @IsString()
+  outcome?: string;
+
+  @ApiPropertyOptional({ description: 'Category', example: 'Cardiology' })
+  @IsOptional()
+  @IsString()
+  category?: string;
+
+  @ApiPropertyOptional({ description: 'Code', example: '93307' })
+  @IsOptional()
+  @IsString()
+  code?: string;
+
+  @ApiPropertyOptional({ description: 'Display name', example: 'Echocardiogram, transthoracic' })
+  @IsOptional()
+  @IsString()
+  display?: string;
+}
+
+export class SimpleEncounterDto {
+  @ApiProperty({ description: 'Epic/FHIR Encounter ID', example: 'enc-123' })
+  @IsString()
+  @IsNotEmpty()
+  epicId: string;
+
+  @ApiPropertyOptional({ description: 'Patient Epic ID (identifier for patient). If not provided, will use root-level epicId', example: 'patient-123' })
+  @IsOptional()
+  @IsString()
+  patientEpicId?: string;
+
+  @ApiProperty({ description: 'Visit type', example: 'Office visit' })
+  @IsString()
+  @IsNotEmpty()
+  visitType: string;
+
+  @ApiProperty({ description: 'Status', example: 'finished' })
+  @IsString()
+  @IsNotEmpty()
+  status: string;
+
+  @ApiPropertyOptional({ description: 'Start date', example: '2024-01-15T09:00:00Z' })
+  @IsOptional()
+  @IsDateString()
+  startDate?: string;
+
+  @ApiPropertyOptional({ description: 'End date', example: '2024-01-15T09:30:00Z' })
+  @IsOptional()
+  @IsDateString()
+  endDate?: string;
+
+  @ApiPropertyOptional({ description: 'Reason', example: 'Routine checkup' })
+  @IsOptional()
+  @IsString()
+  reason?: string;
+
+  @ApiPropertyOptional({ description: 'Type', example: 'AMB' })
+  @IsOptional()
+  @IsString()
+  type?: string;
+
+  @ApiPropertyOptional({ description: 'Class', example: 'ambulatory' })
+  @IsOptional()
+  @IsString()
+  class?: string;
+}
+
+export class SimpleDiagnosticReportDto {
+  @ApiProperty({ description: 'Epic/FHIR DiagnosticReport ID', example: 'report-123' })
+  @IsString()
+  @IsNotEmpty()
+  epicId: string;
+
+  @ApiPropertyOptional({ description: 'Patient Epic ID (identifier for patient). If not provided, will use root-level epicId', example: 'patient-123' })
+  @IsOptional()
+  @IsString()
+  patientEpicId?: string;
+
+  @ApiProperty({ description: 'Report name', example: 'Comprehensive metabolic panel' })
+  @IsString()
+  @IsNotEmpty()
+  reportName: string;
+
+  @ApiProperty({ description: 'Status', example: 'final' })
+  @IsString()
+  @IsNotEmpty()
+  status: string;
+
+  @ApiPropertyOptional({ description: 'Report date', example: '2024-01-15T08:00:00Z' })
+  @IsOptional()
+  @IsDateString()
+  date?: string;
+
+  @ApiPropertyOptional({ description: 'Effective date', example: '2024-01-15T08:00:00Z' })
+  @IsOptional()
+  @IsDateString()
+  effectiveDate?: string;
+
+  @ApiPropertyOptional({ description: 'Issued date', example: '2024-01-15T10:00:00Z' })
+  @IsOptional()
+  @IsDateString()
+  issuedDate?: string;
+
+  @ApiPropertyOptional({ description: 'Conclusion', example: 'All values within normal limits' })
+  @IsOptional()
+  @IsString()
+  conclusion?: string;
+
+  @ApiPropertyOptional({ description: 'Category', example: 'LAB' })
+  @IsOptional()
+  @IsString()
+  category?: string;
+
+  @ApiPropertyOptional({ description: 'Code', example: '24323-8' })
+  @IsOptional()
+  @IsString()
+  code?: string;
+
+  @ApiPropertyOptional({ description: 'Display name', example: 'Comprehensive metabolic panel' })
+  @IsOptional()
+  @IsString()
+  display?: string;
+}
+
+export class BulkIngestDto {
+  @ApiPropertyOptional({
+    description: 'Array of patient information (can create/update multiple patients)',
+    type: [SimplePatientDto],
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SimplePatientDto)
+  patients?: SimplePatientDto[];
+
+  @ApiPropertyOptional({
+    description: 'Array of observations',
+    type: [SimpleObservationDto],
+    example: [
+      {
+        epicId: 'obs-123',
+        testName: 'Blood Pressure',
+        value: '120/80',
+        date: '2024-01-15T10:30:00Z',
+        status: 'final',
+        category: 'vital-signs',
+        unit: 'mmHg',
+      },
+    ],
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SimpleObservationDto)
+  observations?: SimpleObservationDto[];
+
+  @ApiPropertyOptional({
+    description: 'Array of conditions',
+    type: [SimpleConditionDto],
+    example: [
+      {
+        epicId: 'cond-123',
+        diagnosis: 'Type 2 diabetes mellitus',
+        status: 'active',
+        onsetDate: '2020-03-15',
+      },
+    ],
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SimpleConditionDto)
+  conditions?: SimpleConditionDto[];
+
+  @ApiPropertyOptional({
+    description: 'Array of allergies',
+    type: [SimpleAllergyDto],
+    example: [
+      {
+        epicId: 'allergy-123',
+        allergen: 'Penicillin',
+        type: 'allergy',
+        status: 'active',
+        severity: 'severe',
+      },
+    ],
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SimpleAllergyDto)
+  allergies?: SimpleAllergyDto[];
+
+  @ApiPropertyOptional({
+    description: 'Array of medications',
+    type: [SimpleMedicationDto],
+    example: [
+      {
+        epicId: 'med-123',
+        medication: 'Metformin 500mg',
+        status: 'active',
+        dosage: 'Take 1 tablet by mouth twice daily',
+        startDate: '2020-03-20',
+      },
+    ],
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SimpleMedicationDto)
+  medications?: SimpleMedicationDto[];
+
+  @ApiPropertyOptional({
+    description: 'Array of procedures',
+    type: [SimpleProcedureDto],
+    example: [
+      {
+        epicId: 'proc-123',
+        procedure: 'Echocardiogram',
+        status: 'completed',
+        performedDate: '2023-11-20T14:00:00Z',
+      },
+    ],
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SimpleProcedureDto)
+  procedures?: SimpleProcedureDto[];
+
+  @ApiPropertyOptional({
+    description: 'Array of encounters',
+    type: [SimpleEncounterDto],
+    example: [
+      {
+        epicId: 'enc-123',
+        visitType: 'Office visit',
+        status: 'finished',
+        startDate: '2024-01-15T09:00:00Z',
+        endDate: '2024-01-15T09:30:00Z',
+      },
+    ],
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SimpleEncounterDto)
+  encounters?: SimpleEncounterDto[];
+
+  @ApiPropertyOptional({
+    description: 'Array of diagnostic reports',
+    type: [SimpleDiagnosticReportDto],
+    example: [
+      {
+        epicId: 'report-123',
+        reportName: 'Comprehensive metabolic panel',
+        status: 'final',
+        date: '2024-01-15T08:00:00Z',
+        conclusion: 'All values within normal limits',
+      },
+    ],
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SimpleDiagnosticReportDto)
+  diagnosticReports?: SimpleDiagnosticReportDto[];
 }
 

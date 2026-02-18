@@ -66,11 +66,53 @@ export class ServerService {
         skip,
         take,
         orderBy: { createdAt: 'desc' },
+        include: {
+          _count: {
+            select: {
+              encounters: true,
+              riskEvaluations: true,
+            },
+          },
+        },
       }),
       this.prisma.patient.count(),
     ]);
 
-    return { patients, total, skip, take };
+    // Get patient IDs to count matched risk evaluations (issues)
+    const patientIds = patients.map((p) => p.id);
+    
+    // Count matched risk evaluations (issues) for all patients in a single query
+    const issueCountsMap = new Map<string, number>();
+    
+    if (patientIds.length > 0) {
+      const issueCounts = await this.prisma.riskEvaluation.groupBy({
+        by: ['patientId'],
+        where: {
+          patientId: { in: patientIds },
+          matched: true, // Only count matched rule triggers
+        },
+        _count: {
+          id: true,
+        },
+      });
+
+      // Create a map for quick lookup
+      issueCounts.forEach((item) => {
+        issueCountsMap.set(item.patientId, item._count.id);
+      });
+    }
+
+    // Map patients to include encounterCount and issueCount
+    const patientsWithCounts = patients.map((patient) => {
+      const { _count, ...patientData } = patient;
+      return {
+        ...patientData,
+        encounterCount: _count.encounters,
+        issueCount: issueCountsMap.get(patient.id) || 0, // Count of matched risk rule triggers
+      };
+    });
+
+    return { patients: patientsWithCounts, total, skip, take };
   }
 
   async findPatientById(id: string) {

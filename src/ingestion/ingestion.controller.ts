@@ -21,6 +21,7 @@ import {
   IngestFhirJsonDto,
   IngestFhirXmlDto,
   IngestionResponseDto,
+  BulkIngestDto,
 } from './dto/ingestion.dto';
 
 @ApiTags('Data Ingestion')
@@ -161,6 +162,47 @@ export class IngestionController {
     } catch (error) {
       this.logger.error(
         `Error ingesting FHIR XML: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * POST /api/ingestion/bulk
+   * Bulk ingest data using simplified structure
+   */
+  @ApiOperation({
+    summary: 'Bulk ingest patient data (simplified structure)',
+    description:
+      'Accepts patient data in a simplified, flat structure. Easier to use than FHIR format for bulk data insertion. Automatically normalizes and stores data in the database, then triggers risk rule evaluation.',
+  })
+  @ApiBody({
+    description: 'Simplified bulk data structure',
+    type: BulkIngestDto,
+  })
+  @ApiOkResponse({
+    description: 'Bulk data ingested successfully',
+    type: IngestionResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid data or missing required fields',
+  })
+  @Post('bulk')
+  @HttpCode(HttpStatus.OK)
+  async bulkIngest(
+    @Body() body: BulkIngestDto,
+  ) {
+    try {
+      this.logger.log('Received bulk ingestion request');
+      const result = await this.ingestionService.bulkIngest(body);
+      this.logger.log(
+        `Successfully bulk ingested data for ${result.patients.length} patient(s)`,
+      );
+      return result;
+    } catch (error) {
+      this.logger.error(
+        `Error bulk ingesting data: ${error.message}`,
         error.stack,
       );
       throw error;
