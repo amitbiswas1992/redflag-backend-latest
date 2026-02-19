@@ -116,24 +116,50 @@ export class ServerService {
   }
 
   async findPatientById(id: string) {
-    const patient = await this.prisma.patient.findUnique({
-      where: { id },
-      include: {
-        observations: true,
-        conditions: true,
-        allergies: true,
-        medications: true,
-        procedures: true,
-        encounters: true,
-        diagnosticReports: true,
-      },
-    });
+    const [patient, issues] = await Promise.all([
+      this.prisma.patient.findUnique({
+        where: { id },
+        include: {
+          observations: true,
+          conditions: true,
+          allergies: true,
+          medications: true,
+          procedures: true,
+          encounters: true,
+          diagnosticReports: true,
+        },
+      }),
+      // Get matched risk evaluations (issues) for this patient with rule details
+      this.prisma.riskEvaluation.findMany({
+        where: {
+          patientId: id,
+          matched: true,
+        },
+        include: {
+          rule: {
+            include: {
+              conditions: {
+                orderBy: { order: 'asc' },
+              },
+            },
+          },
+        },
+        orderBy: {
+          evaluatedAt: 'desc',
+        },
+      }),
+    ]);
 
     if (!patient) {
       throw new NotFoundException(`Patient with ID ${id} not found`);
     }
 
-    return patient;
+    // Include issueCount and issues array (matched risk rule triggers) in the response
+    return {
+      ...patient,
+      issueCount: issues.length,
+      issues,
+    };
   }
 
   async findPatientByEpicId(epicId: string) {
