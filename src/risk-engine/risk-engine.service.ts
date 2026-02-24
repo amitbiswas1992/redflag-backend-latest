@@ -313,13 +313,45 @@ export class RiskEngineService {
 
       if (hasConditions) {
         // Evaluate multiple conditions
-        matched = this.evaluateConditions(
-          rule.conditions,
-          rule.conditionLogic || ConditionLogic.AND,
-          patient,
-        );
-        if (matched) {
-          matchedValue = 'Multiple conditions matched';
+        // If rule has eventName, evaluate conditions against each event record
+        if (rule.eventName) {
+          const eventData = this.getEventData(rule.eventName as EventName, patient);
+          
+          // Evaluate conditions against each record in the event data
+          for (const record of eventData) {
+            const recordMatched = this.evaluateConditionsAgainstRecord(
+              rule.conditions,
+              rule.conditionLogic || ConditionLogic.AND,
+              record,
+              patient,
+            );
+            
+            if (recordMatched) {
+              matched = true;
+              // Get the matched value from the first condition field
+              const firstCondition = rule.conditions[0];
+              if (firstCondition) {
+                const fieldValue = this.getFieldValue(record, firstCondition.field);
+                matchedValue = fieldValue !== null && fieldValue !== undefined 
+                  ? String(fieldValue) 
+                  : 'Multiple conditions matched';
+              } else {
+                matchedValue = 'Multiple conditions matched';
+              }
+              eventId = record.id || record.epicId || null;
+              break; // Match found, no need to check other records
+            }
+          }
+        } else {
+          // No eventName - evaluate against patient data directly
+          matched = this.evaluateConditions(
+            rule.conditions,
+            rule.conditionLogic || ConditionLogic.AND,
+            patient,
+          );
+          if (matched) {
+            matchedValue = 'Multiple conditions matched';
+          }
         }
       } else if (hasLegacyCondition) {
         // Legacy single condition evaluation
@@ -389,6 +421,59 @@ export class RiskEngineService {
         patientData,
         condition.field,
       );
+      return this.compareValues(
+        fieldValue,
+        condition.operator,
+        condition.value,
+      );
+    });
+
+    // Apply logic (AND or OR)
+    if (logic === ConditionLogic.AND) {
+      return conditionResults.every((result) => result === true);
+    } else {
+      // OR logic
+      return conditionResults.some((result) => result === true);
+    }
+  }
+
+  /**
+   * Evaluate conditions against a specific record (e.g., an observation, encounter, etc.)
+   * This is used when evaluating event-based rules where conditions should be checked
+   * against individual event records rather than patient data directly.
+   */
+  private evaluateConditionsAgainstRecord(
+    conditions: any[],
+    logic: ConditionLogic,
+    record: any,
+    patient: any,
+  ): boolean {
+    if (!conditions || conditions.length === 0) {
+      return false;
+    }
+
+    // Get all patient data for condition evaluation (for fields that might reference patient data)
+    const patientData = this.getAllPatientData(patient);
+    
+    // Merge record data with patient data (record takes precedence)
+    const combinedData = {
+      ...patientData,
+      ...record,
+    };
+
+    // Evaluate each condition
+    const conditionResults = conditions.map((condition) => {
+      // First try to get field value from the record directly
+      let fieldValue = this.getFieldValue(record, condition.field);
+      
+      // If not found in record, try from combined data (for nested access like "latestObservation.testName")
+      if (fieldValue === null || fieldValue === undefined) {
+        fieldValue = this.getFieldValueFromPatientData(
+          combinedData,
+          condition.field,
+        );
+      }
+      
       return this.compareValues(
         fieldValue,
         condition.operator,
