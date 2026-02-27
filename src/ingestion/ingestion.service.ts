@@ -467,34 +467,22 @@ export class IngestionService {
     observations: NormalizedObservation[],
   ) {
     for (const obs of observations) {
-      // Ensure required fields are present
-      if (!obs.value || !obs.date || !obs.status) {
-        throw new BadRequestException(
-          `Observation ${obs.id} is missing required fields: value, date, and status are required`,
-        );
-      }
-      
       const testName = obs.display || obs.code;
-      if (!testName) {
-        throw new BadRequestException(
-          `Observation ${obs.id} is missing required field: testName (display or code) is required`,
-        );
-      }
 
       // Always insert a new observation row, even if epicId is duplicated
       await this.prisma.observation.create({
         data: {
           epicId: obs.id,
           patientId,
-          testName,
-          value: String(obs.value),
-          date: new Date(obs.date),
-          status: obs.status,
+          ...(testName && { testName }),
+          ...(obs.value != null && { value: String(obs.value) }),
+          ...(obs.date && { date: new Date(obs.date) }),
+          ...(obs.status && { status: obs.status }),
           code: obs.code,
           display: obs.display,
           category: obs.category,
           unit: obs.unit,
-        },
+        } as any,
       });
     }
   }
@@ -504,27 +492,15 @@ export class IngestionService {
     conditions: NormalizedCondition[],
   ) {
     for (const cond of conditions) {
-      // Ensure required fields are present
-      if (!cond.status) {
-        throw new BadRequestException(
-          `Condition ${cond.id} is missing required field: status is required`,
-        );
-      }
-      
       const diagnosis = cond.display || cond.code;
-      if (!diagnosis) {
-        throw new BadRequestException(
-          `Condition ${cond.id} is missing required field: diagnosis (display or code) is required`,
-        );
-      }
 
       // Always insert a new condition row, even if epicId is duplicated
       await this.prisma.condition.create({
         data: {
           epicId: cond.id,
           patientId,
-          diagnosis,
-          status: cond.status,
+          ...(diagnosis && { diagnosis }),
+          ...(cond.status && { status: cond.status }),
           onsetDate: cond.onsetDate ? new Date(cond.onsetDate) : null,
           recordedDate: cond.recordedDate
             ? new Date(cond.recordedDate)
@@ -532,7 +508,7 @@ export class IngestionService {
           code: cond.code,
           display: cond.display,
           category: cond.category,
-        },
+        } as any,
       });
     }
   }
@@ -542,36 +518,24 @@ export class IngestionService {
     allergies: NormalizedAllergy[],
   ) {
     for (const allergy of allergies) {
-      // Ensure required fields are present
-      if (!allergy.type || !allergy.status) {
-        throw new BadRequestException(
-          `Allergy ${allergy.id} is missing required fields: type and status are required`,
-        );
-      }
-      
       const allergen = allergy.display || allergy.code;
-      if (!allergen) {
-        throw new BadRequestException(
-          `Allergy ${allergy.id} is missing required field: allergen (display or code) is required`,
-        );
-      }
 
       // Always insert a new allergy row, even if epicId is duplicated
       await this.prisma.allergy.create({
         data: {
           epicId: allergy.id,
           patientId,
-          allergen,
-          type: allergy.type,
+          ...(allergen && { allergen }),
+          ...(allergy.type && { type: allergy.type }),
           severity: allergy.criticality,
-          status: allergy.status,
+          ...(allergy.status && { status: allergy.status }),
           recordedDate: allergy.recordedDate
             ? new Date(allergy.recordedDate)
             : null,
           code: allergy.code,
           display: allergy.display,
           category: allergy.category || [],
-        },
+        } as any,
       });
     }
   }
@@ -581,27 +545,15 @@ export class IngestionService {
     medications: NormalizedMedication[],
   ) {
     for (const med of medications) {
-      // Ensure required fields are present
-      if (!med.status) {
-        throw new BadRequestException(
-          `Medication ${med.id} is missing required field: status is required`,
-        );
-      }
-      
       const medication = med.display || med.code;
-      if (!medication) {
-        throw new BadRequestException(
-          `Medication ${med.id} is missing required field: medication (display or code) is required`,
-        );
-      }
 
       // Always insert a new medication row, even if epicId is duplicated
       await this.prisma.medication.create({
         data: {
           epicId: med.id,
           patientId,
-          medication,
-          status: med.status,
+          ...(medication && { medication }),
+          ...(med.status && { status: med.status }),
           dosage: med.dosage,
           route: med.route,
           startDate: med.startDate ? new Date(med.startDate) : null,
@@ -609,7 +561,7 @@ export class IngestionService {
           dateAsserted: med.dateAsserted ? new Date(med.dateAsserted) : null,
           code: med.code,
           display: med.display,
-        },
+        } as any,
       });
     }
   }
@@ -619,33 +571,21 @@ export class IngestionService {
     procedures: NormalizedProcedure[],
   ) {
     for (const proc of procedures) {
-      // Ensure required fields are present
-      if (!proc.status) {
-        throw new BadRequestException(
-          `Procedure ${proc.id} is missing required field: status is required`,
-        );
-      }
-      
       const procedure = proc.display || proc.code;
-      if (!procedure) {
-        throw new BadRequestException(
-          `Procedure ${proc.id} is missing required field: procedure (display or code) is required`,
-        );
-      }
 
       // Always insert a new procedure row, even if epicId is duplicated
       await this.prisma.procedure.create({
         data: {
           epicId: proc.id,
           patientId,
-          procedure,
-          status: proc.status,
+          ...(procedure && { procedure }),
+          ...(proc.status && { status: proc.status }),
           date: proc.performedDate ? new Date(proc.performedDate) : null,
           outcome: proc.outcome,
           code: proc.code,
           display: proc.display,
           category: proc.category,
-        },
+        } as any,
       });
     }
   }
@@ -655,34 +595,21 @@ export class IngestionService {
     encounters: NormalizedEncounter[],
   ) {
     for (const enc of encounters) {
-      // Ensure required fields are present
-      if (!enc.status) {
-        throw new BadRequestException(
-          `Encounter ${enc.id} is missing required field: status is required`,
-        );
-      }
-      
-      // visitType is required in the database - use type or class as fallback
       const visitType = enc.type || enc.class;
-      if (!visitType) {
-        throw new BadRequestException(
-          `Encounter ${enc.id} is missing required field: visitType (type or class) is required`,
-        );
-      }
 
       // Always insert a new encounter row, even if epicId is duplicated
       await this.prisma.encounter.create({
         data: {
           epicId: enc.id,
           patientId,
-          visitType, // Required field - use type or class
+          ...(visitType && { visitType }),
           reason: enc.reason,
           startDate: enc.startDate ? new Date(enc.startDate) : null,
           endDate: enc.endDate ? new Date(enc.endDate) : null,
-          status: enc.status, // Required field
+          ...(enc.status && { status: enc.status }),
           type: enc.type,
           class: enc.class,
-        },
+        } as any,
       });
     }
   }
@@ -692,27 +619,15 @@ export class IngestionService {
     reports: NormalizedDiagnosticReport[],
   ) {
     for (const report of reports) {
-      // Ensure required fields are present
-      if (!report.status) {
-        throw new BadRequestException(
-          `DiagnosticReport ${report.id} is missing required field: status is required`,
-        );
-      }
-      
       const reportName = report.display || report.code;
-      if (!reportName) {
-        throw new BadRequestException(
-          `DiagnosticReport ${report.id} is missing required field: reportName (display or code) is required`,
-        );
-      }
 
       // Always insert a new diagnostic report row, even if epicId is duplicated
       await this.prisma.diagnosticReport.create({
         data: {
           epicId: report.id,
           patientId,
-          reportName, // Required field
-          status: report.status, // Required field
+          ...(reportName && { reportName }),
+          ...(report.status && { status: report.status }),
           date: report.effectiveDate
             ? new Date(report.effectiveDate)
             : report.issuedDate
@@ -728,7 +643,7 @@ export class IngestionService {
           issuedDate: report.issuedDate
             ? new Date(report.issuedDate)
             : null,
-        },
+        } as any,
       });
     }
   }

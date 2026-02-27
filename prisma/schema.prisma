@@ -64,10 +64,10 @@ model Observation {
   id        String   @id @default(uuid())
   epicId    String   // Epic FHIR Observation ID
   patientId String
-  testName  String
-  value     String
-  date      DateTime
-  status    String
+  testName  String?
+  value     String?
+  date      DateTime?
+  status    String?
   code      String? // Original code
   display   String? // Original display
   category  String?
@@ -86,8 +86,8 @@ model Condition {
   id           String    @id @default(uuid())
   epicId       String    // Epic FHIR Condition ID
   patientId    String
-  diagnosis    String
-  status       String
+  diagnosis    String?
+  status       String?
   onsetDate    DateTime?
   recordedDate DateTime?
   code         String? // Original code
@@ -107,8 +107,8 @@ model Allergy {
   id           String    @id @default(uuid())
   epicId       String    // Epic FHIR AllergyIntolerance ID
   patientId    String
-  allergen     String
-  type         String
+  allergen     String?
+  type         String?
   severity     String?
   status       String
   recordedDate DateTime?
@@ -130,8 +130,8 @@ model Medication {
   id           String    @id @default(uuid())
   epicId       String    // Epic FHIR MedicationStatement ID
   patientId    String
-  medication   String
-  status       String
+  medication   String?
+  status       String?
   dosage       String?
   route        String?
   startDate    DateTime?
@@ -153,8 +153,8 @@ model Procedure {
   id            String    @id @default(uuid())
   epicId        String    // Epic FHIR Procedure ID
   patientId     String
-  procedure     String
-  status        String
+  procedure     String?
+  status        String?
   date          DateTime?
   outcome       String?
   code          String? // Original code
@@ -175,11 +175,11 @@ model Encounter {
   id        String    @id @default(uuid())
   epicId    String    // Epic FHIR Encounter ID
   patientId String
-  visitType String
+  visitType String?
   reason    String?
   startDate DateTime?
   endDate   DateTime?
-  status    String
+  status    String?
   type      String? // Original type
   class     String? // Original class
   createdAt DateTime  @default(now())
@@ -196,8 +196,8 @@ model DiagnosticReport {
   id            String    @id @default(uuid())
   epicId        String    // Epic FHIR DiagnosticReport ID
   patientId     String
-  reportName    String
-  status        String
+  reportName    String?
+  status        String?
   date          DateTime?
   conclusion    String?
   code          String? // Original code
