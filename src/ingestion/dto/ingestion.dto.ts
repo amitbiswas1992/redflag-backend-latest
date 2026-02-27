@@ -803,25 +803,25 @@ export class SimpleObservationDto {
   @IsString()
   patientEpicId?: string;
 
-  @ApiProperty({ description: 'Test name', example: 'Blood Pressure' })
+  @ApiPropertyOptional({ description: 'Test name', example: 'Blood Pressure' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  testName: string;
+  testName?: string;
 
-  @ApiProperty({ description: 'Test value', example: '120/80' })
+  @ApiPropertyOptional({ description: 'Test value', example: '120/80' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  value: string;
+  value?: string;
 
-  @ApiProperty({ description: 'Observation date', example: '2024-01-15T10:30:00Z' })
+  @ApiPropertyOptional({ description: 'Observation date', example: '2024-01-15T10:30:00Z' })
+  @IsOptional()
   @IsDateString()
-  @IsNotEmpty()
-  date: string;
+  date?: string;
 
-  @ApiProperty({ description: 'Status', example: 'final' })
+  @ApiPropertyOptional({ description: 'Status', example: 'final' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  status: string;
+  status?: string;
 
   @ApiPropertyOptional({ description: 'Category', example: 'vital-signs' })
   @IsOptional()
@@ -855,15 +855,15 @@ export class SimpleConditionDto {
   @IsString()
   patientEpicId?: string;
 
-  @ApiProperty({ description: 'Diagnosis', example: 'Type 2 diabetes mellitus' })
+  @ApiPropertyOptional({ description: 'Diagnosis', example: 'Type 2 diabetes mellitus' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  diagnosis: string;
+  diagnosis?: string;
 
-  @ApiProperty({ description: 'Status', example: 'active' })
+  @ApiPropertyOptional({ description: 'Status', example: 'active' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  status: string;
+  status?: string;
 
   @ApiPropertyOptional({ description: 'Onset date', example: '2020-03-15' })
   @IsOptional()
@@ -902,20 +902,20 @@ export class SimpleAllergyDto {
   @IsString()
   patientEpicId?: string;
 
-  @ApiProperty({ description: 'Allergen name', example: 'Penicillin' })
+  @ApiPropertyOptional({ description: 'Allergen name', example: 'Penicillin' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  allergen: string;
+  allergen?: string;
 
-  @ApiProperty({ description: 'Type', example: 'allergy' })
+  @ApiPropertyOptional({ description: 'Type', example: 'allergy' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  type: string;
+  type?: string;
 
-  @ApiProperty({ description: 'Status', example: 'active' })
+  @ApiPropertyOptional({ description: 'Status', example: 'active' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  status: string;
+  status?: string;
 
   @ApiPropertyOptional({ description: 'Severity', example: 'severe' })
   @IsOptional()
@@ -959,15 +959,15 @@ export class SimpleMedicationDto {
   @IsString()
   patientEpicId?: string;
 
-  @ApiProperty({ description: 'Medication name', example: 'Metformin 500mg' })
+  @ApiPropertyOptional({ description: 'Medication name', example: 'Metformin 500mg' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  medication: string;
+  medication?: string;
 
-  @ApiProperty({ description: 'Status', example: 'active' })
+  @ApiPropertyOptional({ description: 'Status', example: 'active' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  status: string;
+  status?: string;
 
   @ApiPropertyOptional({ description: 'Dosage', example: 'Take 1 tablet by mouth twice daily' })
   @IsOptional()
@@ -1016,15 +1016,15 @@ export class SimpleProcedureDto {
   @IsString()
   patientEpicId?: string;
 
-  @ApiProperty({ description: 'Procedure name', example: 'Echocardiogram' })
+  @ApiPropertyOptional({ description: 'Procedure name', example: 'Echocardiogram' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  procedure: string;
+  procedure?: string;
 
-  @ApiProperty({ description: 'Status', example: 'completed' })
+  @ApiPropertyOptional({ description: 'Status', example: 'completed' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  status: string;
+  status?: string;
 
   @ApiPropertyOptional({ description: 'Procedure date', example: '2023-11-20T14:00:00Z' })
   @IsOptional()
@@ -1068,15 +1068,15 @@ export class SimpleEncounterDto {
   @IsString()
   patientEpicId?: string;
 
-  @ApiProperty({ description: 'Visit type', example: 'Office visit' })
+  @ApiPropertyOptional({ description: 'Visit type', example: 'Office visit' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  visitType: string;
+  visitType?: string;
 
-  @ApiProperty({ description: 'Status', example: 'finished' })
+  @ApiPropertyOptional({ description: 'Status', example: 'finished' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  status: string;
+  status?: string;
 
   @ApiPropertyOptional({ description: 'Start date', example: '2024-01-15T09:00:00Z' })
   @IsOptional()
@@ -1115,15 +1115,15 @@ export class SimpleDiagnosticReportDto {
   @IsString()
   patientEpicId?: string;
 
-  @ApiProperty({ description: 'Report name', example: 'Comprehensive metabolic panel' })
+  @ApiPropertyOptional({ description: 'Report name', example: 'Comprehensive metabolic panel' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  reportName: string;
+  reportName?: string;
 
-  @ApiProperty({ description: 'Status', example: 'final' })
+  @ApiPropertyOptional({ description: 'Status', example: 'final' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  status: string;
+  status?: string;
 
   @ApiPropertyOptional({ description: 'Report date', example: '2024-01-15T08:00:00Z' })
   @IsOptional()
