@@ -481,25 +481,15 @@ export class IngestionService {
         );
       }
 
-      await this.prisma.observation.upsert({
-        where: { epicId: obs.id },
-        update: {
-          testName, // Required field - use display or code
-          value: String(obs.value), // Required field
-          date: new Date(obs.date), // Required field
-          status: obs.status, // Required field
-          code: obs.code,
-          display: obs.display,
-          category: obs.category,
-          unit: obs.unit,
-        },
-        create: {
+      // Always insert a new observation row, even if epicId is duplicated
+      await this.prisma.observation.create({
+        data: {
           epicId: obs.id,
           patientId,
-          testName, // Required field
-          value: String(obs.value), // Required field
-          date: new Date(obs.date), // Required field
-          status: obs.status, // Required field
+          testName,
+          value: String(obs.value),
+          date: new Date(obs.date),
+          status: obs.status,
           code: obs.code,
           display: obs.display,
           category: obs.category,
@@ -528,24 +518,13 @@ export class IngestionService {
         );
       }
 
-      await this.prisma.condition.upsert({
-        where: { epicId: cond.id },
-        update: {
-          diagnosis, // Required field
-          status: cond.status, // Required field
-          onsetDate: cond.onsetDate ? new Date(cond.onsetDate) : null,
-          recordedDate: cond.recordedDate
-            ? new Date(cond.recordedDate)
-            : null,
-          code: cond.code,
-          display: cond.display,
-          category: cond.category,
-        },
-        create: {
+      // Always insert a new condition row, even if epicId is duplicated
+      await this.prisma.condition.create({
+        data: {
           epicId: cond.id,
           patientId,
-          diagnosis, // Required field
-          status: cond.status, // Required field
+          diagnosis,
+          status: cond.status,
           onsetDate: cond.onsetDate ? new Date(cond.onsetDate) : null,
           recordedDate: cond.recordedDate
             ? new Date(cond.recordedDate)
@@ -577,27 +556,15 @@ export class IngestionService {
         );
       }
 
-      await this.prisma.allergy.upsert({
-        where: { epicId: allergy.id },
-        update: {
-          allergen, // Required field
-          type: allergy.type, // Required field
-          severity: allergy.criticality,
-          status: allergy.status, // Required field
-          recordedDate: allergy.recordedDate
-            ? new Date(allergy.recordedDate)
-            : null,
-          code: allergy.code,
-          display: allergy.display,
-          category: allergy.category || [],
-        },
-        create: {
+      // Always insert a new allergy row, even if epicId is duplicated
+      await this.prisma.allergy.create({
+        data: {
           epicId: allergy.id,
           patientId,
-          allergen, // Required field
-          type: allergy.type, // Required field
+          allergen,
+          type: allergy.type,
           severity: allergy.criticality,
-          status: allergy.status, // Required field
+          status: allergy.status,
           recordedDate: allergy.recordedDate
             ? new Date(allergy.recordedDate)
             : null,
@@ -628,24 +595,13 @@ export class IngestionService {
         );
       }
 
-      await this.prisma.medication.upsert({
-        where: { epicId: med.id },
-        update: {
-          medication, // Required field
-          status: med.status, // Required field
-          dosage: med.dosage,
-          route: med.route,
-          startDate: med.startDate ? new Date(med.startDate) : null,
-          endDate: med.endDate ? new Date(med.endDate) : null,
-          dateAsserted: med.dateAsserted ? new Date(med.dateAsserted) : null,
-          code: med.code,
-          display: med.display,
-        },
-        create: {
+      // Always insert a new medication row, even if epicId is duplicated
+      await this.prisma.medication.create({
+        data: {
           epicId: med.id,
           patientId,
-          medication, // Required field
-          status: med.status, // Required field
+          medication,
+          status: med.status,
           dosage: med.dosage,
           route: med.route,
           startDate: med.startDate ? new Date(med.startDate) : null,
@@ -677,22 +633,13 @@ export class IngestionService {
         );
       }
 
-      await this.prisma.procedure.upsert({
-        where: { epicId: proc.id },
-        update: {
-          procedure, // Required field
-          status: proc.status, // Required field
-          date: proc.performedDate ? new Date(proc.performedDate) : null,
-          outcome: proc.outcome,
-          code: proc.code,
-          display: proc.display,
-          category: proc.category,
-        },
-        create: {
+      // Always insert a new procedure row, even if epicId is duplicated
+      await this.prisma.procedure.create({
+        data: {
           epicId: proc.id,
           patientId,
-          procedure, // Required field
-          status: proc.status, // Required field
+          procedure,
+          status: proc.status,
           date: proc.performedDate ? new Date(proc.performedDate) : null,
           outcome: proc.outcome,
           code: proc.code,
@@ -723,18 +670,9 @@ export class IngestionService {
         );
       }
 
-      await this.prisma.encounter.upsert({
-        where: { epicId: enc.id },
-        update: {
-          visitType, // Required field - use type or class
-          reason: enc.reason,
-          startDate: enc.startDate ? new Date(enc.startDate) : null,
-          endDate: enc.endDate ? new Date(enc.endDate) : null,
-          status: enc.status, // Required field
-          type: enc.type,
-          class: enc.class,
-        },
-        create: {
+      // Always insert a new encounter row, even if epicId is duplicated
+      await this.prisma.encounter.create({
+        data: {
           epicId: enc.id,
           patientId,
           visitType, // Required field - use type or class
@@ -768,28 +706,9 @@ export class IngestionService {
         );
       }
 
-      await this.prisma.diagnosticReport.upsert({
-        where: { epicId: report.id },
-        update: {
-          reportName, // Required field
-          status: report.status, // Required field
-          date: report.effectiveDate
-            ? new Date(report.effectiveDate)
-            : report.issuedDate
-              ? new Date(report.issuedDate)
-              : null,
-          conclusion: report.conclusion,
-          code: report.code,
-          display: report.display,
-          category: report.category,
-          effectiveDate: report.effectiveDate
-            ? new Date(report.effectiveDate)
-            : null,
-          issuedDate: report.issuedDate
-            ? new Date(report.issuedDate)
-            : null,
-        },
-        create: {
+      // Always insert a new diagnostic report row, even if epicId is duplicated
+      await this.prisma.diagnosticReport.create({
+        data: {
           epicId: report.id,
           patientId,
           reportName, // Required field
@@ -880,53 +799,61 @@ export class IngestionService {
         }
       }
 
-      // Helper function to find patient epicId from existing clinical data using item's epicId
+      // Helper function to find patient epicId from existing clinical data using item's epicId.
+      // epicId is no longer unique on these tables, so we must use findFirst (not findUnique).
       const findPatientEpicIdFromClinicalData = async (
         itemEpicId: string,
-        dataKey: 'observations' | 'conditions' | 'allergies' | 'medications' | 'procedures' | 'encounters' | 'diagnosticReports',
+        dataKey:
+          | 'observations'
+          | 'conditions'
+          | 'allergies'
+          | 'medications'
+          | 'procedures'
+          | 'encounters'
+          | 'diagnosticReports',
       ): Promise<string | null> => {
         try {
           let existingRecord: any = null;
           
           switch (dataKey) {
             case 'observations':
-              existingRecord = await this.prisma.observation.findUnique({
+              existingRecord = await this.prisma.observation.findFirst({
                 where: { epicId: itemEpicId },
                 include: { patient: true },
               });
               break;
             case 'conditions':
-              existingRecord = await this.prisma.condition.findUnique({
+              existingRecord = await this.prisma.condition.findFirst({
                 where: { epicId: itemEpicId },
                 include: { patient: true },
               });
               break;
             case 'allergies':
-              existingRecord = await this.prisma.allergy.findUnique({
+              existingRecord = await this.prisma.allergy.findFirst({
                 where: { epicId: itemEpicId },
                 include: { patient: true },
               });
               break;
             case 'medications':
-              existingRecord = await this.prisma.medication.findUnique({
+              existingRecord = await this.prisma.medication.findFirst({
                 where: { epicId: itemEpicId },
                 include: { patient: true },
               });
               break;
             case 'procedures':
-              existingRecord = await this.prisma.procedure.findUnique({
+              existingRecord = await this.prisma.procedure.findFirst({
                 where: { epicId: itemEpicId },
                 include: { patient: true },
               });
               break;
             case 'encounters':
-              existingRecord = await this.prisma.encounter.findUnique({
+              existingRecord = await this.prisma.encounter.findFirst({
                 where: { epicId: itemEpicId },
                 include: { patient: true },
               });
               break;
             case 'diagnosticReports':
-              existingRecord = await this.prisma.diagnosticReport.findUnique({
+              existingRecord = await this.prisma.diagnosticReport.findFirst({
                 where: { epicId: itemEpicId },
                 include: { patient: true },
               });

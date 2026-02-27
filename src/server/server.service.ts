@@ -480,19 +480,9 @@ export class ServerService {
   ) {
     const upsertPromises = observations.map((obs) => {
       const date = obs.date ? new Date(obs.date) : new Date();
-      return this.prisma.observation.upsert({
-        where: { epicId: obs.id },
-        update: {
-          testName: obs.display,
-          value: obs.value?.toString() || '',
-          date,
-          status: obs.status,
-          code: obs.code,
-          display: obs.display,
-          category: obs.category,
-          unit: obs.unit,
-        },
-        create: {
+      // Always insert a new observation row, even if epicId is duplicated
+      return this.prisma.observation.create({
+        data: {
           epicId: obs.id,
           patientId,
           testName: obs.display,
@@ -515,20 +505,9 @@ export class ServerService {
     conditions: NormalizedCondition[],
   ) {
     const upsertPromises = conditions.map((cond) => {
-      return this.prisma.condition.upsert({
-        where: { epicId: cond.id },
-        update: {
-          diagnosis: cond.display,
-          status: cond.status || 'unknown',
-          onsetDate: cond.onsetDate ? new Date(cond.onsetDate) : undefined,
-          recordedDate: cond.recordedDate
-            ? new Date(cond.recordedDate)
-            : undefined,
-          code: cond.code,
-          display: cond.display,
-          category: cond.category,
-        },
-        create: {
+      // Always insert a new condition row, even if epicId is duplicated
+      return this.prisma.condition.create({
+        data: {
           epicId: cond.id,
           patientId,
           diagnosis: cond.display,
@@ -552,22 +531,9 @@ export class ServerService {
     allergies: NormalizedAllergy[],
   ) {
     const upsertPromises = allergies.map((allergy) => {
-      return this.prisma.allergy.upsert({
-        where: { epicId: allergy.id },
-        update: {
-          allergen: allergy.display,
-          type: allergy.type || 'unknown',
-          severity: allergy.criticality,
-          status: allergy.status || 'unknown',
-          recordedDate: allergy.recordedDate
-            ? new Date(allergy.recordedDate)
-            : undefined,
-          code: allergy.code,
-          display: allergy.display,
-          category: allergy.category || [],
-          criticality: allergy.criticality,
-        },
-        create: {
+      // Always insert a new allergy row, even if epicId is duplicated
+      return this.prisma.allergy.create({
+        data: {
           epicId: allergy.id,
           patientId,
           allergen: allergy.display,
@@ -593,22 +559,9 @@ export class ServerService {
     medications: NormalizedMedication[],
   ) {
     const upsertPromises = medications.map((med) => {
-      return this.prisma.medication.upsert({
-        where: { epicId: med.id },
-        update: {
-          medication: med.display,
-          status: med.status,
-          dosage: med.dosage,
-          route: med.route,
-          startDate: med.startDate ? new Date(med.startDate) : undefined,
-          endDate: med.endDate ? new Date(med.endDate) : undefined,
-          dateAsserted: med.dateAsserted
-            ? new Date(med.dateAsserted)
-            : undefined,
-          code: med.code,
-          display: med.display,
-        },
-        create: {
+      // Always insert a new medication row, even if epicId is duplicated
+      return this.prisma.medication.create({
+        data: {
           epicId: med.id,
           patientId,
           medication: med.display,
@@ -634,28 +587,16 @@ export class ServerService {
     procedures: NormalizedProcedure[],
   ) {
     const upsertPromises = procedures.map((proc) => {
-      return this.prisma.procedure.upsert({
-        where: { epicId: proc.id },
-        update: {
+      // Always insert a new procedure row, even if epicId is duplicated
+      return this.prisma.procedure.create({
+        data: {
+          epicId: proc.id,
+          patientId,
           procedure: proc.display,
           status: proc.status,
           date: proc.performedDate
             ? new Date(proc.performedDate)
             : undefined,
-          outcome: proc.outcome,
-          code: proc.code,
-          display: proc.display,
-          category: proc.category,
-          performedDate: proc.performedDate
-            ? new Date(proc.performedDate)
-            : undefined,
-        },
-        create: {
-          epicId: proc.id,
-          patientId,
-          procedure: proc.display,
-          status: proc.status,
-          date: proc.performedDate ? new Date(proc.performedDate) : undefined,
           outcome: proc.outcome,
           code: proc.code,
           display: proc.display,
@@ -675,18 +616,9 @@ export class ServerService {
     encounters: NormalizedEncounter[],
   ) {
     const upsertPromises = encounters.map((enc) => {
-      return this.prisma.encounter.upsert({
-        where: { epicId: enc.id },
-        update: {
-          visitType: enc.type || enc.class || 'unknown',
-          reason: enc.reason,
-          startDate: enc.startDate ? new Date(enc.startDate) : undefined,
-          endDate: enc.endDate ? new Date(enc.endDate) : undefined,
-          status: enc.status,
-          type: enc.type,
-          class: enc.class,
-        },
-        create: {
+      // Always insert a new encounter row, even if epicId is duplicated
+      return this.prisma.encounter.create({
+        data: {
           epicId: enc.id,
           patientId,
           visitType: enc.type || enc.class || 'unknown',
@@ -708,26 +640,9 @@ export class ServerService {
     reports: NormalizedDiagnosticReport[],
   ) {
     const upsertPromises = reports.map((report) => {
-      return this.prisma.diagnosticReport.upsert({
-        where: { epicId: report.id },
-        update: {
-          reportName: report.display,
-          status: report.status,
-          date: report.effectiveDate
-            ? new Date(report.effectiveDate)
-            : undefined,
-          conclusion: report.conclusion,
-          code: report.code,
-          display: report.display,
-          category: report.category,
-          effectiveDate: report.effectiveDate
-            ? new Date(report.effectiveDate)
-            : undefined,
-          issuedDate: report.issuedDate
-            ? new Date(report.issuedDate)
-            : undefined,
-        },
-        create: {
+      // Always insert a new diagnostic report row, even if epicId is duplicated
+      return this.prisma.diagnosticReport.create({
+        data: {
           epicId: report.id,
           patientId,
           reportName: report.display,

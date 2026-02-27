@@ -62,7 +62,7 @@ model Practitioner {
 
 model Observation {
   id        String   @id @default(uuid())
-  epicId    String   @unique // Epic FHIR Observation ID
+  epicId    String   // Epic FHIR Observation ID
   patientId String
   testName  String
   value     String
@@ -84,7 +84,7 @@ model Observation {
 
 model Condition {
   id           String    @id @default(uuid())
-  epicId       String    @unique // Epic FHIR Condition ID
+  epicId       String    // Epic FHIR Condition ID
   patientId    String
   diagnosis    String
   status       String
@@ -105,7 +105,7 @@ model Condition {
 
 model Allergy {
   id           String    @id @default(uuid())
-  epicId       String    @unique // Epic FHIR AllergyIntolerance ID
+  epicId       String    // Epic FHIR AllergyIntolerance ID
   patientId    String
   allergen     String
   type         String
@@ -128,7 +128,7 @@ model Allergy {
 
 model Medication {
   id           String    @id @default(uuid())
-  epicId       String    @unique // Epic FHIR MedicationStatement ID
+  epicId       String    // Epic FHIR MedicationStatement ID
   patientId    String
   medication   String
   status       String
@@ -151,7 +151,7 @@ model Medication {
 
 model Procedure {
   id            String    @id @default(uuid())
-  epicId        String    @unique // Epic FHIR Procedure ID
+  epicId        String    // Epic FHIR Procedure ID
   patientId     String
   procedure     String
   status        String
@@ -173,7 +173,7 @@ model Procedure {
 
 model Encounter {
   id        String    @id @default(uuid())
-  epicId    String    @unique // Epic FHIR Encounter ID
+  epicId    String    // Epic FHIR Encounter ID
   patientId String
   visitType String
   reason    String?
@@ -194,7 +194,7 @@ model Encounter {
 
 model DiagnosticReport {
   id            String    @id @default(uuid())
-  epicId        String    @unique // Epic FHIR DiagnosticReport ID
+  epicId        String    // Epic FHIR DiagnosticReport ID
   patientId     String
   reportName    String
   status        String
