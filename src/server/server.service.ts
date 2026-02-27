@@ -67,6 +67,10 @@ export class ServerService {
         take,
         orderBy: { createdAt: 'desc' },
         include: {
+          // Include all encounters so callers can see full encounter history per patient
+          encounters: {
+            orderBy: { startDate: 'desc' },
+          },
           _count: {
             select: {
               encounters: true,
