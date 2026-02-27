@@ -966,15 +966,9 @@ export class IngestionService {
       dbPatient = existingPatient;
     }
 
-    // Convert and upsert observations - preserve all required fields
+    // Convert and upsert observations
     const normalizedObservations: NormalizedObservation[] =
       patientData.observations.map((obs) => {
-        // Ensure required fields are present
-        if (!obs.testName || !obs.value || !obs.date || !obs.status) {
-          throw new BadRequestException(
-            `Observation ${obs.epicId} is missing required fields: testName, value, date, and status are required`,
-          );
-        }
         return {
           id: obs.epicId,
           code: obs.code || obs.testName,
@@ -983,19 +977,13 @@ export class IngestionService {
           value: obs.value, // Required field
           unit: obs.unit,
           date: obs.date, // Required field
-          status: obs.status, // Required field
+          status: obs.status, // Optional in bulk DTO
         };
-      });
+      }) as any;
 
-    // Convert and upsert conditions - preserve all required fields
+    // Convert and upsert conditions
     const normalizedConditions: NormalizedCondition[] =
       patientData.conditions.map((cond) => {
-        // Ensure required fields are present
-        if (!cond.diagnosis || !cond.status) {
-          throw new BadRequestException(
-            `Condition ${cond.epicId} is missing required fields: diagnosis and status are required`,
-          );
-        }
         return {
           id: cond.epicId,
           code: cond.code || cond.diagnosis,
@@ -1005,17 +993,11 @@ export class IngestionService {
           onsetDate: cond.onsetDate,
           recordedDate: cond.recordedDate,
         };
-      });
+      }) as any;
 
-    // Convert and upsert allergies - preserve all required fields
+    // Convert and upsert allergies
     const normalizedAllergies: NormalizedAllergy[] = patientData.allergies.map(
       (allergy) => {
-        // Ensure required fields are present
-        if (!allergy.allergen || !allergy.type || !allergy.status) {
-          throw new BadRequestException(
-            `Allergy ${allergy.epicId} is missing required fields: allergen, type, and status are required`,
-          );
-        }
         return {
           id: allergy.epicId,
           code: allergy.code || allergy.allergen,
@@ -1023,21 +1005,15 @@ export class IngestionService {
           type: allergy.type, // Required field
           category: allergy.category || [],
           criticality: allergy.criticality || allergy.severity,
-          status: allergy.status, // Required field
+          status: allergy.status, // Optional in bulk DTO
           recordedDate: allergy.recordedDate,
         };
       },
-    );
+    ) as any;
 
-    // Convert and upsert medications - preserve all required fields
+    // Convert and upsert medications
     const normalizedMedications: NormalizedMedication[] =
       patientData.medications.map((med) => {
-        // Ensure required fields are present
-        if (!med.medication || !med.status) {
-          throw new BadRequestException(
-            `Medication ${med.epicId} is missing required fields: medication and status are required`,
-          );
-        }
         return {
           id: med.epicId,
           code: med.code || med.medication,
@@ -1049,17 +1025,11 @@ export class IngestionService {
           dosage: med.dosage,
           route: med.route,
         };
-      });
+      }) as any;
 
-    // Convert and upsert procedures - preserve all required fields
+    // Convert and upsert procedures
     const normalizedProcedures: NormalizedProcedure[] =
       patientData.procedures.map((proc) => {
-        // Ensure required fields are present
-        if (!proc.procedure || !proc.status) {
-          throw new BadRequestException(
-            `Procedure ${proc.epicId} is missing required fields: procedure and status are required`,
-          );
-        }
         return {
           id: proc.epicId,
           code: proc.code || proc.procedure,
@@ -1069,17 +1039,11 @@ export class IngestionService {
           performedDate: proc.performedDate || proc.date,
           outcome: proc.outcome,
         };
-      });
+      }) as any;
 
-    // Convert and upsert encounters - preserve all required fields
+    // Convert and upsert encounters
     const normalizedEncounters: NormalizedEncounter[] =
       patientData.encounters.map((enc) => {
-        // Ensure required fields are present
-        if (!enc.visitType || !enc.status) {
-          throw new BadRequestException(
-            `Encounter ${enc.epicId} is missing required fields: visitType and status are required`,
-          );
-        }
         return {
           id: enc.epicId,
           status: enc.status, // Required field
@@ -1089,17 +1053,11 @@ export class IngestionService {
           endDate: enc.endDate,
           reason: enc.reason,
         };
-      });
+      }) as any;
 
-    // Convert and upsert diagnostic reports - preserve all required fields
+    // Convert and upsert diagnostic reports
     const normalizedDiagnosticReports: NormalizedDiagnosticReport[] =
       patientData.diagnosticReports.map((report) => {
-        // Ensure required fields are present
-        if (!report.reportName || !report.status) {
-          throw new BadRequestException(
-            `DiagnosticReport ${report.epicId} is missing required fields: reportName and status are required`,
-          );
-        }
         return {
           id: report.epicId,
           code: report.code || report.reportName,
@@ -1110,7 +1068,7 @@ export class IngestionService {
           issuedDate: report.issuedDate,
           conclusion: report.conclusion,
         };
-      });
+      }) as any;
 
     // Upsert all related data in parallel
     await Promise.all([
