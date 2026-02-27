@@ -47,15 +47,32 @@ export class ServerController {
   @ApiOperation({ summary: 'Get all patients' })
   @ApiQuery({ name: 'skip', required: false, type: Number, example: 0 })
   @ApiQuery({ name: 'take', required: false, type: Number, example: 10 })
+  @ApiQuery({
+    name: 'hasIssue',
+    required: false,
+    type: Boolean,
+    example: true,
+    description:
+      'Filter patients by whether they have matched issues (risk evaluations). true = only patients with issues, false = only patients without issues, omitted = all patients',
+  })
   @ApiOkResponse({ description: 'List of patients retrieved successfully' })
   @Get('patients')
   async findAllPatients(
     @Query('skip') skip?: string,
     @Query('take') take?: string,
+    @Query('hasIssue') hasIssue?: string,
   ) {
+    let hasIssueFilter: boolean | undefined;
+    if (typeof hasIssue === 'string') {
+      const normalized = hasIssue.toLowerCase();
+      if (normalized === 'true') hasIssueFilter = true;
+      else if (normalized === 'false') hasIssueFilter = false;
+    }
+
     return this.serverService.findAllPatients(
       skip ? parseInt(skip, 10) : 0,
       take ? parseInt(take, 10) : 10,
+      hasIssueFilter,
     );
   }
 

@@ -60,11 +60,29 @@ export class ServerService {
     }
   }
 
-  async findAllPatients(skip = 0, take = 10) {
+  async findAllPatients(skip = 0, take = 10, hasIssue?: boolean) {
+    // Optional filter by issue (matched risk evaluation)
+    const where: any = {};
+
+    if (hasIssue === true) {
+      where.riskEvaluations = {
+        some: {
+          matched: true,
+        },
+      };
+    } else if (hasIssue === false) {
+      where.riskEvaluations = {
+        none: {
+          matched: true,
+        },
+      };
+    }
+
     const [patients, total] = await Promise.all([
       this.prisma.patient.findMany({
         skip,
         take,
+        where,
         orderBy: { createdAt: 'desc' },
         include: {
           // Include all encounters so callers can see full encounter history per patient
@@ -79,7 +97,7 @@ export class ServerService {
           },
         },
       }),
-      this.prisma.patient.count(),
+      this.prisma.patient.count({ where }),
     ]);
 
     // Get patient IDs to count matched risk evaluations (issues)
@@ -116,7 +134,28 @@ export class ServerService {
       };
     });
 
-    return { patients: patientsWithCounts, total, skip, take };
+    // Aggregate meta statistics
+    const patientsWithIssues = patientsWithCounts.filter(
+      (p) => p.issueCount && p.issueCount > 0,
+    ).length;
+
+    const totalEncounters = patientsWithCounts.reduce(
+      (sum, p) => sum + (p.encounterCount || 0),
+      0,
+    );
+    const averageEncountersPerPatient =
+      patientsWithCounts.length > 0
+        ? totalEncounters / patientsWithCounts.length
+        : 0;
+
+    return {
+      patients: patientsWithCounts,
+      total,
+      skip,
+      take,
+      patientsWithIssues,
+      averageEncountersPerPatient,
+    };
   }
 
   async findPatientById(id: string) {
