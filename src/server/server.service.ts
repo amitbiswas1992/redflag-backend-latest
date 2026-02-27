@@ -78,7 +78,13 @@ export class ServerService {
       };
     }
 
-    const [patients, total] = await Promise.all([
+    const [
+      patients,
+      total,
+      globalPatientsWithIssues,
+      globalEncounterCount,
+      globalPatientCount,
+    ] = await Promise.all([
       this.prisma.patient.findMany({
         skip,
         take,
@@ -97,7 +103,22 @@ export class ServerService {
           },
         },
       }),
+      // Total patients matching current filter (for pagination)
       this.prisma.patient.count({ where }),
+      // Global: total patients that have at least one matched issue (across all patients)
+      this.prisma.patient.count({
+        where: {
+          riskEvaluations: {
+            some: {
+              matched: true,
+            },
+          },
+        },
+      }),
+      // Global: total number of encounters across all patients
+      this.prisma.encounter.count(),
+      // Global: total number of patients (used for average encounters per patient)
+      this.prisma.patient.count(),
     ]);
 
     // Get patient IDs to count matched risk evaluations (issues)
@@ -134,18 +155,12 @@ export class ServerService {
       };
     });
 
-    // Aggregate meta statistics
-    const patientsWithIssues = patientsWithCounts.filter(
-      (p) => p.issueCount && p.issueCount > 0,
-    ).length;
-
-    const totalEncounters = patientsWithCounts.reduce(
-      (sum, p) => sum + (p.encounterCount || 0),
-      0,
-    );
+    // Aggregate meta statistics based on ALL patients in the system,
+    // not just the current paginated page.
+    const patientsWithIssues = globalPatientsWithIssues;
     const averageEncountersPerPatient =
-      patientsWithCounts.length > 0
-        ? totalEncounters / patientsWithCounts.length
+      globalPatientCount > 0
+        ? globalEncounterCount / globalPatientCount
         : 0;
 
     return {
