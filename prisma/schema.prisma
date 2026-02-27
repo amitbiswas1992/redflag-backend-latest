@@ -110,7 +110,7 @@ model Allergy {
   allergen     String?
   type         String?
   severity     String?
-  status       String
+  status       String?
   recordedDate DateTime?
   code         String? // Original code
   display      String? // Original display
