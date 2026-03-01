@@ -240,6 +240,10 @@ export class RiskEngineService {
 
     if (rules.length === 0) {
       this.logger.warn('No active rules found for evaluation');
+      // Remove any previous evaluations so summary reflects current state
+      await this.prisma.riskEvaluation.deleteMany({
+        where: { patientId },
+      });
       return {
         patientId,
         totalScore: 0,
@@ -268,55 +272,26 @@ export class RiskEngineService {
       throw new NotFoundException(`Patient with ID ${patientId} not found`);
     }
 
-    // Get existing evaluations for this patient (latest per rule)
-    const existingEvaluations = await this.prisma.riskEvaluation.findMany({
+    // Remove all previous evaluations for this patient so that re-evaluation
+    // reflects current rules and role conditions (no stale issues).
+    await this.prisma.riskEvaluation.deleteMany({
       where: { patientId },
-      include: {
-        rule: {
-          include: {
-            conditions: {
-              orderBy: { order: 'asc' },
-            },
-          },
-        },
-      },
-      orderBy: {
-        evaluatedAt: 'desc',
-      },
     });
 
-    const latestEvalByRule = new Map<string, any>();
-    for (const evalItem of existingEvaluations) {
-      if (!latestEvalByRule.has(evalItem.ruleId)) {
-        latestEvalByRule.set(evalItem.ruleId, evalItem);
-      }
-    }
-
-    // Evaluate only new or updated rules
+    // Evaluate every active rule with current patient data and current rule definitions
+    const evaluations: any[] = [];
     for (const rule of rules) {
-      const latestEval = latestEvalByRule.get(rule.id);
-
-      // If we already evaluated this rule for this patient AFTER the rule was last updated, skip re-evaluation
-      if (latestEval && latestEval.evaluatedAt >= rule.updatedAt) {
-        continue;
-      }
-
-      // New rule or updated rule – evaluate it now
       const evaluation = await this.evaluateRule(rule, patient);
-      latestEvalByRule.set(rule.id, evaluation);
+      evaluations.push(evaluation);
     }
 
-    // Build final evaluations array from latest evaluations per rule
-    const evaluations: any[] = Array.from(latestEvalByRule.values());
-
-    // Aggregate total score and risk levels from all latest evaluations
+    // Aggregate total score and risk levels from new evaluations only
     let totalScore = 0;
     const riskLevels = new Set<string>();
 
     for (const evaluation of evaluations) {
       if (evaluation.matched) {
         totalScore += evaluation.score;
-        // evaluation.rule is included in evaluateRule; use its riskLevel
         if (evaluation.rule?.riskLevel) {
           riskLevels.add(evaluation.rule.riskLevel);
         }
@@ -710,7 +685,16 @@ export class RiskEngineService {
       orderBy: { evaluatedAt: 'desc' },
     });
 
-    const matchedEvaluations = evaluations.filter((e) => e.matched);
+    // Use only the latest evaluation per rule so we don't show stale issues
+    const latestByRule = new Map<string, (typeof evaluations)[0]>();
+    for (const e of evaluations) {
+      if (!latestByRule.has(e.ruleId)) {
+        latestByRule.set(e.ruleId, e);
+      }
+    }
+    const latestEvaluations = Array.from(latestByRule.values());
+
+    const matchedEvaluations = latestEvaluations.filter((e) => e.matched);
     const totalScore = matchedEvaluations.reduce(
       (sum, e) => sum + e.score,
       0,
