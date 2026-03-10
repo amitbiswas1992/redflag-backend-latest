@@ -19,6 +19,279 @@ export class RiskEngineService {
 
   constructor(private prisma: PrismaService) {}
 
+  /**
+   * Helper to parse a fully-qualified field name like
+   * "Encounter.patientIdentityVerified" into a source model and a
+   * path that can be resolved on that model instance.
+   */
+  private parseQualifiedField(field: string): {
+    source: string;
+    path: string;
+  } {
+    if (!field) {
+      return { source: 'Patient', path: '' };
+    }
+
+    const parts = field.split('.');
+    if (parts.length === 1) {
+      // No explicit source → treat as Patient-level field
+      return { source: 'Patient', path: parts[0] };
+    }
+
+    const [source, ...rest] = parts;
+    return { source, path: rest.join('.') };
+  }
+
+  /**
+   * Get the "current" record for a given source model from the patient object.
+   * For event-like resources (Encounter, Medication, etc.) this returns the
+   * latest record (index 0) if present.
+   */
+  private getSourceRecord(patient: any, source: string): any | null {
+    switch (source) {
+      case 'Patient':
+        return patient;
+      case 'Encounter':
+        return patient.encounters?.[0] || null;
+      case 'Medication':
+        return patient.medications?.[0] || null;
+      case 'Observation':
+        return patient.observations?.[0] || null;
+      case 'Condition':
+        return patient.conditions?.[0] || null;
+      case 'Allergy':
+        return patient.allergies?.[0] || null;
+      case 'Procedure':
+        return patient.procedures?.[0] || null;
+      case 'DiagnosticReport':
+        return patient.diagnosticReports?.[0] || null;
+      default:
+        // Unknown prefix – treat as patient-level field
+        return patient;
+    }
+  }
+
+  /**
+   * Static catalog of fields that can be used in risk rule conditions,
+   * with their logical table/model prefix.
+   *
+   * NOTE: These names correspond to Prisma model fields as exposed via
+   * getAllPatientData / getEventData in this service.
+   */
+  private readonly riskFieldCatalog = [
+    // Encounter-based fields
+    {
+      table: 'Encounter',
+      field: 'practitionerName',
+      description: 'Display name of the practitioner for this encounter',
+    },
+    {
+      table: 'Encounter',
+      field: 'isTelehealth',
+      description: 'Whether the encounter was conducted via telehealth',
+    },
+    {
+      table: 'Encounter',
+      field: 'telehealthId',
+      description: 'External telehealth platform session identifier',
+    },
+    {
+      table: 'Encounter',
+      field: 'patientIdentityVerified',
+      description: 'Whether patient identity verification was documented',
+    },
+    {
+      table: 'Encounter',
+      field: 'consentObtained',
+      description: 'Whether required consent was obtained',
+    },
+    {
+      table: 'Encounter',
+      field: 'informedConsentType',
+      description: 'Type of informed consent (e.g., telehealth-specific)',
+    },
+    {
+      table: 'Encounter',
+      field: 'sessionRecordingConsent',
+      description: 'Whether consent for recording the session was obtained',
+    },
+    {
+      table: 'Encounter',
+      field: 'providerLocation',
+      description: 'Text description of provider location during encounter',
+    },
+    {
+      table: 'Encounter',
+      field: 'providerLocationState',
+      description: 'US state (or region) of provider during encounter',
+    },
+    {
+      table: 'Encounter',
+      field: 'patientLocation',
+      description: 'Text description of patient location during encounter',
+    },
+    {
+      table: 'Encounter',
+      field: 'patientLocationState',
+      description: 'US state (or region) of patient during encounter',
+    },
+    {
+      table: 'Encounter',
+      field: 'stateLicensureVerified',
+      description: 'JSON map of state → licensure verification status',
+    },
+    {
+      table: 'Encounter',
+      field: 'crossStateLicense',
+      description: 'Whether cross-state license is documented',
+    },
+    {
+      table: 'Encounter',
+      field: 'encounterType',
+      description: "Encounter type label (e.g. 'New', 'Follow-up')",
+    },
+    {
+      table: 'Encounter',
+      field: 'sessionDurationMinutes',
+      description: 'Encounter/session duration in minutes',
+    },
+    {
+      table: 'Encounter',
+      field: 'sessionStartTime',
+      description: 'Encounter/session start timestamp',
+    },
+    {
+      table: 'Encounter',
+      field: 'sessionEndTime',
+      description: 'Encounter/session end timestamp',
+    },
+    {
+      table: 'Encounter',
+      field: 'mentalHealthScreening',
+      description: 'Mental health screening instrument/status',
+    },
+    {
+      table: 'Encounter',
+      field: 'substanceUseScreening',
+      description: 'Substance use screening instrument/status',
+    },
+    {
+      table: 'Encounter',
+      field: 'chiefComplaint',
+      description: 'Chief complaint / reason for visit (free text)',
+    },
+    {
+      table: 'Encounter',
+      field: 'followUpScheduled',
+      description: 'Whether a follow-up was scheduled',
+    },
+    {
+      table: 'Encounter',
+      field: 'carePlanUpdated',
+      description: 'Whether care plan was updated this encounter',
+    },
+    {
+      table: 'Encounter',
+      field: 'vitalSignsRecorded',
+      description: 'Whether vital signs were recorded',
+    },
+    {
+      table: 'Encounter',
+      field: 'outcomeMeasured',
+      description: 'Outcome measurement or summary text',
+    },
+    {
+      table: 'Encounter',
+      field: 'coordinationWithPcp',
+      description: 'Whether coordination with primary care provider occurred',
+    },
+    {
+      table: 'Encounter',
+      field: 'clinicalNotesCompleted',
+      description: 'Clinical note completion status',
+    },
+    {
+      table: 'Encounter',
+      field: 'noteSignedDate',
+      description: 'When clinical note was signed',
+    },
+    {
+      table: 'Encounter',
+      field: 'allergiesReviewed',
+      description: 'Whether allergies were reviewed',
+    },
+    {
+      table: 'Encounter',
+      field: 'technologyAssessment',
+      description: 'Assessment of patient’s ability to use technology',
+    },
+    {
+      table: 'Encounter',
+      field: 'clinicalDecisionMaker',
+      description: 'Who is documented as clinical decision maker',
+    },
+    {
+      table: 'Encounter',
+      field: 'qualityMeasureMet',
+      description: 'Whether required quality measure was met',
+    },
+
+    // Medication-based fields
+    {
+      table: 'Medication',
+      field: 'controlledSubstancePrescribed',
+      description: 'Whether the medication is a controlled substance',
+    },
+    {
+      table: 'Medication',
+      field: 'refillCount',
+      description: 'Number of refills on this prescription',
+    },
+    {
+      table: 'Medication',
+      field: 'autoRefillEnabled',
+      description: 'Whether auto-refill is enabled for this medication',
+    },
+    {
+      table: 'Medication',
+      field: 'medicationAdherence',
+      description: 'Documented medication adherence status',
+    },
+    {
+      table: 'Medication',
+      field: 'clinicalDecisionSupport',
+      description: 'Number of CDS alerts triggered for this medication',
+    },
+    {
+      table: 'Medication',
+      field: 'overrideReason',
+      description: 'Override reason when CDS alerts are bypassed',
+    },
+    {
+      table: 'Medication',
+      field: 'quantity',
+      description: 'Dispensed quantity (e.g., tablets)',
+    },
+    {
+      table: 'Medication',
+      field: 'substanceCode',
+      description: 'Substance code (e.g., RxNorm code)',
+    },
+    {
+      table: 'Medication',
+      field: 'substanceExpiry',
+      description: 'Medication expiry date',
+    },
+    {
+      table: 'Medication',
+      field: 'prescriptionWritten',
+      description: 'Whether a prescription was written in this context',
+    },
+  ].map((f) => ({
+    ...f,
+    fullName: `${f.table}.${f.field}`,
+  }));
+
   // Risk Rule CRUD Operations
   async createRule(createRuleDto: CreateRiskRuleDto) {
     try {
@@ -319,81 +592,74 @@ export class RiskEngineService {
     };
   }
 
+  /**
+   * Return all available risk rule field names with their table prefix.
+   * These are the canonical names that can be used in RuleConditionDto.field
+   * in the form "Model.fieldName", e.g. "Encounter.patientIdentityVerified".
+   */
+  getRiskFieldNames() {
+    return this.riskFieldCatalog;
+  }
+
   private async evaluateRule(rule: any, patient: any) {
     let matched = false;
     let matchedValue: string | null = null;
     let eventId: string | null = null;
 
     try {
-      // Check if rule has conditions (new format) or legacy single condition
-      const hasConditions = rule.conditions && rule.conditions.length > 0;
-      const hasLegacyCondition = rule.field && rule.operator;
-
-      if (hasConditions) {
-        // Evaluate multiple conditions
-        // If rule has eventName, evaluate conditions against each event record
-        if (rule.eventName) {
-          const eventData = this.getEventData(rule.eventName as EventName, patient);
-          
-          // Evaluate conditions against each record in the event data
-          for (const record of eventData) {
-            const recordMatched = this.evaluateConditionsAgainstRecord(
-              rule.conditions,
-              rule.conditionLogic || ConditionLogic.AND,
-              record,
-              patient,
-            );
-            
-            if (recordMatched) {
-              matched = true;
-              // Get the matched value from the first condition field
-              const firstCondition = rule.conditions[0];
-              if (firstCondition) {
-                const fieldValue = this.getFieldValue(record, firstCondition.field);
-                matchedValue = fieldValue !== null && fieldValue !== undefined 
-                  ? String(fieldValue) 
-                  : 'Multiple conditions matched';
-              } else {
-                matchedValue = 'Multiple conditions matched';
-              }
-              eventId = record.id || record.epicId || null;
-              break; // Match found, no need to check other records
-            }
-          }
-        } else {
-          // No eventName - evaluate against patient data directly
-          matched = this.evaluateConditions(
-            rule.conditions,
-            rule.conditionLogic || ConditionLogic.AND,
-            patient,
-          );
-          if (matched) {
-            matchedValue = 'Multiple conditions matched';
-          }
-        }
-      } else if (hasLegacyCondition) {
-        // Legacy single condition evaluation
-        const eventData = rule.eventName
-          ? this.getEventData(rule.eventName as EventName, patient)
-          : [patient];
-
-        // Evaluate each record in the event data
-        for (const record of eventData) {
-          const fieldValue = this.getFieldValue(record, rule.field);
-
-          if (fieldValue !== null && fieldValue !== undefined) {
-            if (this.compareValues(fieldValue, rule.operator, rule.value)) {
-              matched = true;
-              matchedValue = String(fieldValue);
-              eventId = record.id || record.epicId || null;
-              break; // Match found, no need to check other records
-            }
-          }
-        }
-      } else {
+      const conditions = rule.conditions || [];
+      if (!conditions.length) {
         this.logger.warn(
           `Rule ${rule.id} has no conditions defined, skipping evaluation`,
         );
+      } else {
+        // Multi-condition evaluation against fully-qualified field names.
+        const logic: ConditionLogic =
+          rule.conditionLogic || ConditionLogic.AND;
+
+        const results: boolean[] = [];
+        let firstFieldValue: any = null;
+        let firstSourceRecord: any = null;
+
+        for (const condition of conditions) {
+          const { source, path } = this.parseQualifiedField(condition.field);
+          const record = this.getSourceRecord(patient, source);
+
+          let fieldValue: any = null;
+          if (record && path) {
+            fieldValue = this.getFieldValue(record, path);
+          }
+
+          const conditionResult = this.compareValues(
+            fieldValue,
+            condition.operator,
+            condition.value,
+          );
+          results.push(conditionResult);
+
+          if (firstFieldValue === null && fieldValue !== undefined) {
+            firstFieldValue = fieldValue;
+            firstSourceRecord = record;
+          }
+        }
+
+        if (logic === ConditionLogic.AND) {
+          matched = results.every((r) => r === true);
+        } else {
+          matched = results.some((r) => r === true);
+        }
+
+        if (matched) {
+          matchedValue =
+            firstFieldValue !== null && firstFieldValue !== undefined
+              ? String(firstFieldValue)
+              : 'Multiple conditions matched';
+          eventId =
+            firstSourceRecord?.id ||
+            firstSourceRecord?.epicId ||
+            patient.id ||
+            null;
+        }
       }
     } catch (error) {
       this.logger.error(
@@ -419,179 +685,6 @@ export class RiskEngineService {
     });
 
     return evaluation;
-  }
-
-  private evaluateConditions(
-    conditions: any[],
-    logic: ConditionLogic,
-    patient: any,
-  ): boolean {
-    if (!conditions || conditions.length === 0) {
-      return false;
-    }
-
-    // Get all patient data for condition evaluation
-    const patientData = this.getAllPatientData(patient);
-
-    // Evaluate each condition
-    const conditionResults = conditions.map((condition) => {
-      const fieldValue = this.getFieldValueFromPatientData(
-        patientData,
-        condition.field,
-      );
-      return this.compareValues(
-        fieldValue,
-        condition.operator,
-        condition.value,
-      );
-    });
-
-    // Apply logic (AND or OR)
-    if (logic === ConditionLogic.AND) {
-      return conditionResults.every((result) => result === true);
-    } else {
-      // OR logic
-      return conditionResults.some((result) => result === true);
-    }
-  }
-
-  /**
-   * Evaluate conditions against a specific record (e.g., an observation, encounter, etc.)
-   * This is used when evaluating event-based rules where conditions should be checked
-   * against individual event records rather than patient data directly.
-   */
-  private evaluateConditionsAgainstRecord(
-    conditions: any[],
-    logic: ConditionLogic,
-    record: any,
-    patient: any,
-  ): boolean {
-    if (!conditions || conditions.length === 0) {
-      return false;
-    }
-
-    // Get all patient data for condition evaluation (for fields that might reference patient data)
-    const patientData = this.getAllPatientData(patient);
-    
-    // Merge record data with patient data (record takes precedence)
-    const combinedData = {
-      ...patientData,
-      ...record,
-    };
-
-    // Evaluate each condition
-    const conditionResults = conditions.map((condition) => {
-      // First try to get field value from the record directly
-      let fieldValue = this.getFieldValue(record, condition.field);
-      
-      // If not found in record, try from combined data (for nested access like "latestObservation.testName")
-      if (fieldValue === null || fieldValue === undefined) {
-        fieldValue = this.getFieldValueFromPatientData(
-          combinedData,
-          condition.field,
-        );
-      }
-      
-      return this.compareValues(
-        fieldValue,
-        condition.operator,
-        condition.value,
-      );
-    });
-
-    // Apply logic (AND or OR)
-    if (logic === ConditionLogic.AND) {
-      return conditionResults.every((result) => result === true);
-    } else {
-      // OR logic
-      return conditionResults.some((result) => result === true);
-    }
-  }
-
-  private getAllPatientData(patient: any): any {
-    // Combine all patient data into a single object for field access
-    // This allows conditions to access data from any source (patient, encounters, medications, etc.)
-    return {
-      // Patient fields
-      ...patient,
-      // Latest encounter data
-      latestEncounter: patient.encounters?.[0] || null,
-      // Latest medication
-      latestMedication: patient.medications?.[0] || null,
-      // Latest observation
-      latestObservation: patient.observations?.[0] || null,
-      // All encounters (for array access)
-      encounters: patient.encounters || [],
-      // All medications
-      medications: patient.medications || [],
-      // All observations
-      observations: patient.observations || [],
-      // All conditions
-      conditions: patient.conditions || [],
-      // All allergies
-      allergies: patient.allergies || [],
-      // All procedures
-      procedures: patient.procedures || [],
-      // All diagnostic reports
-      diagnosticReports: patient.diagnosticReports || [],
-    };
-  }
-
-  private getFieldValueFromPatientData(
-    patientData: any,
-    field: string,
-  ): any {
-    // Support nested field access and array indexing
-    // Examples:
-    // - "controlled_substance_prescribed" -> patientData.controlled_substance_prescribed
-    // - "patient_identity_verified" -> patientData.patient_identity_verified
-    // - "state_licensure_verified[patient_state]" -> patientData.state_licensure_verified[patient_state]
-    // - "provider_location_state" -> patientData.provider_location_state
-    // - "patient_location_state" -> patientData.patient_location_state
-
-    // Handle array indexing syntax like "field[key]"
-    const arrayIndexMatch = field.match(/^(.+)\[(.+)\]$/);
-    if (arrayIndexMatch) {
-      const arrayField = arrayIndexMatch[1];
-      const indexKey = arrayIndexMatch[2];
-      const arrayValue = this.getFieldValue(patientData, arrayField);
-      if (Array.isArray(arrayValue)) {
-        // If it's an array, try to find by key
-        const index = parseInt(indexKey, 10);
-        if (!isNaN(index)) {
-          return arrayValue[index];
-        }
-      } else if (typeof arrayValue === 'object' && arrayValue !== null) {
-        // If it's an object, access by key
-        const keyValue = this.getFieldValue(patientData, indexKey);
-        return arrayValue[keyValue];
-      }
-      return null;
-    }
-
-    // Standard nested field access
-    return this.getFieldValue(patientData, field);
-  }
-
-  private getEventData(eventName: EventName, patient: any): any[] {
-    switch (eventName) {
-      case EventName.OBSERVATION:
-        return patient.observations || [];
-      case EventName.CONDITION:
-        return patient.conditions || [];
-      case EventName.ALLERGY:
-        return patient.allergies || [];
-      case EventName.MEDICATION:
-        return patient.medications || [];
-      case EventName.PROCEDURE:
-        return patient.procedures || [];
-      case EventName.ENCOUNTER:
-        return patient.encounters || [];
-      case EventName.DIAGNOSTIC_REPORT:
-        return patient.diagnosticReports || [];
-      default:
-        return [];
-    }
   }
 
   private getFieldValue(record: any, field: string): any {
@@ -633,6 +726,18 @@ export class RiskEngineService {
       return false;
     }
 
+    // Normalize boolean-like values
+    const normalizeBool = (v: any): boolean | null => {
+      if (typeof v === 'boolean') return v;
+      const s = String(v).toLowerCase();
+      if (s === '1' || s === 'true') return true;
+      if (s === '0' || s === 'false') return false;
+      return null;
+    };
+
+    const actualBool = normalizeBool(actualValue);
+    const expectedBool = normalizeBool(expectedValue);
+
     const actualStr = String(actualValue).toLowerCase();
     const expectedStr = String(expectedValue).toLowerCase();
 
@@ -644,9 +749,16 @@ export class RiskEngineService {
     switch (operator) {
       case Operator.EQUALS:
       case '=':
+        // If both sides look boolean-like, compare as booleans
+        if (actualBool !== null && expectedBool !== null) {
+          return actualBool === expectedBool;
+        }
         return actualStr === expectedStr;
       case Operator.NOT_EQUALS:
       case '!=':
+        if (actualBool !== null && expectedBool !== null) {
+          return actualBool !== expectedBool;
+        }
         return actualStr !== expectedStr;
       case Operator.LESS_THAN:
       case '<':

@@ -561,6 +561,20 @@ export class IngestionService {
           dateAsserted: med.dateAsserted ? new Date(med.dateAsserted) : null,
           code: med.code,
           display: med.display,
+          // Redflag-specific medication safety fields
+          controlledSubstancePrescribed:
+            med.controlledSubstancePrescribed ?? null,
+          refillCount: med.refillCount ?? null,
+          autoRefillEnabled: med.autoRefillEnabled ?? null,
+          medicationAdherence: med.medicationAdherence ?? null,
+          clinicalDecisionSupport: med.clinicalDecisionSupport ?? null,
+          overrideReason: med.overrideReason ?? null,
+          quantity: med.quantity ?? null,
+          substanceCode: med.substanceCode ?? null,
+          substanceExpiry: med.substanceExpiry
+            ? new Date(med.substanceExpiry)
+            : null,
+          prescriptionWritten: med.prescriptionWritten ?? null,
         } as any,
       });
     }
@@ -609,6 +623,51 @@ export class IngestionService {
           ...(enc.status && { status: enc.status }),
           type: enc.type,
           class: enc.class,
+          // FHIR Encounter core extensions
+          priority: enc.priority,
+          serviceType: enc.serviceType,
+          subjectStatus: enc.subjectStatus,
+          lengthMinutes: enc.lengthMinutes ?? null,
+          serviceProvider: enc.serviceProvider,
+          partOfId: enc.partOfId,
+          // Telehealth & documentation fields
+          practitionerName: enc.practitionerName,
+          isTelehealth: enc.isTelehealth ?? null,
+          telehealthId: enc.telehealthId,
+          patientIdentityVerified: enc.patientIdentityVerified ?? null,
+          consentObtained: enc.consentObtained ?? null,
+          sessionRecordingConsent: enc.sessionRecordingConsent ?? null,
+          providerLocation: enc.providerLocation,
+          providerLocationState: enc.providerLocationState,
+          patientLocation: enc.patientLocation,
+          patientLocationState: enc.patientLocationState,
+          stateLicensureVerified: enc.stateLicensureVerified ?? null,
+          crossStateLicense: enc.crossStateLicense ?? null,
+          encounterType: enc.encounterType,
+          sessionDurationMinutes: enc.sessionDurationMinutes ?? null,
+          sessionStartTime: enc.sessionStartTime
+            ? new Date(enc.sessionStartTime)
+            : null,
+          sessionEndTime: enc.sessionEndTime
+            ? new Date(enc.sessionEndTime)
+            : null,
+          mentalHealthScreening: enc.mentalHealthScreening,
+          substanceUseScreening: enc.substanceUseScreening,
+          chiefComplaint: enc.chiefComplaint,
+          followUpScheduled: enc.followUpScheduled ?? null,
+          carePlanUpdated: enc.carePlanUpdated ?? null,
+          vitalSignsRecorded: enc.vitalSignsRecorded ?? null,
+          outcomeMeasured: enc.outcomeMeasured,
+          coordinationWithPcp: enc.coordinationWithPcp ?? null,
+          clinicalNotesCompleted: enc.clinicalNotesCompleted,
+          noteSignedDate: enc.noteSignedDate
+            ? new Date(enc.noteSignedDate)
+            : null,
+          allergiesReviewed: enc.allergiesReviewed ?? null,
+          technologyAssessment: enc.technologyAssessment,
+          informedConsentType: enc.informedConsentType,
+          clinicalDecisionMaker: enc.clinicalDecisionMaker,
+          qualityMeasureMet: enc.qualityMeasureMet ?? null,
         } as any,
       });
     }
@@ -1024,6 +1083,16 @@ export class IngestionService {
           dateAsserted: med.dateAsserted,
           dosage: med.dosage,
           route: med.route,
+          controlledSubstancePrescribed: med.controlledSubstancePrescribed,
+          refillCount: med.refillCount,
+          autoRefillEnabled: med.autoRefillEnabled,
+          medicationAdherence: med.medicationAdherence,
+          clinicalDecisionSupport: med.clinicalDecisionSupport,
+          overrideReason: med.overrideReason,
+          quantity: med.quantity,
+          substanceCode: med.substanceCode,
+          substanceExpiry: med.substanceExpiry,
+          prescriptionWritten: med.prescriptionWritten,
         };
       }) as any;
 
@@ -1052,6 +1121,43 @@ export class IngestionService {
           startDate: enc.startDate,
           endDate: enc.endDate,
           reason: enc.reason,
+          priority: enc.priority,
+          serviceType: enc.serviceType,
+          subjectStatus: enc.subjectStatus,
+          lengthMinutes: enc.lengthMinutes,
+          serviceProvider: enc.serviceProvider,
+          partOfId: enc.partOfId,
+          practitionerName: enc.practitionerName,
+          isTelehealth: enc.isTelehealth,
+          telehealthId: enc.telehealthId,
+          patientIdentityVerified: enc.patientIdentityVerified,
+          consentObtained: enc.consentObtained,
+          sessionRecordingConsent: enc.sessionRecordingConsent,
+          providerLocation: enc.providerLocation,
+          providerLocationState: enc.providerLocationState,
+          patientLocation: enc.patientLocation,
+          patientLocationState: enc.patientLocationState,
+          stateLicensureVerified: enc.stateLicensureVerified,
+          crossStateLicense: enc.crossStateLicense,
+          encounterType: enc.encounterType,
+          sessionDurationMinutes: enc.sessionDurationMinutes,
+          sessionStartTime: enc.sessionStartTime,
+          sessionEndTime: enc.sessionEndTime,
+          mentalHealthScreening: enc.mentalHealthScreening,
+          substanceUseScreening: enc.substanceUseScreening,
+          chiefComplaint: enc.chiefComplaint,
+          followUpScheduled: enc.followUpScheduled,
+          carePlanUpdated: enc.carePlanUpdated,
+          vitalSignsRecorded: enc.vitalSignsRecorded,
+          outcomeMeasured: enc.outcomeMeasured,
+          coordinationWithPcp: enc.coordinationWithPcp,
+          clinicalNotesCompleted: enc.clinicalNotesCompleted,
+          noteSignedDate: enc.noteSignedDate,
+          allergiesReviewed: enc.allergiesReviewed,
+          technologyAssessment: enc.technologyAssessment,
+          informedConsentType: enc.informedConsentType,
+          clinicalDecisionMaker: enc.clinicalDecisionMaker,
+          qualityMeasureMet: enc.qualityMeasureMet,
         };
       }) as any;
 

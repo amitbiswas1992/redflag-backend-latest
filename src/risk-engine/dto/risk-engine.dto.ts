@@ -52,8 +52,8 @@ export enum RiskLevel {
 
 export class RuleConditionDto {
   @ApiProperty({
-    description: 'Field name to check',
-    example: 'controlled_substance_prescribed',
+    description: 'Fully-qualified field name to check (e.g. "Model.fieldName")',
+    example: 'Medication.controlledSubstancePrescribed',
   })
   @IsString()
   @IsNotEmpty()
@@ -116,9 +116,19 @@ export class CreateRiskRuleDto {
     description: 'Array of conditions for the rule',
     type: [RuleConditionDto],
     example: [
-      { field: 'controlled_substance_prescribed', operator: Operator.EQUALS, value: '1' },
-      { field: 'patient_identity_verified', operator: Operator.IS_NULL },
-      { field: 'telehealth_id', operator: Operator.IS_NOT_NULL },
+      {
+        field: 'Medication.controlledSubstancePrescribed',
+        operator: Operator.EQUALS,
+        value: '1',
+      },
+      {
+        field: 'Encounter.patientIdentityVerified',
+        operator: Operator.IS_NULL,
+      },
+      {
+        field: 'Encounter.telehealthId',
+        operator: Operator.IS_NOT_NULL,
+      },
     ],
   })
   @IsArray()
@@ -151,7 +161,11 @@ export class CreateRiskRuleDto {
   @ApiProperty({
     description: 'List of affected variables',
     type: [String],
-    example: ['controlled_substance_prescribed', 'patient_identity_verified', 'telehealth_id'],
+    example: [
+      'Medication.controlledSubstancePrescribed',
+      'Encounter.patientIdentityVerified',
+      'Encounter.telehealthId',
+    ],
   })
   @IsArray()
   @IsString({ each: true })
@@ -422,5 +436,31 @@ export class PatientRiskSummaryDto {
 
   @ApiProperty({ description: 'Last evaluation timestamp' })
   lastEvaluatedAt: Date;
+}
+
+export class RiskFieldNameDto {
+  @ApiProperty({
+    description: 'Logical table/model name where the field lives (Prisma model / event type)',
+    example: 'Encounter',
+  })
+  table: string;
+
+  @ApiProperty({
+    description: 'Field name as used in Prisma/risk evaluation',
+    example: 'practitionerName',
+  })
+  field: string;
+
+  @ApiProperty({
+    description: 'Fully-qualified field name with table prefix',
+    example: 'Encounter.practitionerName',
+  })
+  fullName: string;
+
+  @ApiPropertyOptional({
+    description: 'Optional human-readable description of the field',
+    example: 'Display name of the practitioner for this encounter',
+  })
+  description?: string;
 }
 

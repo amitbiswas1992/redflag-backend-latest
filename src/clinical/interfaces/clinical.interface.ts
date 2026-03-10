@@ -91,6 +91,17 @@ export interface NormalizedMedication {
   dateAsserted?: string;
   dosage?: string;
   route?: string;
+  // Redflag-specific medication safety fields (all optional)
+  controlledSubstancePrescribed?: boolean;
+  refillCount?: number;
+  autoRefillEnabled?: boolean;
+  medicationAdherence?: string;
+  clinicalDecisionSupport?: number;
+  overrideReason?: string;
+  quantity?: number;
+  substanceCode?: string;
+  substanceExpiry?: string;
+  prescriptionWritten?: boolean;
 }
 
 export interface NormalizedProcedure {
@@ -111,6 +122,45 @@ export interface NormalizedEncounter {
   startDate?: string;
   endDate?: string;
   reason?: string;
+  // FHIR R5 Encounter extensions / Redflag-specific fields
+  priority?: string;
+  serviceType?: string;
+  subjectStatus?: string;
+  lengthMinutes?: number;
+  serviceProvider?: string;
+  partOfId?: string;
+  // Telehealth & documentation fields used by risk rules
+  practitionerName?: string;
+  isTelehealth?: boolean;
+  telehealthId?: string;
+  patientIdentityVerified?: boolean;
+  consentObtained?: boolean;
+  sessionRecordingConsent?: boolean;
+  providerLocation?: string;
+  providerLocationState?: string;
+  patientLocation?: string;
+  patientLocationState?: string;
+  stateLicensureVerified?: any;
+  crossStateLicense?: boolean;
+  encounterType?: string;
+  sessionDurationMinutes?: number;
+  sessionStartTime?: string;
+  sessionEndTime?: string;
+  mentalHealthScreening?: string;
+  substanceUseScreening?: string;
+  chiefComplaint?: string;
+  followUpScheduled?: boolean;
+  carePlanUpdated?: boolean;
+  vitalSignsRecorded?: boolean;
+  outcomeMeasured?: string;
+  coordinationWithPcp?: boolean;
+  clinicalNotesCompleted?: string;
+  noteSignedDate?: string;
+  allergiesReviewed?: boolean;
+  technologyAssessment?: string;
+  informedConsentType?: string;
+  clinicalDecisionMaker?: string;
+  qualityMeasureMet?: boolean;
 }
 
 export interface NormalizedDiagnosticReport {

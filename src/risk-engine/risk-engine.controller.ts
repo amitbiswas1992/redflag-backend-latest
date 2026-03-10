@@ -26,6 +26,7 @@ import {
   RiskEvaluationResultDto,
   PatientRiskSummaryDto,
   EventName,
+  RiskFieldNameDto,
 } from './dto/risk-engine.dto';
 
 @ApiTags('Risk Engine')
@@ -170,6 +171,21 @@ export class RiskEngineController {
       patientId,
       limitNum,
     );
+  }
+
+  @ApiOperation({
+    summary: 'Get available risk rule field names (with table prefix)',
+    description:
+      'Returns the catalog of fields that can be referenced in risk rule conditions, including their logical table/model prefix.',
+  })
+  @ApiOkResponse({
+    description: 'List of risk rule field definitions',
+    type: [RiskFieldNameDto],
+  })
+  @Get('fields')
+  async getRiskFieldNames(): Promise<RiskFieldNameDto[]> {
+    this.logger.log('Fetching risk rule field name catalog');
+    return this.riskEngineService.getRiskFieldNames();
   }
 }
 

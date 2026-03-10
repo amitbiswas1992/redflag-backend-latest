@@ -53,6 +53,7 @@ model Practitioner {
   address        Json? // Array of address objects
   qualifications Json? // Array of qualification objects
   languages      String[]
+  deaNumber      String? // prescriber_dea
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
@@ -61,8 +62,8 @@ model Practitioner {
 }
 
 model Observation {
-  id        String   @id @default(uuid())
-  epicId    String   // Epic FHIR Observation ID
+  id        String    @id @default(uuid())
+  epicId    String // Epic FHIR Observation ID
   patientId String
   testName  String?
   value     String?
@@ -72,8 +73,8 @@ model Observation {
   display   String? // Original display
   category  String?
   unit      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
 
@@ -84,7 +85,7 @@ model Observation {
 
 model Condition {
   id           String    @id @default(uuid())
-  epicId       String    // Epic FHIR Condition ID
+  epicId       String // Epic FHIR Condition ID
   patientId    String
   diagnosis    String?
   status       String?
@@ -105,7 +106,7 @@ model Condition {
 
 model Allergy {
   id           String    @id @default(uuid())
-  epicId       String    // Epic FHIR AllergyIntolerance ID
+  epicId       String // Epic FHIR AllergyIntolerance ID
   patientId    String
   allergen     String?
   type         String?
@@ -128,7 +129,7 @@ model Allergy {
 
 model Medication {
   id           String    @id @default(uuid())
-  epicId       String    // Epic FHIR MedicationStatement ID
+  epicId       String // Epic FHIR MedicationStatement ID
   patientId    String
   medication   String?
   status       String?
@@ -139,8 +140,21 @@ model Medication {
   dateAsserted DateTime?
   code         String? // Original code
   display      String? // Original display
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+
+  // Additional fields to support violation rules (all nullable)
+  controlledSubstancePrescribed Boolean? // controlled_substance_prescribed
+  refillCount                   Int? // refill_count
+  autoRefillEnabled             Boolean? // auto_refill_enabled
+  medicationAdherence           String? // medication_adherence
+  clinicalDecisionSupport       Int? // clinical_decision_support
+  overrideReason                String? // override_reason
+  quantity                      Int? // substance.instance.quantity
+  substanceCode                 String? // substance.code
+  substanceExpiry               DateTime? // substance.instance.expiry
+  prescriptionWritten           Boolean? // prescription_written
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
 
@@ -151,7 +165,7 @@ model Medication {
 
 model Procedure {
   id            String    @id @default(uuid())
-  epicId        String    // Epic FHIR Procedure ID
+  epicId        String // Epic FHIR Procedure ID
   patientId     String
   procedure     String?
   status        String?
@@ -173,28 +187,74 @@ model Procedure {
 
 model Encounter {
   id        String    @id @default(uuid())
-  epicId    String    // Epic FHIR Encounter ID
+  epicId    String // Epic FHIR Encounter ID
   patientId String
   visitType String?
   reason    String?
   startDate DateTime?
   endDate   DateTime?
   status    String?
-  type      String? // Original type
-  class     String? // Original class
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  type      String? // FHIR Encounter.type (coded)
+  class     String? // FHIR Encounter.class (coded)
 
-  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  // Additional FHIR R5 Encounter fields (all nullable)
+  priority        String? // FHIR Encounter.priority
+  serviceType     String? // FHIR Encounter.serviceType
+  subjectStatus   String? // FHIR Encounter.subjectStatus
+  lengthMinutes   Int? // FHIR Encounter.length (duration in minutes)
+  serviceProvider String? // FHIR Encounter.serviceProvider (organization reference id)
+  partOfId        String? // FHIR Encounter.partOf (parent encounter)
+
+  // Telehealth & documentation-related fields (from rules doc, all nullable)
+  practitionerName        String? // practitionerName
+  isTelehealth            Boolean? // is_telehealth
+  telehealthId            String? // telehealth_id
+  patientIdentityVerified Boolean? // patient_identity_verified
+  consentObtained         Boolean? // consent_obtained
+  sessionRecordingConsent Boolean? // session_recording_consent
+  providerLocation        String? // provider_location
+  providerLocationState   String? // provider_location_state
+  patientLocation         String? // patient_location
+  patientLocationState    String? // patient_location_state
+  stateLicensureVerified  Json? // state_licensure_verified (per-state map)
+  crossStateLicense       Boolean? // cross_state_license
+  encounterType           String? // encounter_type (e.g. 'New')
+  sessionDurationMinutes  Int? // session_duration
+  sessionStartTime        DateTime? // session_start_time
+  sessionEndTime          DateTime? // session_end_time
+  mentalHealthScreening   String? // mental_health_screening
+  substanceUseScreening   String? // substance_use_screening
+  chiefComplaint          String? // chief_complaint
+  followUpScheduled       Boolean? // follow_up_scheduled
+  carePlanUpdated         Boolean? // care_plan_updated
+  vitalSignsRecorded      Boolean? // vital_signs_recorded
+  outcomeMeasured         String? // outcome_measured
+  coordinationWithPcp     Boolean? // coordination_with_pcp
+  clinicalNotesCompleted  String? // clinical_notes_completed
+  noteSignedDate          DateTime? // note_signed_date
+  allergiesReviewed       Boolean? // allergies_reviewed
+  technologyAssessment    String? // technology_assessment
+  informedConsentType     String? // informed_consent_type
+  clinicalDecisionMaker   String? // clinical_decision_maker
+  qualityMeasureMet       Boolean? // quality_measure_met
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  patient       Patient     @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  partOf        Encounter?  @relation("EncounterPartOf", fields: [partOfId], references: [id])
+  subEncounters Encounter[] @relation("EncounterPartOf")
 
   @@index([patientId])
   @@index([epicId])
+  @@index([partOfId])
   @@map("encounters")
 }
 
 model DiagnosticReport {
   id            String    @id @default(uuid())
-  epicId        String    // Epic FHIR DiagnosticReport ID
+  epicId        String // Epic FHIR DiagnosticReport ID
   patientId     String
   reportName    String?
   status        String?
@@ -216,29 +276,29 @@ model DiagnosticReport {
 }
 
 model RiskRule {
-  id                  String          @id @default(uuid())
-  roleName            String          // Name of the role/rule
-  ruleCode            String?         // Rule code (e.g., "TH-001")
-  riskLevel           String          // Risk level (e.g., "low", "medium", "high", "critical")
-  eventName           String?         // Event/activity type: Observation, Condition, Allergy, Medication, Procedure, Encounter, DiagnosticReport (optional for multi-condition rules)
-  score               Int             // Score/points assigned when rule matches
-  conditionLogic      String          @default("AND") // Logic to combine conditions: "AND" or "OR"
-  affectedVariables   String[]        // List of affected variables
-  taxonomy            String?         // Taxonomy classification (e.g., "HSCR2: Regulatory Risk → HSCR3: Federal DEA Compliance Violation")
-  regulatoryCitation  String?         // Regulatory citation (e.g., "21 USC § 829(e)")
-  redFlags            String[]        // Array of red flag descriptions
-  isActive            Boolean         @default(true)
-  createdAt           DateTime        @default(now())
-  updatedAt           DateTime        @updatedAt
+  id                 String   @id @default(uuid())
+  roleName           String // Name of the role/rule
+  ruleCode           String? // Rule code (e.g., "TH-001")
+  riskLevel          String // Risk level (e.g., "low", "medium", "high", "critical")
+  eventName          String? // Event/activity type: Observation, Condition, Allergy, Medication, Procedure, Encounter, DiagnosticReport (optional for multi-condition rules)
+  score              Int // Score/points assigned when rule matches
+  conditionLogic     String   @default("AND") // Logic to combine conditions: "AND" or "OR"
+  affectedVariables  String[] // List of affected variables
+  taxonomy           String? // Taxonomy classification (e.g., "HSCR2: Regulatory Risk → HSCR3: Federal DEA Compliance Violation")
+  regulatoryCitation String? // Regulatory citation (e.g., "21 USC § 829(e)")
+  redFlags           String[] // Array of red flag descriptions
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   // Relations
-  conditions          RuleCondition[]
-  evaluations         RiskEvaluation[]
+  conditions  RuleCondition[]
+  evaluations RiskEvaluation[]
 
   // Legacy fields for backward compatibility (deprecated)
-  field               String?         // Field name to check (deprecated - use conditions instead)
-  operator            String?         // Operator (deprecated - use conditions instead)
-  value               String?         // Comparison value (deprecated - use conditions instead)
+  field    String? // Field name to check (deprecated - use conditions instead)
+  operator String? // Operator (deprecated - use conditions instead)
+  value    String? // Comparison value (deprecated - use conditions instead)
 
   @@index([eventName])
   @@index([isActive])
@@ -250,10 +310,10 @@ model RuleCondition {
   id        String   @id @default(uuid())
   ruleId    String
   rule      RiskRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
-  field     String   // Field name to check (e.g., "controlled_substance_prescribed", "patient_identity_verified")
-  operator  String   // Operator: "=", "!=", "<", ">", "<=", ">=", "contains", "startsWith", "endsWith", "IS_NULL", "IS_NOT_NULL"
-  value     String?  // Comparison value (nullable for IS_NULL/IS_NOT_NULL operators)
-  order     Int      // Order of condition in the rule (for proper evaluation sequence)
+  field     String // Field name to check (e.g., "controlled_substance_prescribed", "patient_identity_verified")
+  operator  String // Operator: "=", "!=", "<", ">", "<=", ">=", "contains", "startsWith", "endsWith", "IS_NULL", "IS_NOT_NULL"
+  value     String? // Comparison value (nullable for IS_NULL/IS_NOT_NULL operators)
+  order     Int // Order of condition in the rule (for proper evaluation sequence)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -263,17 +323,17 @@ model RuleCondition {
 }
 
 model RiskEvaluation {
-  id            String    @id @default(uuid())
-  patientId     String
-  patient       Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  ruleId        String
-  rule          RiskRule  @relation(fields: [ruleId], references: [id], onDelete: Cascade)
-  matched       Boolean   // Whether the rule matched
-  matchedValue  String?   // The actual value that matched
-  score         Int       // Score from the rule
-  evaluatedAt   DateTime  @default(now())
-  eventType     String    // Type of event that triggered evaluation
-  eventId       String?   // ID of the specific event that matched (e.g., observation ID)
+  id           String   @id @default(uuid())
+  patientId    String
+  patient      Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  ruleId       String
+  rule         RiskRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  matched      Boolean // Whether the rule matched
+  matchedValue String? // The actual value that matched
+  score        Int // Score from the rule
+  evaluatedAt  DateTime @default(now())
+  eventType    String // Type of event that triggered evaluation
+  eventId      String? // ID of the specific event that matched (e.g., observation ID)
 
   @@index([patientId])
   @@index([ruleId])

@@ -1003,6 +1003,51 @@ export class SimpleMedicationDto {
   @IsOptional()
   @IsString()
   display?: string;
+
+  // Redflag-specific medication safety fields (all optional)
+  @ApiPropertyOptional({ description: 'Whether this is a controlled substance', example: true })
+  @IsOptional()
+  controlledSubstancePrescribed?: boolean;
+
+  @ApiPropertyOptional({ description: 'Number of refills', example: 3 })
+  @IsOptional()
+  refillCount?: number;
+
+  @ApiPropertyOptional({ description: 'Whether auto-refill is enabled', example: false })
+  @IsOptional()
+  autoRefillEnabled?: boolean;
+
+  @ApiPropertyOptional({ description: 'Medication adherence status', example: 'Good' })
+  @IsOptional()
+  @IsString()
+  medicationAdherence?: string;
+
+  @ApiPropertyOptional({ description: 'Count of CDS alerts triggered', example: 1 })
+  @IsOptional()
+  clinicalDecisionSupport?: number;
+
+  @ApiPropertyOptional({ description: 'Override reason when bypassing CDS alerts', example: 'Clinical judgment' })
+  @IsOptional()
+  @IsString()
+  overrideReason?: string;
+
+  @ApiPropertyOptional({ description: 'Dispensed quantity', example: 30 })
+  @IsOptional()
+  quantity?: number;
+
+  @ApiPropertyOptional({ description: 'Substance code (e.g., RxNorm)', example: '12345' })
+  @IsOptional()
+  @IsString()
+  substanceCode?: string;
+
+  @ApiPropertyOptional({ description: 'Medication expiry date', example: '2026-01-01' })
+  @IsOptional()
+  @IsDateString()
+  substanceExpiry?: string;
+
+  @ApiPropertyOptional({ description: 'Whether a prescription was written in this encounter', example: true })
+  @IsOptional()
+  prescriptionWritten?: boolean;
 }
 
 export class SimpleProcedureDto {
@@ -1102,6 +1147,183 @@ export class SimpleEncounterDto {
   @IsOptional()
   @IsString()
   class?: string;
+
+  // FHIR Encounter + Redflag extensions (all optional)
+  @ApiPropertyOptional({ description: 'Encounter priority', example: 'urgent' })
+  @IsOptional()
+  @IsString()
+  priority?: string;
+
+  @ApiPropertyOptional({ description: 'Service type / specialty', example: 'psychiatry' })
+  @IsOptional()
+  @IsString()
+  serviceType?: string;
+
+  @ApiPropertyOptional({ description: 'Subject status during encounter', example: 'inpatient' })
+  @IsOptional()
+  @IsString()
+  subjectStatus?: string;
+
+  @ApiPropertyOptional({ description: 'Encounter length in minutes', example: 30 })
+  @IsOptional()
+  lengthMinutes?: number;
+
+  @ApiPropertyOptional({ description: 'Service provider organization reference id', example: 'org-123' })
+  @IsOptional()
+  @IsString()
+  serviceProvider?: string;
+
+  @ApiPropertyOptional({ description: 'Parent encounter id (if part of another encounter)', example: 'enc-parent-1' })
+  @IsOptional()
+  @IsString()
+  partOfId?: string;
+
+  // Telehealth / consent / licensure
+  @ApiPropertyOptional({ description: 'Practitioner display name for the encounter', example: 'Dr. Jane Smith' })
+  @IsOptional()
+  @IsString()
+  practitionerName?: string;
+
+  @ApiPropertyOptional({ description: 'Whether this encounter was telehealth', example: true })
+  @IsOptional()
+  isTelehealth?: boolean;
+
+  @ApiPropertyOptional({ description: 'Telehealth session identifier', example: 'tele-123' })
+  @IsOptional()
+  @IsString()
+  telehealthId?: string;
+
+  @ApiPropertyOptional({ description: 'Whether patient identity was verified', example: true })
+  @IsOptional()
+  patientIdentityVerified?: boolean;
+
+  @ApiPropertyOptional({ description: 'Whether consent was obtained', example: true })
+  @IsOptional()
+  consentObtained?: boolean;
+
+  @ApiPropertyOptional({ description: 'Type of informed consent', example: 'telehealth-specific' })
+  @IsOptional()
+  @IsString()
+  informedConsentType?: string;
+
+  @ApiPropertyOptional({ description: 'Whether session recording consent was obtained', example: false })
+  @IsOptional()
+  sessionRecordingConsent?: boolean;
+
+  @ApiPropertyOptional({ description: 'Provider location (full)', example: 'Springfield, IL' })
+  @IsOptional()
+  @IsString()
+  providerLocation?: string;
+
+  @ApiPropertyOptional({ description: 'Provider location state', example: 'IL' })
+  @IsOptional()
+  @IsString()
+  providerLocationState?: string;
+
+  @ApiPropertyOptional({ description: 'Patient location (full)', example: 'Chicago, IL' })
+  @IsOptional()
+  @IsString()
+  patientLocation?: string;
+
+  @ApiPropertyOptional({ description: 'Patient location state', example: 'IL' })
+  @IsOptional()
+  @IsString()
+  patientLocationState?: string;
+
+  @ApiPropertyOptional({
+    description: 'Per-state licensure verification map',
+    example: { IL: true, CA: false },
+  })
+  @IsOptional()
+  stateLicensureVerified?: Record<string, boolean | null>;
+
+  @ApiPropertyOptional({ description: 'Whether cross-state license exists', example: false })
+  @IsOptional()
+  crossStateLicense?: boolean;
+
+  // Assessment / documentation
+  @ApiPropertyOptional({ description: 'Encounter type (e.g. New, Follow-up)', example: 'New' })
+  @IsOptional()
+  @IsString()
+  encounterType?: string;
+
+  @ApiPropertyOptional({ description: 'Session duration in minutes', example: 25 })
+  @IsOptional()
+  sessionDurationMinutes?: number;
+
+  @ApiPropertyOptional({ description: 'Session start time', example: '2024-01-15T09:00:00Z' })
+  @IsOptional()
+  @IsDateString()
+  sessionStartTime?: string;
+
+  @ApiPropertyOptional({ description: 'Session end time', example: '2024-01-15T09:25:00Z' })
+  @IsOptional()
+  @IsDateString()
+  sessionEndTime?: string;
+
+  @ApiPropertyOptional({ description: 'Mental health screening status / instrument', example: 'PHQ-9 completed' })
+  @IsOptional()
+  @IsString()
+  mentalHealthScreening?: string;
+
+  @ApiPropertyOptional({ description: 'Substance use screening status / instrument', example: 'AUDIT-C completed' })
+  @IsOptional()
+  @IsString()
+  substanceUseScreening?: string;
+
+  @ApiPropertyOptional({ description: 'Chief complaint text', example: 'Difficulty concentrating at work' })
+  @IsOptional()
+  @IsString()
+  chiefComplaint?: string;
+
+  @ApiPropertyOptional({ description: 'Whether follow-up is scheduled', example: true })
+  @IsOptional()
+  followUpScheduled?: boolean;
+
+  @ApiPropertyOptional({ description: 'Whether care plan was updated', example: true })
+  @IsOptional()
+  carePlanUpdated?: boolean;
+
+  @ApiPropertyOptional({ description: 'Whether vital signs were recorded', example: true })
+  @IsOptional()
+  vitalSignsRecorded?: boolean;
+
+  @ApiPropertyOptional({ description: 'Outcome measurement summary or scale', example: 'Improved' })
+  @IsOptional()
+  @IsString()
+  outcomeMeasured?: string;
+
+  @ApiPropertyOptional({ description: 'Whether coordination with PCP occurred', example: false })
+  @IsOptional()
+  coordinationWithPcp?: boolean;
+
+  @ApiPropertyOptional({ description: 'Clinical notes completion status', example: 'Complete' })
+  @IsOptional()
+  @IsString()
+  clinicalNotesCompleted?: string;
+
+  @ApiPropertyOptional({ description: 'Note signed date/time', example: '2024-01-15T11:00:00Z' })
+  @IsOptional()
+  @IsDateString()
+  noteSignedDate?: string;
+
+  @ApiPropertyOptional({ description: 'Whether allergies were reviewed', example: true })
+  @IsOptional()
+  allergiesReviewed?: boolean;
+
+  @ApiPropertyOptional({ description: 'Technology assessment result', example: 'Patient able to use video visit tools' })
+  @IsOptional()
+  @IsString()
+  technologyAssessment?: string;
+
+  @ApiPropertyOptional({ description: 'Clinical decision maker (for CPOM rules)', example: 'Licensed psychiatrist' })
+  @IsOptional()
+  @IsString()
+  clinicalDecisionMaker?: string;
+
+  @ApiPropertyOptional({ description: 'Whether quality measure was met', example: true })
+  @IsOptional()
+  qualityMeasureMet?: boolean;
 }
 
 export class SimpleDiagnosticReportDto {
