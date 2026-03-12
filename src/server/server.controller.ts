@@ -281,5 +281,99 @@ export class ServerController {
   async syncPatientFromEpic(@Param('patientId') patientId: string) {
     return this.serverService.syncPatientFromEpic(patientId);
   }
+
+  @ApiOperation({
+    summary: 'Get high-level dashboard metrics',
+    description:
+      'Returns total counts for patients, encounters, observations, and procedures to support dashboard views.',
+  })
+  @ApiOkResponse({
+    description: 'Dashboard metrics retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        totalPatients: {
+          type: 'number',
+          example: 1234,
+          description: 'Total number of patients in the system',
+        },
+        totalEncounters: {
+          type: 'number',
+          example: 5678,
+          description: 'Total number of encounters across all patients',
+        },
+        totalObservations: {
+          type: 'number',
+          example: 91011,
+          description: 'Total number of observations recorded',
+        },
+        totalProcedures: {
+          type: 'number',
+          example: 1213,
+          description: 'Total number of procedures recorded',
+        },
+      },
+    },
+  })
+  @Get('dashboard/metrics')
+  async getDashboardMetrics() {
+    this.logger.log('Fetching dashboard metrics');
+    return this.serverService.getDashboardMetrics();
+  }
+
+  @ApiOperation({
+    summary: 'Get ingestion dashboard metrics',
+    description:
+      'Returns total and today counts of ingested patients, encounters, observations, procedures, and other clinical records.',
+  })
+  @ApiOkResponse({
+    description: 'Ingestion dashboard metrics retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        overall: {
+          type: 'object',
+          properties: {
+            patients: { type: 'number', example: 1000 },
+            observations: { type: 'number', example: 5000 },
+            conditions: { type: 'number', example: 1200 },
+            allergies: { type: 'number', example: 300 },
+            medications: { type: 'number', example: 2000 },
+            procedures: { type: 'number', example: 800 },
+            encounters: { type: 'number', example: 1500 },
+            diagnosticReports: { type: 'number', example: 600 },
+            totalRecords: {
+              type: 'number',
+              example: 11100,
+              description: 'Sum of all overall ingestion counts',
+            },
+          },
+        },
+        today: {
+          type: 'object',
+          properties: {
+            patients: { type: 'number', example: 10 },
+            observations: { type: 'number', example: 50 },
+            conditions: { type: 'number', example: 12 },
+            allergies: { type: 'number', example: 3 },
+            medications: { type: 'number', example: 20 },
+            procedures: { type: 'number', example: 8 },
+            encounters: { type: 'number', example: 15 },
+            diagnosticReports: { type: 'number', example: 6 },
+            totalRecords: {
+              type: 'number',
+              example: 124,
+              description: 'Sum of all today ingestion counts',
+            },
+          },
+        },
+      },
+    },
+  })
+  @Get('dashboard/ingestion')
+  async getIngestionDashboardMetrics() {
+    this.logger.log('Fetching ingestion dashboard metrics');
+    return this.serverService.getIngestionDashboardMetrics();
+  }
 }
 

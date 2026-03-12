@@ -341,3 +341,21 @@ model RiskEvaluation {
   @@index([eventType])
   @@map("risk_evaluations")
 }
+
+model IngestionStat {
+  id                String   @id @default(uuid())
+  date              DateTime @default(now()) // When the ingestion occurred (timestamp)
+  source            String? // Optional source label, e.g. "FHIR_JSON", "FHIR_XML", "BULK"
+  patients          Int      @default(0)
+  observations      Int      @default(0)
+  conditions        Int      @default(0)
+  allergies         Int      @default(0)
+  medications       Int      @default(0)
+  procedures        Int      @default(0)
+  encounters        Int      @default(0)
+  diagnosticReports Int      @default(0)
+  createdAt         DateTime @default(now())
+
+  @@index([date])
+  @@map("ingestion_stats")
+}

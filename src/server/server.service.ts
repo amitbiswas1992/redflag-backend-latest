@@ -34,6 +34,112 @@ export class ServerService {
     private riskEngineService: RiskEngineService,
   ) {}
 
+  /**
+   * Simple dashboard metrics for high-level monitoring.
+   * Returns total counts across core clinical tables.
+   */
+  async getDashboardMetrics() {
+    const [totalPatients, totalEncounters, totalObservations, totalProcedures] =
+      await Promise.all([
+        this.prisma.patient.count(),
+        this.prisma.encounter.count(),
+        this.prisma.observation.count(),
+        this.prisma.procedure.count(),
+      ]);
+
+    return {
+      totalPatients,
+      totalEncounters,
+      totalObservations,
+      totalProcedures,
+    };
+  }
+
+  /**
+   * Dashboard metrics for ingestion activity (overall and today).
+   */
+  async getIngestionDashboardMetrics() {
+    // Overall sums across all ingestion stats
+    const overall = await this.prisma.ingestionStat.aggregate({
+      _sum: {
+        patients: true,
+        observations: true,
+        conditions: true,
+        allergies: true,
+        medications: true,
+        procedures: true,
+        encounters: true,
+        diagnosticReports: true,
+      },
+    });
+
+    // Today window [startOfDay, endOfDay)
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const startOfTomorrow = new Date(startOfToday);
+    startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
+
+    const today = await this.prisma.ingestionStat.aggregate({
+      where: {
+        date: {
+          gte: startOfToday,
+          lt: startOfTomorrow,
+        },
+      },
+      _sum: {
+        patients: true,
+        observations: true,
+        conditions: true,
+        allergies: true,
+        medications: true,
+        procedures: true,
+        encounters: true,
+        diagnosticReports: true,
+      },
+    });
+
+    const sum = (v: number | null | undefined) => v ?? 0;
+
+    const overallTotals = {
+      patients: sum(overall._sum.patients),
+      observations: sum(overall._sum.observations),
+      conditions: sum(overall._sum.conditions),
+      allergies: sum(overall._sum.allergies),
+      medications: sum(overall._sum.medications),
+      procedures: sum(overall._sum.procedures),
+      encounters: sum(overall._sum.encounters),
+      diagnosticReports: sum(overall._sum.diagnosticReports),
+    };
+
+    const todayTotals = {
+      patients: sum(today._sum.patients),
+      observations: sum(today._sum.observations),
+      conditions: sum(today._sum.conditions),
+      allergies: sum(today._sum.allergies),
+      medications: sum(today._sum.medications),
+      procedures: sum(today._sum.procedures),
+      encounters: sum(today._sum.encounters),
+      diagnosticReports: sum(today._sum.diagnosticReports),
+    };
+
+    return {
+      overall: {
+        ...overallTotals,
+        totalRecords: Object.values(overallTotals).reduce(
+          (acc, cur) => acc + cur,
+          0,
+        ),
+      },
+      today: {
+        ...todayTotals,
+        totalRecords: Object.values(todayTotals).reduce(
+          (acc, cur) => acc + cur,
+          0,
+        ),
+      },
+    };
+  }
+
   // Patient CRUD
   async createPatient(createPatientDto: CreatePatientDto) {
     try {

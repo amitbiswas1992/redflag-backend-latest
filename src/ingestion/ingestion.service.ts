@@ -77,9 +77,13 @@ export class IngestionService {
     try {
       // Check if it's a Bundle or single resource
       if (fhirData.resourceType === 'Bundle') {
-        return this.ingestFhirBundle(fhirData as FhirBundle);
+        const result = await this.ingestFhirBundle(fhirData as FhirBundle);
+        await this.recordIngestionStats('FHIR_JSON_BUNDLE', result.ingested);
+        return result;
       } else {
-        return this.ingestFhirResource(fhirData);
+        const result = await this.ingestFhirResource(fhirData);
+        await this.recordIngestionStats('FHIR_JSON_RESOURCE', result.ingested);
+        return result;
       }
     } catch (error) {
       this.logger.error(
@@ -849,40 +853,50 @@ export class IngestionService {
         for (const item of items) {
           // Use patientEpicId from item if explicitly provided, otherwise use item's epicId as patient identifier
           const patientEpicId = item.patientEpicId || item.epicId;
-          
-          // Verify patient exists with this epicId
-          const patientExists = await this.prisma.patient.findUnique({
-            where: { epicId: patientEpicId },
-          });
-          
-          if (!patientExists) {
-            // Try to find patient from existing clinical data (in case item.epicId is the clinical data ID, not patient ID)
-            const foundPatientEpicId = await findPatientEpicIdFromClinicalData(item.epicId, dataKey);
-            if (foundPatientEpicId) {
-              // Use the found patient epicId
-              const finalPatientEpicId = foundPatientEpicId;
-              if (!dataByPatient.has(finalPatientEpicId)) {
-                dataByPatient.set(finalPatientEpicId, {
-                  observations: [],
-                  conditions: [],
-                  allergies: [],
-                  medications: [],
-                  procedures: [],
-                  encounters: [],
-                  diagnosticReports: [],
-                });
-              }
-              const patientData = dataByPatient.get(finalPatientEpicId)!;
-              patientData[dataKey].push(item);
-              continue;
-            } else {
-              throw new BadRequestException(
-                `Patient with epicId ${patientEpicId} does not exist. Please create the patient first or provide patientEpicId in the item.`,
-              );
-            }
-          }
-          
+
+          // If we already have an entry for this patient epicId (from patients[] or previous items),
+          // just append the item without hitting the database.
           if (!dataByPatient.has(patientEpicId)) {
+            // If there is no explicit patient entry in the bulk payload,
+            // fall back to existing database/clinical data lookup for backwards compatibility.
+            if (!bulkData.patients) {
+              // Verify patient exists with this epicId
+              const patientExists = await this.prisma.patient.findUnique({
+                where: { epicId: patientEpicId },
+              });
+
+              if (!patientExists) {
+                // Try to find patient from existing clinical data (in case item.epicId is the clinical data ID, not patient ID)
+                const foundPatientEpicId = await findPatientEpicIdFromClinicalData(
+                  item.epicId,
+                  dataKey,
+                );
+                if (foundPatientEpicId) {
+                  const finalPatientEpicId = foundPatientEpicId;
+                  if (!dataByPatient.has(finalPatientEpicId)) {
+                    dataByPatient.set(finalPatientEpicId, {
+                      observations: [],
+                      conditions: [],
+                      allergies: [],
+                      medications: [],
+                      procedures: [],
+                      encounters: [],
+                      diagnosticReports: [],
+                    });
+                  }
+                  const mappedPatientData = dataByPatient.get(finalPatientEpicId)!;
+                  mappedPatientData[dataKey].push(item);
+                  continue;
+                } else {
+                  throw new BadRequestException(
+                    `Patient with epicId ${patientEpicId} does not exist. Please create the patient first or provide patientEpicId in the item.`,
+                  );
+                }
+              }
+            }
+
+            // Either we already have patients[] in the payload (so we'll create/upsert later),
+            // or the patient exists in the DB. In both cases, create an entry in the map.
             dataByPatient.set(patientEpicId, {
               observations: [],
               conditions: [],
@@ -893,6 +907,7 @@ export class IngestionService {
               diagnosticReports: [],
             });
           }
+
           const patientData = dataByPatient.get(patientEpicId)!;
           patientData[dataKey].push(item);
         }
@@ -925,6 +940,33 @@ export class IngestionService {
           return this.processPatientBulkData(epicId, patientData);
         }),
       );
+
+      // Aggregate ingested counts across all patients for stats
+      const aggregatedIngested = results.reduce(
+        (acc, cur) => {
+          acc.patient += cur.ingested.patient ?? 0;
+          acc.observations += cur.ingested.observations ?? 0;
+          acc.conditions += cur.ingested.conditions ?? 0;
+          acc.allergies += cur.ingested.allergies ?? 0;
+          acc.medications += cur.ingested.medications ?? 0;
+          acc.procedures += cur.ingested.procedures ?? 0;
+          acc.encounters += cur.ingested.encounters ?? 0;
+          acc.diagnosticReports += cur.ingested.diagnosticReports ?? 0;
+          return acc;
+        },
+        {
+          patient: 0,
+          observations: 0,
+          conditions: 0,
+          allergies: 0,
+          medications: 0,
+          procedures: 0,
+          encounters: 0,
+          diagnosticReports: 0,
+        },
+      );
+
+      await this.recordIngestionStats('BULK', aggregatedIngested);
 
       return {
         success: true,
@@ -1211,7 +1253,7 @@ export class IngestionService {
       // Don't fail the ingestion if risk evaluation fails
     }
 
-    return {
+    const result = {
       patientId: dbPatient.id,
       epicId: dbPatient.epicId,
       ingested: {
@@ -1232,6 +1274,48 @@ export class IngestionService {
           }
         : undefined,
     };
+
+    return result;
+  }
+
+  /**
+   * Record ingestion statistics in the IngestionStat table.
+   * This is used for tracking total and per-day ingestion volumes.
+   */
+  private async recordIngestionStats(
+    source: string,
+    ingested: {
+      patient?: number;
+      observations?: number;
+      conditions?: number;
+      allergies?: number;
+      medications?: number;
+      procedures?: number;
+      encounters?: number;
+      diagnosticReports?: number;
+    },
+  ) {
+    try {
+      await this.prisma.ingestionStat.create({
+        data: {
+          source,
+          patients: ingested.patient ?? 0,
+          observations: ingested.observations ?? 0,
+          conditions: ingested.conditions ?? 0,
+          allergies: ingested.allergies ?? 0,
+          medications: ingested.medications ?? 0,
+          procedures: ingested.procedures ?? 0,
+          encounters: ingested.encounters ?? 0,
+          diagnosticReports: ingested.diagnosticReports ?? 0,
+        },
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to record ingestion stats for source ${source}: ${error.message}`,
+        error.stack,
+      );
+      // Do not fail ingestion due to stats error
+    }
   }
 }
 
