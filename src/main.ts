@@ -2,6 +2,39 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { Request, Response, NextFunction } from 'express';
+
+/**
+ * Basic authentication middleware for Swagger documentation
+ * Protects all routes under /api/docs
+ */
+function swaggerBasicAuth(req: Request, res: Response, next: NextFunction) {
+  // Only apply auth to Swagger routes
+  if (!req.path.startsWith('/api/docs')) {
+    return next();
+  }
+
+  const swaggerUsername = process.env.SWAGGER_USERNAME || 'admin';
+  const swaggerPassword = process.env.SWAGGER_PASSWORD || 'admin';
+
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith('Basic ')) {
+    res.setHeader('WWW-Authenticate', 'Basic realm="Swagger API Documentation"');
+    return res.status(401).send('Unauthorized');
+  }
+
+  const base64Credentials = authHeader.split(' ')[1];
+  const credentials = Buffer.from(base64Credentials, 'base64').toString('utf-8');
+  const [username, password] = credentials.split(':');
+
+  if (username === swaggerUsername && password === swaggerPassword) {
+    return next();
+  }
+
+  res.setHeader('WWW-Authenticate', 'Basic realm="Swagger API Documentation"');
+  return res.status(401).send('Unauthorized');
+}
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -35,6 +68,11 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
+
+  // Protect Swagger documentation routes with basic auth
+  // Apply middleware before Swagger setup to protect all routes under /api/docs
+  app.use(swaggerBasicAuth);
+
   SwaggerModule.setup('api/docs', app, document, {
     customSiteTitle: 'Epic Integration API Documentation',
     customCss: '.swagger-ui .topbar { display: none }',

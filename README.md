@@ -556,6 +556,21 @@ Swagger/OpenAPI documentation is available at:
 http://localhost:3000/api/docs
 ```
 
+**⚠️ Basic Authentication Required**
+
+The Swagger documentation is protected with Basic Authentication. You'll be prompted for credentials when accessing the documentation.
+
+**Default Credentials:**
+- Username: `admin` (or set via `SWAGGER_USERNAME` environment variable)
+- Password: `admin` (or set via `SWAGGER_PASSWORD` environment variable)
+
+**To customize credentials**, add to your `.env` file:
+
+```env
+SWAGGER_USERNAME=your-username
+SWAGGER_PASSWORD=your-secure-password
+```
+
 The Swagger UI provides interactive API documentation where you can:
 
 - View all available endpoints
