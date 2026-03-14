@@ -239,6 +239,11 @@ export class RiskEngineService {
     // Medication-based fields
     {
       table: 'Medication',
+      field: 'medication',
+      description: 'Medication name/prescription',
+    },
+    {
+      table: 'Medication',
       field: 'controlledSubstancePrescribed',
       description: 'Whether the medication is a controlled substance',
     },
@@ -286,6 +291,23 @@ export class RiskEngineService {
       table: 'Medication',
       field: 'prescriptionWritten',
       description: 'Whether a prescription was written in this context',
+    },
+
+    // Condition-based fields
+    {
+      table: 'Condition',
+      field: 'diagnosis',
+      description: 'Primary diagnosis or condition name',
+    },
+    {
+      table: 'Condition',
+      field: 'status',
+      description: 'Condition status (e.g., active, resolved)',
+    },
+    {
+      table: 'Condition',
+      field: 'onsetDate',
+      description: 'Date when condition started',
     },
   ].map((f) => ({
     ...f,
