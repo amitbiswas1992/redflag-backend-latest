@@ -375,5 +375,88 @@ export class ServerController {
     this.logger.log('Fetching ingestion dashboard metrics');
     return this.serverService.getIngestionDashboardMetrics();
   }
+
+  @ApiOperation({
+    summary: 'Get risk rules dashboard metrics',
+    description:
+      'Returns metrics about risk rules and issues (matched evaluations), including total issues count, total score, breakdown by risk level, and top rules with most issues.',
+  })
+  @ApiOkResponse({
+    description: 'Risk rules dashboard metrics retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        totalRules: {
+          type: 'number',
+          example: 25,
+          description: 'Total number of risk rules in the system',
+        },
+        activeRules: {
+          type: 'number',
+          example: 23,
+          description: 'Number of active risk rules',
+        },
+        totalIssues: {
+          type: 'number',
+          example: 150,
+          description: 'Total number of matched risk evaluations (issues)',
+        },
+        totalScore: {
+          type: 'number',
+          example: 3750,
+          description: 'Sum of all scores from matched evaluations',
+        },
+        averageScore: {
+          type: 'number',
+          example: 25.0,
+          description: 'Average score per issue',
+        },
+        riskLevelBreakdown: {
+          type: 'object',
+          description: 'Issues grouped by risk level',
+          additionalProperties: {
+            type: 'object',
+            properties: {
+              count: { type: 'number', example: 50 },
+              totalScore: { type: 'number', example: 1250 },
+              averageScore: { type: 'number', example: 25.0 },
+            },
+          },
+          example: {
+            low: { count: 20, totalScore: 400, averageScore: 20.0 },
+            medium: { count: 50, totalScore: 1250, averageScore: 25.0 },
+            high: { count: 60, totalScore: 1800, averageScore: 30.0 },
+            critical: { count: 20, totalScore: 300, averageScore: 15.0 },
+          },
+        },
+        topRulesWithIssues: {
+          type: 'array',
+          description: 'Top 10 rules with the most issues',
+          items: {
+            type: 'object',
+            properties: {
+              ruleId: { type: 'string', example: 'uuid' },
+              ruleName: { type: 'string', example: 'Ryan Haight Act Violation' },
+              ruleCode: { type: 'string', example: 'TH-001', nullable: true },
+              riskLevel: {
+                type: 'string',
+                example: 'high',
+                enum: ['low', 'medium', 'high', 'critical'],
+              },
+              ruleScore: { type: 'number', example: 25 },
+              issuesCount: { type: 'number', example: 45 },
+              totalScore: { type: 'number', example: 1125 },
+              averageScore: { type: 'number', example: 25.0 },
+            },
+          },
+        },
+      },
+    },
+  })
+  @Get('dashboard/rules')
+  async getRiskRulesDashboardMetrics() {
+    this.logger.log('Fetching risk rules dashboard metrics');
+    return this.serverService.getRiskRulesDashboardMetrics();
+  }
 }
 

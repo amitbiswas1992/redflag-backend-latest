@@ -140,6 +140,128 @@ export class ServerService {
     };
   }
 
+  /**
+   * Dashboard metrics for risk rules and issues.
+   * Returns counts, scores, and breakdowns by risk level.
+   */
+  async getRiskRulesDashboardMetrics() {
+    // Total rules and active rules
+    const [totalRules, activeRules] = await Promise.all([
+      this.prisma.riskRule.count(),
+      this.prisma.riskRule.count({ where: { isActive: true } }),
+    ]);
+
+    // Total issues (matched evaluations) and total score
+    const issuesAggregate = await this.prisma.riskEvaluation.aggregate({
+      where: { matched: true },
+      _count: { id: true },
+      _sum: { score: true },
+    });
+
+    const totalIssues = issuesAggregate._count.id;
+    const totalScore = issuesAggregate._sum.score ?? 0;
+    const averageScore = totalIssues > 0 ? totalScore / totalIssues : 0;
+
+    // Issues by risk level (group by rule's riskLevel)
+    const issuesByRiskLevel = await this.prisma.riskEvaluation.groupBy({
+      by: ['ruleId'],
+      where: { matched: true },
+      _count: { id: true },
+      _sum: { score: true },
+    });
+
+    // Get rule details for each group to access riskLevel
+    const ruleIds = issuesByRiskLevel.map((item) => item.ruleId);
+    const rules = await this.prisma.riskRule.findMany({
+      where: { id: { in: ruleIds } },
+      select: { id: true, riskLevel: true, roleName: true, ruleCode: true },
+    });
+
+    const ruleMap = new Map(rules.map((r) => [r.id, r]));
+
+    // Aggregate by risk level
+    const riskLevelBreakdown: Record<
+      string,
+      { count: number; totalScore: number; averageScore: number }
+    > = {};
+
+    issuesByRiskLevel.forEach((item) => {
+      const rule = ruleMap.get(item.ruleId);
+      if (!rule) return;
+
+      const level = rule.riskLevel;
+      if (!riskLevelBreakdown[level]) {
+        riskLevelBreakdown[level] = {
+          count: 0,
+          totalScore: 0,
+          averageScore: 0,
+        };
+      }
+
+      const count = item._count.id;
+      const score = item._sum.score ?? 0;
+      riskLevelBreakdown[level].count += count;
+      riskLevelBreakdown[level].totalScore += score;
+    });
+
+    // Calculate average scores per risk level
+    Object.keys(riskLevelBreakdown).forEach((level) => {
+      const breakdown = riskLevelBreakdown[level];
+      breakdown.averageScore =
+        breakdown.count > 0 ? breakdown.totalScore / breakdown.count : 0;
+    });
+
+    // Issues by rule (top rules with most issues)
+    const issuesByRule = await this.prisma.riskEvaluation.groupBy({
+      by: ['ruleId'],
+      where: { matched: true },
+      _count: { id: true },
+      _sum: { score: true },
+      orderBy: { _count: { id: 'desc' } },
+      take: 10, // Top 10 rules
+    });
+
+    // Enrich with rule details
+    const topRulesWithIssues = await Promise.all(
+      issuesByRule.map(async (item) => {
+        const rule = await this.prisma.riskRule.findUnique({
+          where: { id: item.ruleId },
+          select: {
+            id: true,
+            roleName: true,
+            ruleCode: true,
+            riskLevel: true,
+            score: true,
+          },
+        });
+
+        return {
+          ruleId: item.ruleId,
+          ruleName: rule?.roleName || 'Unknown',
+          ruleCode: rule?.ruleCode || null,
+          riskLevel: rule?.riskLevel || 'unknown',
+          ruleScore: rule?.score || 0,
+          issuesCount: item._count.id,
+          totalScore: item._sum.score ?? 0,
+          averageScore:
+            item._count.id > 0
+              ? (item._sum.score ?? 0) / item._count.id
+              : 0,
+        };
+      }),
+    );
+
+    return {
+      totalRules,
+      activeRules,
+      totalIssues,
+      totalScore,
+      averageScore: Math.round(averageScore * 100) / 100, // Round to 2 decimal places
+      riskLevelBreakdown,
+      topRulesWithIssues,
+    };
+  }
+
   // Patient CRUD
   async createPatient(createPatientDto: CreatePatientDto) {
     try {
