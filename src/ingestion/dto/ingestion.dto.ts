@@ -766,9 +766,12 @@ export class SimplePatientDto {
   @IsString()
   lastName?: string;
 
-  @ApiPropertyOptional({ description: 'Birth date', example: '1990-01-15' })
+  @ApiPropertyOptional({
+    description: 'Birth date (ISO 8601 or free-form string, will be parsed on ingestion)',
+    example: '1990-01-15',
+  })
   @IsOptional()
-  @IsDateString()
+  @IsString()
   birthDate?: string;
 
   @ApiPropertyOptional({ description: 'Gender', example: 'male' })
@@ -813,9 +816,13 @@ export class SimpleObservationDto {
   @IsString()
   value?: string;
 
-  @ApiPropertyOptional({ description: 'Observation date', example: '2024-01-15T10:30:00Z' })
+  @ApiPropertyOptional({
+    description:
+      'Observation date (ISO 8601 or free-form string, will be parsed on ingestion)',
+    example: '2024-01-15T10:30:00Z',
+  })
   @IsOptional()
-  @IsDateString()
+  @IsString()
   date?: string;
 
   @ApiPropertyOptional({ description: 'Status', example: 'final' })
@@ -865,14 +872,22 @@ export class SimpleConditionDto {
   @IsString()
   status?: string;
 
-  @ApiPropertyOptional({ description: 'Onset date', example: '2020-03-15' })
+  @ApiPropertyOptional({
+    description:
+      'Onset date (ISO 8601 or free-form string, will be parsed on ingestion)',
+    example: '2020-03-15',
+  })
   @IsOptional()
-  @IsDateString()
+  @IsString()
   onsetDate?: string;
 
-  @ApiPropertyOptional({ description: 'Recorded date', example: '2020-03-20' })
+  @ApiPropertyOptional({
+    description:
+      'Recorded date (ISO 8601 or free-form string, will be parsed on ingestion)',
+    example: '2020-03-20',
+  })
   @IsOptional()
-  @IsDateString()
+  @IsString()
   recordedDate?: string;
 
   @ApiPropertyOptional({ description: 'Category', example: 'Disease' })
@@ -927,9 +942,13 @@ export class SimpleAllergyDto {
   @IsString()
   criticality?: string;
 
-  @ApiPropertyOptional({ description: 'Recorded date', example: '2018-05-10' })
+  @ApiPropertyOptional({
+    description:
+      'Recorded date (ISO 8601 or free-form string, will be parsed on ingestion)',
+    example: '2018-05-10',
+  })
   @IsOptional()
-  @IsDateString()
+  @IsString()
   recordedDate?: string;
 
   @ApiPropertyOptional({ description: 'Categories', type: 'array', example: ['medication'] })
@@ -979,19 +998,31 @@ export class SimpleMedicationDto {
   @IsString()
   route?: string;
 
-  @ApiPropertyOptional({ description: 'Start date', example: '2020-03-20' })
+  @ApiPropertyOptional({
+    description:
+      'Start date (ISO 8601 or free-form string, will be parsed on ingestion)',
+    example: '2020-03-20',
+  })
   @IsOptional()
-  @IsDateString()
+  @IsString()
   startDate?: string;
 
-  @ApiPropertyOptional({ description: 'End date', example: '2024-12-31' })
+  @ApiPropertyOptional({
+    description:
+      'End date (ISO 8601 or free-form string, will be parsed on ingestion)',
+    example: '2024-12-31',
+  })
   @IsOptional()
-  @IsDateString()
+  @IsString()
   endDate?: string;
 
-  @ApiPropertyOptional({ description: 'Date asserted', example: '2020-03-20' })
+  @ApiPropertyOptional({
+    description:
+      'Date asserted (ISO 8601 or free-form string, will be parsed on ingestion)',
+    example: '2020-03-20',
+  })
   @IsOptional()
-  @IsDateString()
+  @IsString()
   dateAsserted?: string;
 
   @ApiPropertyOptional({ description: 'Code', example: '6809' })
@@ -1040,9 +1071,13 @@ export class SimpleMedicationDto {
   @IsString()
   substanceCode?: string;
 
-  @ApiPropertyOptional({ description: 'Medication expiry date', example: '2026-01-01' })
+  @ApiPropertyOptional({
+    description:
+      'Medication expiry date (ISO 8601 or free-form string, will be parsed on ingestion)',
+    example: '2026-01-01',
+  })
   @IsOptional()
-  @IsDateString()
+  @IsString()
   substanceExpiry?: string;
 
   @ApiPropertyOptional({ description: 'Whether a prescription was written in this encounter', example: true })
@@ -1071,14 +1106,22 @@ export class SimpleProcedureDto {
   @IsString()
   status?: string;
 
-  @ApiPropertyOptional({ description: 'Procedure date', example: '2023-11-20T14:00:00Z' })
+  @ApiPropertyOptional({
+    description:
+      'Procedure date (ISO 8601 or free-form string, will be parsed on ingestion)',
+    example: '2023-11-20T14:00:00Z',
+  })
   @IsOptional()
-  @IsDateString()
+  @IsString()
   date?: string;
 
-  @ApiPropertyOptional({ description: 'Performed date', example: '2023-11-20T14:00:00Z' })
+  @ApiPropertyOptional({
+    description:
+      'Performed date (ISO 8601 or free-form string, will be parsed on ingestion)',
+    example: '2023-11-20T14:00:00Z',
+  })
   @IsOptional()
-  @IsDateString()
+  @IsString()
   performedDate?: string;
 
   @ApiPropertyOptional({ description: 'Outcome', example: 'Successful' })
@@ -1123,14 +1166,22 @@ export class SimpleEncounterDto {
   @IsString()
   status?: string;
 
-  @ApiPropertyOptional({ description: 'Start date', example: '2024-01-15T09:00:00Z' })
+  @ApiPropertyOptional({
+    description:
+      'Start date (ISO 8601 or free-form string, will be parsed on ingestion)',
+    example: '2024-01-15T09:00:00Z',
+  })
   @IsOptional()
-  @IsDateString()
+  @IsString()
   startDate?: string;
 
-  @ApiPropertyOptional({ description: 'End date', example: '2024-01-15T09:30:00Z' })
+  @ApiPropertyOptional({
+    description:
+      'End date (ISO 8601 or free-form string, will be parsed on ingestion)',
+    example: '2024-01-15T09:30:00Z',
+  })
   @IsOptional()
-  @IsDateString()
+  @IsString()
   endDate?: string;
 
   @ApiPropertyOptional({ description: 'Reason', example: 'Routine checkup' })
@@ -1251,14 +1302,22 @@ export class SimpleEncounterDto {
   @IsOptional()
   sessionDurationMinutes?: number;
 
-  @ApiPropertyOptional({ description: 'Session start time', example: '2024-01-15T09:00:00Z' })
+  @ApiPropertyOptional({
+    description:
+      'Session start time (ISO 8601 or free-form string, will be parsed on ingestion)',
+    example: '2024-01-15T09:00:00Z',
+  })
   @IsOptional()
-  @IsDateString()
+  @IsString()
   sessionStartTime?: string;
 
-  @ApiPropertyOptional({ description: 'Session end time', example: '2024-01-15T09:25:00Z' })
+  @ApiPropertyOptional({
+    description:
+      'Session end time (ISO 8601 or free-form string, will be parsed on ingestion)',
+    example: '2024-01-15T09:25:00Z',
+  })
   @IsOptional()
-  @IsDateString()
+  @IsString()
   sessionEndTime?: string;
 
   @ApiPropertyOptional({ description: 'Mental health screening status / instrument', example: 'PHQ-9 completed' })
@@ -1302,9 +1361,13 @@ export class SimpleEncounterDto {
   @IsString()
   clinicalNotesCompleted?: string;
 
-  @ApiPropertyOptional({ description: 'Note signed date/time', example: '2024-01-15T11:00:00Z' })
+  @ApiPropertyOptional({
+    description:
+      'Note signed date/time (ISO 8601 or free-form string, will be parsed on ingestion)',
+    example: '2024-01-15T11:00:00Z',
+  })
   @IsOptional()
-  @IsDateString()
+  @IsString()
   noteSignedDate?: string;
 
   @ApiPropertyOptional({ description: 'Whether allergies were reviewed', example: true })
@@ -1347,19 +1410,31 @@ export class SimpleDiagnosticReportDto {
   @IsString()
   status?: string;
 
-  @ApiPropertyOptional({ description: 'Report date', example: '2024-01-15T08:00:00Z' })
+  @ApiPropertyOptional({
+    description:
+      'Report date (ISO 8601 or free-form string, will be parsed on ingestion)',
+    example: '2024-01-15T08:00:00Z',
+  })
   @IsOptional()
-  @IsDateString()
+  @IsString()
   date?: string;
 
-  @ApiPropertyOptional({ description: 'Effective date', example: '2024-01-15T08:00:00Z' })
+  @ApiPropertyOptional({
+    description:
+      'Effective date (ISO 8601 or free-form string, will be parsed on ingestion)',
+    example: '2024-01-15T08:00:00Z',
+  })
   @IsOptional()
-  @IsDateString()
+  @IsString()
   effectiveDate?: string;
 
-  @ApiPropertyOptional({ description: 'Issued date', example: '2024-01-15T10:00:00Z' })
+  @ApiPropertyOptional({
+    description:
+      'Issued date (ISO 8601 or free-form string, will be parsed on ingestion)',
+    example: '2024-01-15T10:00:00Z',
+  })
   @IsOptional()
-  @IsDateString()
+  @IsString()
   issuedDate?: string;
 
   @ApiPropertyOptional({ description: 'Conclusion', example: 'All values within normal limits' })

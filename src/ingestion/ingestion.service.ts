@@ -50,6 +50,30 @@ export class IngestionService {
   ) {}
 
   /**
+   * Safely parse incoming date-like values (ISO string, other string formats, or Date)
+   * into a valid Date instance. Returns null if parsing fails instead of throwing.
+   */
+  private parseDate(
+    value?: string | Date | null,
+  ): Date | null {
+    if (!value) {
+      return null;
+    }
+
+    if (value instanceof Date) {
+      return isNaN(value.getTime()) ? null : value;
+    }
+
+    const parsed = new Date(value);
+    if (isNaN(parsed.getTime())) {
+      this.logger.warn(`Unable to parse date value: ${value}`);
+      return null;
+    }
+
+    return parsed;
+  }
+
+  /**
    * Ingest FHIR JSON data (single resource or bundle)
    * @param fhirData - FHIR resource or bundle in JSON format
    * @param patientId - Optional patient ID if ingesting a single resource
@@ -436,9 +460,7 @@ export class IngestionService {
 
   // Helper methods for upserting data (reused from server.service.ts pattern)
   private async upsertPatient(patient: NormalizedPatient) {
-    const birthDate = patient.birthDate
-      ? new Date(patient.birthDate)
-      : undefined;
+    const birthDate = this.parseDate(patient.birthDate) ?? undefined;
 
     return this.prisma.patient.upsert({
       where: { epicId: patient.id },
@@ -480,7 +502,7 @@ export class IngestionService {
           patientId,
           ...(testName && { testName }),
           ...(obs.value != null && { value: String(obs.value) }),
-          ...(obs.date && { date: new Date(obs.date) }),
+          ...(this.parseDate(obs.date) && { date: this.parseDate(obs.date) }),
           ...(obs.status && { status: obs.status }),
           code: obs.code,
           display: obs.display,
@@ -505,10 +527,8 @@ export class IngestionService {
           patientId,
           ...(diagnosis && { diagnosis }),
           ...(cond.status && { status: cond.status }),
-          onsetDate: cond.onsetDate ? new Date(cond.onsetDate) : null,
-          recordedDate: cond.recordedDate
-            ? new Date(cond.recordedDate)
-            : null,
+          onsetDate: this.parseDate(cond.onsetDate),
+          recordedDate: this.parseDate(cond.recordedDate),
           code: cond.code,
           display: cond.display,
           category: cond.category,
@@ -533,9 +553,7 @@ export class IngestionService {
           ...(allergy.type && { type: allergy.type }),
           severity: allergy.criticality,
           ...(allergy.status && { status: allergy.status }),
-          recordedDate: allergy.recordedDate
-            ? new Date(allergy.recordedDate)
-            : null,
+          recordedDate: this.parseDate(allergy.recordedDate),
           code: allergy.code,
           display: allergy.display,
           category: allergy.category || [],
@@ -560,9 +578,9 @@ export class IngestionService {
           ...(med.status && { status: med.status }),
           dosage: med.dosage,
           route: med.route,
-          startDate: med.startDate ? new Date(med.startDate) : null,
-          endDate: med.endDate ? new Date(med.endDate) : null,
-          dateAsserted: med.dateAsserted ? new Date(med.dateAsserted) : null,
+          startDate: this.parseDate(med.startDate),
+          endDate: this.parseDate(med.endDate),
+          dateAsserted: this.parseDate(med.dateAsserted),
           code: med.code,
           display: med.display,
           // Redflag-specific medication safety fields
@@ -575,9 +593,7 @@ export class IngestionService {
           overrideReason: med.overrideReason ?? null,
           quantity: med.quantity ?? null,
           substanceCode: med.substanceCode ?? null,
-          substanceExpiry: med.substanceExpiry
-            ? new Date(med.substanceExpiry)
-            : null,
+          substanceExpiry: this.parseDate(med.substanceExpiry),
           prescriptionWritten: med.prescriptionWritten ?? null,
         } as any,
       });
@@ -598,7 +614,7 @@ export class IngestionService {
           patientId,
           ...(procedure && { procedure }),
           ...(proc.status && { status: proc.status }),
-          date: proc.performedDate ? new Date(proc.performedDate) : null,
+          date: this.parseDate(proc.performedDate),
           outcome: proc.outcome,
           code: proc.code,
           display: proc.display,
@@ -622,8 +638,8 @@ export class IngestionService {
           patientId,
           ...(visitType && { visitType }),
           reason: enc.reason,
-          startDate: enc.startDate ? new Date(enc.startDate) : null,
-          endDate: enc.endDate ? new Date(enc.endDate) : null,
+          startDate: this.parseDate(enc.startDate),
+          endDate: this.parseDate(enc.endDate),
           ...(enc.status && { status: enc.status }),
           type: enc.type,
           class: enc.class,
@@ -649,12 +665,8 @@ export class IngestionService {
           crossStateLicense: enc.crossStateLicense ?? null,
           encounterType: enc.encounterType,
           sessionDurationMinutes: enc.sessionDurationMinutes ?? null,
-          sessionStartTime: enc.sessionStartTime
-            ? new Date(enc.sessionStartTime)
-            : null,
-          sessionEndTime: enc.sessionEndTime
-            ? new Date(enc.sessionEndTime)
-            : null,
+          sessionStartTime: this.parseDate(enc.sessionStartTime),
+          sessionEndTime: this.parseDate(enc.sessionEndTime),
           mentalHealthScreening: enc.mentalHealthScreening,
           substanceUseScreening: enc.substanceUseScreening,
           chiefComplaint: enc.chiefComplaint,
@@ -664,9 +676,7 @@ export class IngestionService {
           outcomeMeasured: enc.outcomeMeasured,
           coordinationWithPcp: enc.coordinationWithPcp ?? null,
           clinicalNotesCompleted: enc.clinicalNotesCompleted,
-          noteSignedDate: enc.noteSignedDate
-            ? new Date(enc.noteSignedDate)
-            : null,
+          noteSignedDate: this.parseDate(enc.noteSignedDate),
           allergiesReviewed: enc.allergiesReviewed ?? null,
           technologyAssessment: enc.technologyAssessment,
           informedConsentType: enc.informedConsentType,
@@ -691,21 +701,13 @@ export class IngestionService {
           patientId,
           ...(reportName && { reportName }),
           ...(report.status && { status: report.status }),
-          date: report.effectiveDate
-            ? new Date(report.effectiveDate)
-            : report.issuedDate
-              ? new Date(report.issuedDate)
-              : null,
+          date: this.parseDate(report.effectiveDate) ?? this.parseDate(report.issuedDate),
           conclusion: report.conclusion,
           code: report.code,
           display: report.display,
           category: report.category,
-          effectiveDate: report.effectiveDate
-            ? new Date(report.effectiveDate)
-            : null,
-          issuedDate: report.issuedDate
-            ? new Date(report.issuedDate)
-            : null,
+          effectiveDate: this.parseDate(report.effectiveDate),
+          issuedDate: this.parseDate(report.issuedDate),
         } as any,
       });
     }
