@@ -549,17 +549,32 @@ export class RiskEngineService {
       };
     }
 
-    // Get patient data
+    // Get patient data, always ordering related clinical records so that
+    // index 0 in each array is the latest record for that type.
     const patient = await this.prisma.patient.findUnique({
       where: { id: patientId },
       include: {
-        observations: true,
-        conditions: true,
-        allergies: true,
-        medications: true,
-        procedures: true,
-        encounters: true,
-        diagnosticReports: true,
+        observations: {
+          orderBy: { createdAt: 'desc' },
+        },
+        conditions: {
+          orderBy: { createdAt: 'desc' },
+        },
+        allergies: {
+          orderBy: { createdAt: 'desc' },
+        },
+        medications: {
+          orderBy: { createdAt: 'desc' },
+        },
+        procedures: {
+          orderBy: { createdAt: 'desc' },
+        },
+        encounters: {
+          orderBy: { createdAt: 'desc' },
+        },
+        diagnosticReports: {
+          orderBy: { createdAt: 'desc' },
+        },
       },
     });
 
