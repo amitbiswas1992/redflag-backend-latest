@@ -173,9 +173,9 @@ export class IngestionController {
    * Bulk ingest data using simplified structure
    */
   @ApiOperation({
-    summary: 'Bulk ingest patient data (simplified structure)',
+    summary: 'Bulk ingest patient and practitioner data (simplified structure)',
     description:
-      'Accepts patient data in a simplified, flat structure. Easier to use than FHIR format for bulk data insertion. Automatically normalizes and stores data in the database, then triggers risk rule evaluation.',
+      'Accepts patient-related clinical data and optional practitioners in a simplified, flat structure. Practitioners are upserted globally by epicId (not scoped to a patient). Easier to use than FHIR format for bulk insertion. Patient data is normalized and stored, then risk rule evaluation runs per patient.',
   })
   @ApiBody({
     description: 'Simplified bulk data structure',
@@ -196,8 +196,12 @@ export class IngestionController {
     try {
       this.logger.log('Received bulk ingestion request');
       const result = await this.ingestionService.bulkIngest(body);
+      const prac =
+        result.practitionersIngested != null
+          ? `, ${result.practitionersIngested} practitioner(s)`
+          : '';
       this.logger.log(
-        `Successfully bulk ingested data for ${result.patients.length} patient(s)`,
+        `Successfully bulk ingested data for ${result.patients.length} patient(s)${prac}`,
       );
       return result;
     } catch (error) {

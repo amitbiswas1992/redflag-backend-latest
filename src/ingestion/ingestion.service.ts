@@ -30,6 +30,7 @@ import {
 import {
   BulkIngestDto,
   SimplePatientDto,
+  SimplePractitionerDto,
   SimpleObservationDto,
   SimpleConditionDto,
   SimpleAllergyDto,
@@ -488,6 +489,61 @@ export class IngestionService {
     });
   }
 
+  private async upsertPractitionerFromBulk(dto: SimplePractitionerDto) {
+    const birthDate = this.parseDate(dto.birthDate);
+    const existing = await this.prisma.practitioner.findUnique({
+      where: { epicId: dto.epicId },
+    });
+
+    if (!existing) {
+      await this.prisma.practitioner.create({
+        data: {
+          epicId: dto.epicId,
+          name: dto.name,
+          firstName: dto.firstName,
+          lastName: dto.lastName,
+          prefix: dto.prefix ?? [],
+          suffix: dto.suffix ?? [],
+          gender: dto.gender,
+          birthDate,
+          identifiers: dto.identifiers ? (dto.identifiers as any) : undefined,
+          telecom: dto.telecom ? (dto.telecom as any) : undefined,
+          address: dto.address ? (dto.address as any) : undefined,
+          qualifications: dto.qualifications
+            ? (dto.qualifications as any)
+            : undefined,
+          languages: dto.languages ?? [],
+          deaNumber: dto.deaNumber,
+        },
+      });
+      return;
+    }
+
+    const update: Record<string, unknown> = {};
+    if (dto.name !== undefined) update.name = dto.name;
+    if (dto.firstName !== undefined) update.firstName = dto.firstName;
+    if (dto.lastName !== undefined) update.lastName = dto.lastName;
+    if (dto.prefix !== undefined) update.prefix = dto.prefix;
+    if (dto.suffix !== undefined) update.suffix = dto.suffix;
+    if (dto.gender !== undefined) update.gender = dto.gender;
+    if (dto.birthDate !== undefined) update.birthDate = birthDate;
+    if (dto.identifiers !== undefined)
+      update.identifiers = dto.identifiers as any;
+    if (dto.telecom !== undefined) update.telecom = dto.telecom as any;
+    if (dto.address !== undefined) update.address = dto.address as any;
+    if (dto.qualifications !== undefined)
+      update.qualifications = dto.qualifications as any;
+    if (dto.languages !== undefined) update.languages = dto.languages;
+    if (dto.deaNumber !== undefined) update.deaNumber = dto.deaNumber;
+
+    if (Object.keys(update).length > 0) {
+      await this.prisma.practitioner.update({
+        where: { epicId: dto.epicId },
+        data: update as any,
+      });
+    }
+  }
+
   private async upsertObservations(
     patientId: string,
     observations: NormalizedObservation[],
@@ -719,6 +775,7 @@ export class IngestionService {
    */
   async bulkIngest(bulkData: BulkIngestDto): Promise<{
     success: boolean;
+    practitionersIngested?: number;
     patients: Array<{
       patientId: string;
       epicId: string;
@@ -740,6 +797,24 @@ export class IngestionService {
     }>;
   }> {
     try {
+      let practitionersIngested = 0;
+      if (bulkData.practitioners?.length) {
+        for (const p of bulkData.practitioners) {
+          if (!p.epicId) {
+            throw new BadRequestException(
+              'All practitioners must have an epicId',
+            );
+          }
+        }
+        await Promise.all(
+          bulkData.practitioners.map((p) => this.upsertPractitionerFromBulk(p)),
+        );
+        practitionersIngested = bulkData.practitioners.length;
+        this.logger.log(
+          `Bulk upserted ${practitionersIngested} practitioner record(s)`,
+        );
+      }
+
       // Group clinical data by patientEpicId
       const dataByPatient = new Map<string, {
         patient?: SimplePatientDto;
@@ -927,9 +1002,26 @@ export class IngestionService {
       ]);
 
       if (dataByPatient.size === 0) {
-        throw new BadRequestException(
-          'No patient data provided. Provide patients array or clinical data with patientEpicId.',
-        );
+        if (practitionersIngested === 0) {
+          throw new BadRequestException(
+            'No patient data provided. Provide patients array or clinical data with patientEpicId, and/or a practitioners array.',
+          );
+        }
+        await this.recordIngestionStats('BULK', {
+          patient: 0,
+          observations: 0,
+          conditions: 0,
+          allergies: 0,
+          medications: 0,
+          procedures: 0,
+          encounters: 0,
+          diagnosticReports: 0,
+        });
+        return {
+          success: true,
+          practitionersIngested,
+          patients: [],
+        };
       }
 
       this.logger.log(
@@ -972,6 +1064,7 @@ export class IngestionService {
 
       return {
         success: true,
+        ...(practitionersIngested > 0 && { practitionersIngested }),
         patients: results,
       };
     } catch (error) {

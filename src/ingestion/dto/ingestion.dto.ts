@@ -1458,6 +1458,92 @@ export class SimpleDiagnosticReportDto {
   display?: string;
 }
 
+export class SimplePractitionerDto {
+  @ApiProperty({ description: 'Epic/FHIR Practitioner ID', example: 'practitioner-001' })
+  @IsString()
+  @IsNotEmpty()
+  epicId: string;
+
+  @ApiPropertyOptional({ description: 'Full name', example: 'Dr. Jane Smith' })
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiPropertyOptional({ description: 'First name', example: 'Jane' })
+  @IsOptional()
+  @IsString()
+  firstName?: string;
+
+  @ApiPropertyOptional({ description: 'Last name', example: 'Smith' })
+  @IsOptional()
+  @IsString()
+  lastName?: string;
+
+  @ApiPropertyOptional({ description: 'Prefixes', type: [String], example: ['Dr.'] })
+  @IsOptional()
+  @IsArray()
+  prefix?: string[];
+
+  @ApiPropertyOptional({ description: 'Suffixes', type: [String], example: ['MD'] })
+  @IsOptional()
+  @IsArray()
+  suffix?: string[];
+
+  @ApiPropertyOptional({ description: 'Gender', example: 'female' })
+  @IsOptional()
+  @IsString()
+  gender?: string;
+
+  @ApiPropertyOptional({
+    description: 'Birth date (ISO 8601 or free-form string, will be parsed on ingestion)',
+    example: '1980-05-10',
+  })
+  @IsOptional()
+  @IsString()
+  birthDate?: string;
+
+  @ApiPropertyOptional({ description: 'Identifiers', type: 'array' })
+  @IsOptional()
+  @IsArray()
+  identifiers?: Array<{ system?: string; value?: string; type?: string }>;
+
+  @ApiPropertyOptional({ description: 'Telecom', type: 'array' })
+  @IsOptional()
+  @IsArray()
+  telecom?: Array<{ system?: string; value?: string; use?: string }>;
+
+  @ApiPropertyOptional({ description: 'Address', type: 'array' })
+  @IsOptional()
+  @IsArray()
+  address?: Array<{
+    line?: string[];
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    country?: string;
+  }>;
+
+  @ApiPropertyOptional({ description: 'Qualifications', type: 'array' })
+  @IsOptional()
+  @IsArray()
+  qualifications?: Array<{
+    code?: string;
+    display?: string;
+    issuer?: string;
+    period?: { start?: string; end?: string };
+  }>;
+
+  @ApiPropertyOptional({ description: 'Languages', type: [String], example: ['en'] })
+  @IsOptional()
+  @IsArray()
+  languages?: string[];
+
+  @ApiPropertyOptional({ description: 'DEA number (prescriber)', example: 'AB1234563' })
+  @IsOptional()
+  @IsString()
+  deaNumber?: string;
+}
+
 export class BulkIngestDto {
   @ApiPropertyOptional({
     description: 'Array of patient information (can create/update multiple patients)',
@@ -1601,5 +1687,26 @@ export class BulkIngestDto {
   @ValidateNested({ each: true })
   @Type(() => SimpleDiagnosticReportDto)
   diagnosticReports?: SimpleDiagnosticReportDto[];
+
+  @ApiPropertyOptional({
+    description:
+      'Array of practitioners (global records, not tied to a single patient). Upserted by epicId.',
+    type: [SimplePractitionerDto],
+    example: [
+      {
+        epicId: 'pract-001',
+        name: 'Dr. Jane Smith',
+        firstName: 'Jane',
+        lastName: 'Smith',
+        prefix: ['Dr.'],
+        suffix: ['MD'],
+      },
+    ],
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SimplePractitionerDto)
+  practitioners?: SimplePractitionerDto[];
 }
 
