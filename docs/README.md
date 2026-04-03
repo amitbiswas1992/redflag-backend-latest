@@ -4,7 +4,38 @@ Welcome! This folder contains comprehensive documentation for Phase 1 of the Red
 
 ## 📋 Documentation Files
 
-### [QUICK_START.md](QUICK_START.md) - **START HERE**
+### [DOCKER_SETUP_GUIDE.md](DOCKER_SETUP_GUIDE.md) - **🐳 RECOMMENDED SETUP METHOD**
+- **Best for:** Getting started quickly without local PostgreSQL installation
+- **Duration:** 10 minutes to run backend with database
+- **Includes:**
+  - Complete Docker Compose with PostgreSQL included
+  - Step-by-step container startup (2 commands)
+  - Automated database migrations
+  - Testing inside Docker containers
+  - Database management commands
+  - Troubleshooting for common Docker issues
+  - Complete workflow script
+  - Reference table of Docker commands
+- **Key Features:**
+  - Zero local PostgreSQL install needed
+  - Reproducible environment across machines
+  - Data persistence with volume mounts
+  - Health checks for dependencies
+  - Full curl examples for API testing
+
+### [PROJECT_SETUP_GUIDE.md](PROJECT_SETUP_GUIDE.md) - **Local & Docker Setup**
+- **Best for:** Complete setup instructions for both Docker and local development
+- **Duration:** 10-15 minutes to get running
+- **Includes:**
+  - Quick Docker setup (recommended)
+  - Traditional local PostgreSQL setup (alternative)
+  - Complete database initialization
+  - Testing guide reference
+  - REST API workflow with examples
+  - Verification checklist
+  - Test commands for both approaches
+
+### [QUICK_START.md](QUICK_START.md) - **Quick Overview**
 - **Best for:** Quick overview of what was implemented and verification checklist
 - **Duration:** 5 minutes to read
 - **Includes:**
@@ -13,19 +44,6 @@ Welcome! This folder contains comprehensive documentation for Phase 1 of the Red
   - Next steps overview
   - Entity type mapping table
   - Architecture diagram
-
-### [PROJECT_SETUP_GUIDE.md](PROJECT_SETUP_GUIDE.md) - **Complete Setup Instructions**
-- **Best for:** Setting up your development environment and database
-- **Duration:** 10-15 minutes to complete
-- **Includes:**
-  - 5-minute quick setup checklist
-  - Complete database initialization
-  - Testing guide reference
-  - REST API workflow with examples
-  - Verification checklist
-  - Troubleshooting for common issues
-
-### [BACKEND_TESTING_GUIDE.md](BACKEND_TESTING_GUIDE.md) - **Comprehensive Testing Procedures**
 - **Best for:** Running all tests and validating the implementation
 - **Duration:** 30-45 minutes to complete all 6 phases
 - **Includes:**
@@ -58,26 +76,39 @@ Welcome! This folder contains comprehensive documentation for Phase 1 of the Red
 
 Choose your path:
 
-**Option A: I want to quickly understand what was done**
+**Option A: Docker Setup (Recommended, easiest) ⭐**
+```bash
+# 1. Copy environment
+cp .env.example .env.local
+
+# 2. Start containers (backend + database)
+docker-compose up -d
+
+# 3. Wait 15 seconds for database healthcheck
+sleep 15
+
+# ✅ Backend running on http://localhost:3000
+# For complete guide, see DOCKER_SETUP_GUIDE.md
+```
+
+**Option B: I want to set up locally without Docker**
+```bash
+# Follow PROJECT_SETUP_GUIDE.md Traditional Local Setup section
+```
+
+**Option C: I want to quickly understand what was done**
 ```bash
 # Read QUICK_START.md - 5 minutes
 ```
 
-**Option B: I want to set up and test everything**
-```bash
-# 1. Follow PROJECT_SETUP_GUIDE.md for initial setup (10 min)
-# 2. Follow BACKEND_TESTING_GUIDE.md Phase 0-3 for basic testing (20 min)
-# 3. Run the E2E tests in Phase 4 (10 min)
-```
-
-**Option C: I want to understand the technical details**
+**Option D: I want to understand the technical details**
 ```bash
 # Read PHASE1_ENTITY_PERSISTENCE_SUMMARY.md comprehensively
 ```
 
-**Option D: I'm debugging an issue**
+**Option E: I'm debugging an issue**
 ```bash
-# Refer to BACKEND_TESTING_GUIDE.md Troubleshooting section
+# Refer to DOCKER_SETUP_GUIDE.md Troubleshooting section
 # Or search PHASE1_ENTITY_PERSISTENCE_SUMMARY.md Known Limitations
 ```
 

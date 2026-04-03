@@ -4,24 +4,47 @@
 **Status**: Ready for Local Development & Testing  
 **Last Updated**: April 3, 2026
 
-## 📁 Project Documentation Structure
+---
 
-After Phase 1 implementation, all documentation is organized as follows:
+## 🐳 RECOMMENDED: Docker Setup (Easiest - 10 minutes)
 
+### ⭐ Why Docker?
+- **Zero configuration**: No local PostgreSQL installation needed
+- **Reproducible environment**: Same setup on all machines
+- **Automatic migrations**: Database schema updates run automatically
+- **Easy cleanup**: Stop containers, data persists; `docker-compose down -v` to reset
+- **Perfect for testing**: Isolated, repeatable test runs
+
+### Quick Docker Start
+```bash
+cd /Users/safiussifat/web-projects/redflag/redflag-backend-latest
+
+# 1. Copy environment
+cp .env.example .env.local
+
+# 2. Start everything (database + backend)
+docker-compose up -d
+
+# 3. Wait 15 seconds for database healthcheck
+sleep 15
+
+# 4. Verify it's running
+docker-compose ps
+curl http://localhost:3000/api
+
+# ✅ Done! Backend is running on http://localhost:3000
+
+# Stop when done
+docker-compose down
 ```
-redflag-backend-latest/
-├── docs/
-│   ├── BACKEND_TESTING_GUIDE.md          ← 📍 START HERE for testing
-│   ├── PHASE1_ENTITY_PERSISTENCE_SUMMARY.md
-│   └── QUICK_START.md
-├── PHASE1_ENTITY_PERSISTENCE_SUMMARY.md  (Root - move to docs/)
-├── QUICK_START.md                        (Root - move to docs/)
-└── ... (other project files)
-```
+
+**👉 For complete Docker instructions, see [DOCKER_SETUP_GUIDE.md](DOCKER_SETUP_GUIDE.md)**
 
 ---
 
-## ⚡ Quick Setup (5 minutes)
+## 📝 Traditional Local Setup (Alternative)
+
+If you prefer to run PostgreSQL locally instead of Docker:
 
 ### 1️⃣ Clone & Install
 ```bash
@@ -46,12 +69,12 @@ cp .env.example .env.local
 # DATABASE_URL=postgresql://postgres:postgres@localhost:5432/redflag_epic?schema=public
 ```
 
-### 3️⃣ Setup Database
+### 3️⃣ Setup Local PostgreSQL
 ```bash
-# Start PostgreSQL
+# Start PostgreSQL (macOS with Homebrew)
 brew services start postgresql@14
 
-# OR use Docker
+# OR start with Docker just the database:
 docker-compose up -d postgres
 
 # Run migrations
@@ -75,6 +98,23 @@ npm run start
 
 # Server runs on http://localhost:3000
 # API Docs at http://localhost:3000/api
+```
+
+---
+
+## 📁 Project Documentation Structure
+
+After Phase 1 implementation, all documentation is organized as follows:
+
+```
+redflag-backend-latest/
+├── docs/
+│   ├── DOCKER_SETUP_GUIDE.md            ← 🐳 Complete Docker guide
+│   ├── BACKEND_TESTING_GUIDE.md         ← 🧪 6-phase testing guide
+│   ├── PHASE1_ENTITY_PERSISTENCE_SUMMARY.md ← 📚 Technical reference
+│   ├── QUICK_START.md                   ← ⚡ Quick overview
+│   └── README.md                        ← 📖 Documentation index
+└── ... (other project files)
 ```
 
 ---
@@ -132,6 +172,25 @@ This 300+ line guide covers:
 
 ## 🧪 Test Commands Reference
 
+### Using Docker (Recommended)
+```bash
+# Build Docker images
+docker-compose build
+
+# Run backend in Docker
+docker-compose up -d
+
+# Run unit tests in Docker
+docker-compose exec redflag-epic npm test -- date-normalizer.spec.ts
+
+# Run integration tests in Docker
+docker-compose exec redflag-epic npm test -- ingestion-v2.integration.spec.ts --verbose
+
+# Access database in Docker
+docker-compose exec postgres psql -U postgres -d redflag_epic
+```
+
+### Using Local Development
 ```bash
 # Build project
 npm run build
@@ -147,6 +206,7 @@ npm test -- ingestion-v2.integration.spec.ts --verbose
 
 # Start development server
 npm run start
+
 
 # Generate Prisma Client types
 npx prisma generate
