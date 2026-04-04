@@ -25,7 +25,6 @@ export const mappingManifestSchema = z.object({
 
 export const createJobRequestSchema = z.object({
     sourceType: z.literal('FLAT_FHIR_CSV'),
-    hospitalKey: z.string().min(1),
     templateVersion: z.string().min(1).optional(),
     mappingManifest: mappingManifestSchema.optional(),
 });

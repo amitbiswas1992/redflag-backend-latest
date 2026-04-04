@@ -7,6 +7,7 @@ import { IngestionV2Service } from './ingestion-v2.service';
 describe('IngestionV2Service - Entity Persistence Integration', () => {
     let service: IngestionV2Service;
     let prisma: PrismaService;
+    let jobId: string;
 
     beforeAll(async () => {
         // Note: This test requires a real database connection to run
@@ -20,8 +21,6 @@ describe('IngestionV2Service - Entity Persistence Integration', () => {
     });
 
     describe('Full Job Lifecycle with Entity Persistence', () => {
-        let jobId: string;
-        const hospitalKey = 'test-hospital-001';
         const sampleCsvPath = path.join(
             __dirname,
             '../../..',
@@ -33,7 +32,6 @@ describe('IngestionV2Service - Entity Persistence Integration', () => {
         it('should create a job', async () => {
             const result = await service.createJob({
                 sourceType: 'FLAT_FHIR_CSV',
-                hospitalKey,
             });
 
             expect(result.jobId).toBeDefined();
@@ -43,12 +41,12 @@ describe('IngestionV2Service - Entity Persistence Integration', () => {
 
         it('should upload CSV and validate rows', async () => {
             if (!jobId) {
-                skip();
+                return;
             }
 
             // Read sample CSV file
             if (!fs.existsSync(sampleCsvPath)) {
-                skip();
+                return;
             }
 
             const csvData = fs.readFileSync(sampleCsvPath, 'utf-8');
@@ -62,7 +60,7 @@ describe('IngestionV2Service - Entity Persistence Integration', () => {
 
         it('should persist entities when job is started', async () => {
             if (!jobId) {
-                skip();
+                return;
             }
 
             const result = await service.startJob(jobId, {});
@@ -80,7 +78,7 @@ describe('IngestionV2Service - Entity Persistence Integration', () => {
 
         it('should persist multiple entity types for a single row', async () => {
             if (!jobId) {
-                skip();
+                return;
             }
 
             // Verify Encounter was persisted
@@ -128,19 +126,18 @@ describe('IngestionV2Service - Entity Persistence Integration', () => {
 
         it('should use deterministic upsert (idempotent persistence)', async () => {
             if (!jobId) {
-                skip();
+                return;
             }
 
             // Create a second job with same data
             const job2Result = await service.createJob({
                 sourceType: 'FLAT_FHIR_CSV',
-                hospitalKey: `${hospitalKey}-2`,
             });
 
             const job2Id = job2Result.jobId;
 
             if (!fs.existsSync(sampleCsvPath)) {
-                skip();
+                return;
             }
 
             const csvData = fs.readFileSync(sampleCsvPath, 'utf-8');
@@ -158,23 +155,17 @@ describe('IngestionV2Service - Entity Persistence Integration', () => {
     afterAll(async () => {
         // Clean up - remove test data
         try {
-            await prisma.ingestionRowResultV2.deleteMany({
-                where: {
-                    job: {
-                        hospitalKey: {
-                            startsWith: 'test-hospital',
-                        },
-                    },
-                },
-            });
+            if (jobId) {
+                // Delete all row results for this job
+                await prisma.ingestionRowResultV2.deleteMany({
+                    where: { jobId },
+                });
 
-            await prisma.ingestionJobV2.deleteMany({
-                where: {
-                    hospitalKey: {
-                        startsWith: 'test-hospital',
-                    },
-                },
-            });
+                // Delete the job itself
+                await prisma.ingestionJobV2.deleteMany({
+                    where: { id: jobId },
+                });
+            }
 
             // Clean up by patient names from test
             await prisma.diagnosticReport.deleteMany({

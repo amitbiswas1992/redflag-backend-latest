@@ -1,11 +1,10 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosInstance } from 'axios';
-import { TokenService } from '../token/token.service';
-import { generateEpicJWT, validateJwtConfig } from './utils/jwt.util';
-import { createJWKSet } from './utils/jwk.util';
-import { JWKSet } from './utils/jwk.util';
 import { TokenData } from '../token/interfaces/token.interface';
+import { TokenService } from '../token/token.service';
+import { createJWKSet, JWKSet } from './utils/jwk.util';
+import { generateEpicJWT, validateJwtConfig } from './utils/jwt.util';
 
 @Injectable()
 export class AuthService {

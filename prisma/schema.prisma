@@ -63,7 +63,7 @@ model Practitioner {
 
 model Observation {
   id        String    @id @default(uuid())
-  epicId    String // Epic FHIR Observation ID
+  epicId    String    @unique // Epic FHIR Observation ID
   patientId String
   testName  String?
   value     String?
@@ -85,7 +85,7 @@ model Observation {
 
 model Condition {
   id           String    @id @default(uuid())
-  epicId       String // Epic FHIR Condition ID
+  epicId       String    @unique // Epic FHIR Condition ID
   patientId    String
   diagnosis    String?
   status       String?
@@ -106,7 +106,7 @@ model Condition {
 
 model Allergy {
   id           String    @id @default(uuid())
-  epicId       String // Epic FHIR AllergyIntolerance ID
+  epicId       String    @unique // Epic FHIR AllergyIntolerance ID
   patientId    String
   allergen     String?
   type         String?
@@ -129,7 +129,7 @@ model Allergy {
 
 model Medication {
   id           String    @id @default(uuid())
-  epicId       String // Epic FHIR MedicationStatement ID
+  epicId       String    @unique // Epic FHIR MedicationStatement ID
   patientId    String
   medication   String?
   status       String?
@@ -165,7 +165,7 @@ model Medication {
 
 model Procedure {
   id            String    @id @default(uuid())
-  epicId        String // Epic FHIR Procedure ID
+  epicId        String    @unique // Epic FHIR Procedure ID
   patientId     String
   procedure     String?
   status        String?
@@ -187,7 +187,7 @@ model Procedure {
 
 model Encounter {
   id        String    @id @default(uuid())
-  epicId    String // Epic FHIR Encounter ID
+  epicId    String    @unique // Epic FHIR Encounter ID
   patientId String
   visitType String?
   reason    String?
@@ -254,7 +254,7 @@ model Encounter {
 
 model DiagnosticReport {
   id            String    @id @default(uuid())
-  epicId        String // Epic FHIR DiagnosticReport ID
+  epicId        String    @unique // Epic FHIR DiagnosticReport ID
   patientId     String
   reportName    String?
   status        String?
@@ -273,6 +273,67 @@ model DiagnosticReport {
   @@index([patientId])
   @@index([epicId])
   @@map("diagnostic_reports")
+}
+
+enum IngestionJobStatusV2 {
+  CREATED
+  UPLOADED
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum IngestionRowOutcomeV2 {
+  INSERTED
+  UPDATED
+  SKIPPED
+  ERROR
+}
+
+model IngestionJobV2 {
+  id              String               @id @default(uuid())
+  sourceType      String
+  templateVersion String?
+  status          IngestionJobStatusV2 @default(CREATED)
+  checksumSha256  String?
+  totalRows       Int                  @default(0)
+  processedRows   Int                  @default(0)
+  successRows     Int                  @default(0)
+  failedRows      Int                  @default(0)
+  mappingManifest Json?
+  errorSummary    Json?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  rows IngestionRowResultV2[]
+
+  @@index([status])
+  @@index([sourceType])
+  @@index([createdAt])
+  @@map("ingestion_jobs_v2")
+}
+
+model IngestionRowResultV2 {
+  id             String               @id @default(uuid())
+  jobId          String
+  rowNumber      Int
+  sourceRecordKey String?
+  entityType     String?
+  outcome        IngestionRowOutcomeV2
+  reasonCode     String?
+  message        String?
+  rowData        Json?                @map("row_data")
+  persisted      Json?
+  createdAt      DateTime             @default(now())
+
+  job IngestionJobV2 @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+  @@index([jobId, rowNumber])
+  @@index([outcome])
+  @@map("ingestion_row_results_v2")
 }
 
 model RiskRule {

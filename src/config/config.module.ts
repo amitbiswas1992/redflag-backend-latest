@@ -11,4 +11,4 @@ import epicConfig from './epic.config';
     }),
   ],
 })
-export class ConfigModule {}
+export class ConfigModule { }

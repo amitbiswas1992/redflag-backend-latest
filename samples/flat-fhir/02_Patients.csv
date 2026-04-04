@@ -1,0 +1,21 @@
+patient_id,source_file,given_name,family_name,birth_date,gender,race,ethnicity,city,patient_location_state,postal_code
+90bee091-8f2c-8e95-634e-c5447bccbb40,Andrew29_Williamson769_90bee091-8f2c-8e95-634e-c5447bccbb40.json,Andrew29,Williamson769,1946-07-01,male,White,Not Hispanic or Latino,Ludlow,MA,00000
+182b5fa5-9a66-b61f-0ca4-0106c17f92a8,Berta524_Carmen818_Escobar593_182b5fa5-9a66-b61f-0ca4-0106c17f92a8.json,Berta524 Carmen818,Escobar593,1954-03-26,female,White,Hispanic or Latino,Saugus,MA,01906
+4457c89c-bc8a-ead1-95a0-f9ccd1ca32e3,Cameron381_Bailey598_4457c89c-bc8a-ead1-95a0-f9ccd1ca32e3.json,Cameron381,Bailey598,1973-06-25,male,White,Not Hispanic or Latino,Plymouth,MA,02360
+545edadf-f9ed-6e08-f4a4-e389d0fa2e17,Carolyne559_Delta800_Schuster709_545edadf-f9ed-6e08-f4a4-e389d0fa2e17.json,Carolyne559 Delta800,Schuster709,1960-03-24,female,White,Not Hispanic or Latino,Ware,MA,01082
+04c9a82d-172c-d835-6855-793eeddb3d96,Damian46_Bauch723_04c9a82d-172c-d835-6855-793eeddb3d96.json,Damian46 Rudolph554,Bauch723,1964-01-03,male,White,Not Hispanic or Latino,Athol,MA,01331
+146f90af-2cfb-f2a9-1bf5-998b37420c0d,David908_Ortiz186_146f90af-2cfb-f2a9-1bf5-998b37420c0d.json,David908 Aleta47,Ortiz186,1969-01-29,female,White,Not Hispanic or Latino,Lynn,MA,01906
+d3e437cf-2a56-a977-43be-40ac7166bf81,Francie486_Goodwin327_d3e437cf-2a56-a977-43be-40ac7166bf81.json,Francie486 Margarete324,Goodwin327,1979-05-24,female,White,Not Hispanic or Latino,Brockton,MA,02301
+788e5211-dbce-c675-cd6c-67594bec84be,Isaiah615_Bartoletti50_788e5211-dbce-c675-cd6c-67594bec84be.json,Isaiah615 Gary33,Bartoletti50,1965-10-02,male,White,Not Hispanic or Latino,Worcester,MA,01604
+0c193146-985b-c33e-07fe-6f474df3336c,Joey457_Shanahan202_0c193146-985b-c33e-07fe-6f474df3336c.json,Joey457 Tod265,Shanahan202,1966-11-17,male,White,Not Hispanic or Latino,Carver,MA,00000
+c509b605-d214-e347-3b82-537a0c55dabd,Kris249_Kohler843_c509b605-d214-e347-3b82-537a0c55dabd.json,Kris249 Howard613,Kohler843,1973-11-07,male,White,Not Hispanic or Latino,Plymouth,MA,02360
+cd42752c-2467-db64-102c-73d9b3b4f218,Lekisha909_Lurline371_Bosco882_cd42752c-2467-db64-102c-73d9b3b4f218.json,Lekisha909 Lurline371,Bosco882,1990-03-23,female,White,Not Hispanic or Latino,Natick,MA,00000
+67e69603-6dbd-5a8a-7d74-8e37c4c2208b,Leon728_Grimes165_67e69603-6dbd-5a8a-7d74-8e37c4c2208b.json,Leon728 Blair400,Grimes165,2022-08-26,male,White,Not Hispanic or Latino,Lynn,MA,01902
+5532bf23-7e81-eca1-5887-06204013d427,Mora209_Lorita217_Ernser583_5532bf23-7e81-eca1-5887-06204013d427.json,Mora209 Lorita217,Ernser583,1989-06-10,female,White,Not Hispanic or Latino,Fall River,MA,02790
+08c6ca9c-1ba6-97b5-0c33-65f7755af0e2,Niki25_Williemae619_Bode78_08c6ca9c-1ba6-97b5-0c33-65f7755af0e2.json,Niki25 Williemae619,Bode78,1963-10-12,female,White,Not Hispanic or Latino,Topsfield,MA,01983
+d1bf6c84-8e61-45c0-4579-9fe8e838afd3,Otha286_Durgan499_d1bf6c84-8e61-45c0-4579-9fe8e838afd3.json,Otha286 Earle679,Durgan499,1969-06-18,male,Asian,Not Hispanic or Latino,Medford,MA,02155
+67a637e5-27d2-ef27-b97a-c4ea4c13de7e,Rhona164_Olinda137_Homenick806_67a637e5-27d2-ef27-b97a-c4ea4c13de7e.json,Rhona164 Olinda137,Homenick806,1964-11-15,female,Black or African American,Not Hispanic or Latino,Pepperell,MA,01463
+be5925e0-1eaa-59c6-c012-3495ca9e2890,Riley817_Gleichner915_be5925e0-1eaa-59c6-c012-3495ca9e2890.json,Riley817 Brent147,Gleichner915,1965-10-02,male,White,Not Hispanic or Latino,Worcester,MA,01583
+88969834-96f0-f4a8-b29d-7d5f9820599a,Rocio28_Roque844_88969834-96f0-f4a8-b29d-7d5f9820599a.json,Rocio28 María Cristina383,Roque844,1967-05-08,female,White,Hispanic or Latino,Amesbury,MA,01913
+af9430e3-695f-affc-c41b-f5970ae62eb1,Ronnie7_Kunze215_af9430e3-695f-affc-c41b-f5970ae62eb1.json,Ronnie7,Kunze215,1984-04-21,male,White,Not Hispanic or Latino,Middleborough,MA,00000
+d4f64bc9-b691-9feb-82a0-94e8dd8561f3,Su690_Rogahn59_d4f64bc9-b691-9feb-82a0-94e8dd8561f3.json,Su690 Alycia285,Rogahn59,1948-09-16,female,Asian,Not Hispanic or Latino,Agawam,MA,01001

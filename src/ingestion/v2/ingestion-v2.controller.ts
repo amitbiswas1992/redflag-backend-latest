@@ -25,10 +25,9 @@ export class IngestionV2Controller {
     @ApiBody({
         schema: {
             type: 'object',
-            required: ['sourceType', 'hospitalKey'],
+            required: ['sourceType'],
             properties: {
                 sourceType: { type: 'string', enum: ['FLAT_FHIR_CSV'] },
-                hospitalKey: { type: 'string' },
                 templateVersion: { type: 'string' },
                 mappingManifest: { type: 'object' },
             },

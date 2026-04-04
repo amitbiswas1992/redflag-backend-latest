@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { createHash } from 'crypto';
+import { RiskEngineService } from '../../risk-engine/risk-engine.service';
 import { PrismaService } from '../../server/prisma.service';
 import { parseCsvRows } from './csv';
 import { normalizeDateValue } from './date-normalizer';
@@ -67,25 +68,25 @@ const DEFAULT_MAPPING_MANIFEST: MappingManifest = {
     family: 'FLAT_FHIR_CSV',
     dateColumns: {
         birth_date: {
-            acceptedFormats: ['YYYY_MM_DD', 'MM_DD_YYYY', 'DD_MM_YYYY'],
+            acceptedFormats: ['ISO_8601', 'YYYY_MM_DD', 'MM_DD_YYYY', 'DD_MM_YYYY'],
             outputType: 'date',
             timezone: 'UTC',
             nullable: true,
         },
         date_of_birth: {
-            acceptedFormats: ['YYYY_MM_DD', 'MM_DD_YYYY', 'DD_MM_YYYY'],
+            acceptedFormats: ['ISO_8601', 'YYYY_MM_DD', 'MM_DD_YYYY', 'DD_MM_YYYY'],
             outputType: 'date',
             timezone: 'UTC',
             nullable: true,
         },
         onset_date: {
-            acceptedFormats: ['YYYY_MM_DD', 'MM_DD_YYYY', 'DD_MM_YYYY'],
+            acceptedFormats: ['ISO_8601', 'YYYY_MM_DD', 'MM_DD_YYYY', 'DD_MM_YYYY'],
             outputType: 'date',
             timezone: 'UTC',
             nullable: true,
         },
         recorded_date: {
-            acceptedFormats: ['YYYY_MM_DD', 'MM_DD_YYYY', 'DD_MM_YYYY'],
+            acceptedFormats: ['ISO_8601', 'YYYY_MM_DD', 'MM_DD_YYYY', 'DD_MM_YYYY'],
             outputType: 'date',
             timezone: 'UTC',
             nullable: true,
@@ -127,7 +128,10 @@ const DEFAULT_MAPPING_MANIFEST: MappingManifest = {
 export class IngestionV2Service {
     private readonly logger = new Logger(IngestionV2Service.name);
 
-    constructor(private readonly prisma: PrismaService) { }
+    constructor(
+        private readonly prisma: PrismaService,
+        private readonly riskEngineService: RiskEngineService,
+    ) { }
 
     private get prismaV2(): IngestionV2PrismaAdapter {
         return this.prisma as IngestionV2PrismaAdapter;
@@ -142,7 +146,6 @@ export class IngestionV2Service {
         const created = await this.prismaV2.ingestionJobV2.create({
             data: {
                 sourceType: input.sourceType,
-                hospitalKey: input.hospitalKey,
                 templateVersion: input.templateVersion,
                 status: 'CREATED',
                 mappingManifest: manifestJson,
@@ -153,14 +156,15 @@ export class IngestionV2Service {
             jobId: created.id,
             status: created.status,
             sourceType: created.sourceType,
-            hospitalKey: created.hospitalKey,
             createdAt: created.createdAt,
         };
     }
 
     async uploadCsv(jobId: string, rawInput: unknown) {
         const input = uploadCsvRequestSchema.parse(rawInput);
-        const job = await this.prismaV2.ingestionJobV2.findUnique({ where: { id: jobId } });
+        const job = await this.prismaV2.ingestionJobV2.findFirst({
+            where: { id: jobId },
+        });
 
         if (!job) {
             throw new NotFoundException(`Ingestion job not found: ${jobId}`);
@@ -191,9 +195,9 @@ export class IngestionV2Service {
 
         const summary = this.summarizeResults(rowResults);
 
-        await this.prisma.$transaction([
-            this.prismaV2.ingestionRowResultV2.deleteMany({ where: { jobId } }),
-            this.prismaV2.ingestionJobV2.update({
+        await this.prisma.$transaction(async (tx) => {
+            await tx.ingestionRowResultV2.deleteMany({ where: { jobId } });
+            await tx.ingestionJobV2.update({
                 where: { id: jobId },
                 data: {
                     status: 'UPLOADED',
@@ -204,8 +208,8 @@ export class IngestionV2Service {
                     failedRows: summary.failedRows,
                     errorSummary: summary.errorSummary as unknown as Prisma.InputJsonValue,
                 },
-            }),
-            this.prismaV2.ingestionRowResultV2.createMany({
+            });
+            await tx.ingestionRowResultV2.createMany({
                 data: rowResults.map((result, idx) => ({
                     jobId,
                     rowNumber: result.rowNumber,
@@ -216,8 +220,8 @@ export class IngestionV2Service {
                     message: result.message,
                     rowData: parsedRows[idx] as unknown as Prisma.InputJsonValue,
                 })),
-            }),
-        ]);
+            });
+        });
 
         return {
             jobId,
@@ -231,7 +235,9 @@ export class IngestionV2Service {
         const payload = startJobRequestSchema.parse(rawInput ?? {});
         void payload;
 
-        const job = await this.prismaV2.ingestionJobV2.findUnique({ where: { id: jobId } });
+        const job = await this.prismaV2.ingestionJobV2.findFirst({
+            where: { id: jobId },
+        });
         if (!job) {
             throw new NotFoundException(`Ingestion job not found: ${jobId}`);
         }
@@ -259,6 +265,7 @@ export class IngestionV2Service {
         const successfulRows = rowResults.filter((r) => r.outcome === 'INSERTED');
         let persistedCount = 0;
         let persistedErrors: { rowNumber: number; error: string }[] = [];
+        const persistedPatientIds = new Set<string>();
 
         for (const rowResult of successfulRows) {
             const row = (rowResult as any).rowData as Record<string, any>;
@@ -288,6 +295,7 @@ export class IngestionV2Service {
                         create: entities.patient as any,
                     });
                     persistedIds.patientId = patient.id;
+                    persistedPatientIds.add(patient.id);
                 }
 
                 // Persist Practitioner (optional)
@@ -442,6 +450,20 @@ export class IngestionV2Service {
             `Ingestion v2 job completed: ${jobId} (persisted ${persistedCount}/${successfulRows.length} entities)`,
         );
 
+        // Evaluate risk for each unique persisted patient
+        const riskEvaluations: any[] = [];
+        for (const patientId of persistedPatientIds) {
+            try {
+                const riskResult = await this.riskEngineService.evaluatePatientRules(patientId);
+                riskEvaluations.push(riskResult);
+            } catch (err) {
+                const message = err instanceof Error ? err.message : String(err);
+                this.logger.warn(
+                    `Risk evaluation failed for patient ${patientId}: ${message}`,
+                );
+            }
+        }
+
         return {
             jobId: completed.id,
             status: completed.status,
@@ -450,13 +472,16 @@ export class IngestionV2Service {
             failedRows: completed.failedRows,
             persistedCount,
             persistedErrors: persistedErrors.length > 0 ? persistedErrors : undefined,
+            riskEvaluations: riskEvaluations.length > 0 ? riskEvaluations : undefined,
             startedAt: completed.startedAt,
             completedAt: completed.completedAt,
         };
     }
 
     async getJobStatus(jobId: string) {
-        const job = await this.prismaV2.ingestionJobV2.findUnique({ where: { id: jobId } });
+        const job = await this.prismaV2.ingestionJobV2.findFirst({
+            where: { id: jobId },
+        });
 
         if (!job) {
             throw new NotFoundException(`Ingestion job not found: ${jobId}`);
@@ -466,19 +491,30 @@ export class IngestionV2Service {
     }
 
     async getRowResults(jobId: string, page = 1, pageSize = 50) {
+        const job = await this.prismaV2.ingestionJobV2.findFirst({
+            where: { id: jobId },
+            select: { id: true },
+        });
+
+        if (!job) {
+            throw new NotFoundException(`Ingestion job not found: ${jobId}`);
+        }
+
         const safePage = Math.max(1, page);
         const safePageSize = Math.min(500, Math.max(1, pageSize));
         const skip = (safePage - 1) * safePageSize;
 
-        const [total, rows] = await this.prisma.$transaction([
-            this.prismaV2.ingestionRowResultV2.count({ where: { jobId } }),
-            this.prismaV2.ingestionRowResultV2.findMany({
+        const [total, rows] = await this.prisma.$transaction(async (tx) => {
+            const count = await tx.ingestionRowResultV2.count({ where: { jobId } });
+            const data = await tx.ingestionRowResultV2.findMany({
                 where: { jobId },
                 skip,
                 take: safePageSize,
                 orderBy: { rowNumber: 'asc' },
-            }),
-        ]);
+            });
+
+            return [count, data] as const;
+        });
 
         return {
             page: safePage,
@@ -526,7 +562,9 @@ export class IngestionV2Service {
 
         const normalizedRow = { ...rowValidation.data };
 
-        for (const [column, rule] of Object.entries(manifest.dateColumns)) {
+        const dateColumns = manifest.dateColumns as Record<string, DateColumnRule>;
+
+        for (const [column, rule] of Object.entries(dateColumns)) {
             const rawValue = normalizedRow[column];
             if (rawValue === undefined && rule.nullable) {
                 continue;
