@@ -2,33 +2,24 @@ FROM node:20-slim
 
 WORKDIR /app
 
-# Install OpenSSL for Prisma and curl for healthchecks
-RUN apt-get update -y && apt-get install -y openssl curl && rm -rf /var/lib/apt/lists/*
+# Enable PNPM
+RUN corepack enable && corepack prepare pnpm@latest --activate
 
-# Copy package files
-COPY package*.json ./
+# Copy package lockfiles first for Docker layer caching
+COPY package.json pnpm-lock.yaml ./
 
-# Install dependencies
-RUN npm install  --legacy-peer-deps
+# Install dependencies using strict lockfile
+RUN pnpm install --frozen-lockfile
 
-# Copy Prisma schema
-COPY prisma ./prisma
-
-# Generate Prisma Client
-RUN npx prisma generate
-
-# Copy source code
+# Copy the entire workspace source
 COPY . .
 
-# Build the application
-RUN npm run build
+# Build the entire NestJS Monorepo
+RUN pnpm run build core-service && pnpm run build identity-service
 
-# Create a script to run migrations and start the app
-RUN echo '#!/bin/sh\necho "Waiting for database..."\necho "Running migrations..."\nnpm run prisma:migrate:deploy 2>/dev/null || true\necho "Starting application..."\nnode dist/main' > /app/start.sh && chmod +x /app/start.sh
-
-# Set NODE_ENV
+# Target explicitly the highly-performant production runtime
 ENV NODE_ENV=production
 
-# Start the application with migration handling
-CMD ["/app/start.sh"]
+# Expose a parameterized execution boundary
+CMD ["node", "dist/apps/core-service/main.js"]
 

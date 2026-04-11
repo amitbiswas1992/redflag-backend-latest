@@ -1,0 +1,22 @@
+apps/core-service/src/ingestion/ingestion-worker.service.ts(3,10): error TS2459: Module '"@app/db/schema/analytics"' declares 'encounters' locally, but it is not exported.
+apps/core-service/src/ingestion/ingestion-worker.service.ts(3,22): error TS2305: Module '"@app/db/schema/analytics"' has no exported member 'patients'.
+apps/core-service/src/ingestion/ingestion-worker.service.ts(3,52): error TS2305: Module '"@app/db/schema/analytics"' has no exported member 'complianceFlags'.
+apps/core-service/src/ingestion/ingestion-worker.service.ts(5,30): error TS2307: Cannot find module 'uuid' or its corresponding type declarations.
+apps/core-service/src/ingestion/ingestion-worker.service.ts(52,27): error TS18046: 'row' is of type 'unknown'.
+apps/core-service/src/ingestion/ingestion-worker.service.ts(53,34): error TS18046: 'row' is of type 'unknown'.
+apps/core-service/src/ingestion/ingestion-worker.service.ts(53,59): error TS18046: 'row' is of type 'unknown'.
+apps/core-service/src/ingestion/ingestion-worker.service.ts(54,25): error TS18046: 'row' is of type 'unknown'.
+apps/core-service/src/ingestion/ingestion-worker.service.ts(55,37): error TS18046: 'row' is of type 'unknown'.
+apps/core-service/src/ingestion/ingestion-worker.service.ts(56,36): error TS18046: 'row' is of type 'unknown'.
+apps/core-service/src/ingestion/ingestion-worker.service.ts(56,57): error TS18046: 'row' is of type 'unknown'.
+apps/core-service/src/ingestion/ingestion-worker.service.ts(63,27): error TS18046: 'row' is of type 'unknown'.
+apps/core-service/src/ingestion/ingestion-worker.service.ts(65,25): error TS18046: 'row' is of type 'unknown'.
+apps/core-service/src/ingestion/ingestion-worker.service.ts(66,50): error TS18046: 'row' is of type 'unknown'.
+apps/core-service/src/ingestion/ingestion-worker.service.ts(76,31): error TS18046: 'row' is of type 'unknown'.
+apps/core-service/src/ingestion/ingestion-worker.service.ts(77,33): error TS18046: 'row' is of type 'unknown'.
+apps/core-service/src/ingestion/ingestion-worker.service.ts(78,41): error TS18046: 'row' is of type 'unknown'.
+apps/core-service/src/ingestion/ingestion-worker.service.ts(79,43): error TS18046: 'row' is of type 'unknown'.
+apps/core-service/src/ingestion/ingestion-worker.service.ts(80,40): error TS18046: 'row' is of type 'unknown'.
+apps/core-service/src/ingestion/ingestion-worker.service.ts(81,42): error TS18046: 'row' is of type 'unknown'.
+apps/core-service/src/ingestion/ingestion.module.ts(7,34): error TS2307: Cannot find module './xml-parser.service' or its corresponding type declarations.
+apps/core-service/src/ingestion/ingestion.service.ts(2,35): error TS2307: Cannot find module '../../risk-engine/risk-engine.service' or its corresponding type declarations.

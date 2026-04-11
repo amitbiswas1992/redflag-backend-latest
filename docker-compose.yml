@@ -1,39 +1,32 @@
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: redflag-postgres
-    ports:
-      - "${DB_PORT:-5432}:5432"
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.1
+    container_name: redflag-keycloak
+    command: start-dev
     environment:
-      - POSTGRES_USER=${POSTGRES_USER:-postgres}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
-      - POSTGRES_DB=${POSTGRES_DB:-redflag_epic}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - KEYCLOAK_ADMIN=admin
+      - KEYCLOAK_ADMIN_PASSWORD=admin
+      - KC_HEALTH_ENABLED=true
+      - KC_METRICS_ENABLED=true
+    ports:
+      - "8080:8080"
     networks:
       - redflag-network
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
     restart: unless-stopped
 
-  redflag-epic:
+  redflag-core:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: redflag-epic
+    container_name: redflag-core
+    command: ["node", "dist/apps/core-service/main.js"]
     env_file:
       - .env
     ports:
-      - "${PORT:-3000}:${PORT:-3000}"
-    depends_on:
-      postgres:
-        condition: service_healthy
+      - "${PORT:-3000}:3000"
     environment:
       # Database Configuration
-      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/redflag_epic?schema=public}
+      #- DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/redflag_epic?schema=public}
 
       # Epic Configuration
       - EPIC_CLIENT_ID=${EPIC_CLIENT_ID}
@@ -60,9 +53,23 @@ services:
     networks:
       - redflag-network
 
-volumes:
-  postgres_data:
-    driver: local
+  redflag-identity:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: redflag-identity
+    command: ["node", "dist/apps/identity-service/main.js"]
+    env_file:
+      - .env
+    ports:
+      - "3001:3000"
+    environment:
+      # Application Configuration
+      - PORT=3000
+      - NODE_ENV=production
+    restart: unless-stopped
+    networks:
+      - redflag-network
 
 networks:
   redflag-network:

@@ -1,8 +1,7 @@
 {
   "compilerOptions": {
-    "module": "nodenext",
-    "moduleResolution": "nodenext",
-    "resolvePackageJsonExports": true,
+    "module": "commonjs",
+    "moduleResolution": "node",
     "esModuleInterop": true,
     "isolatedModules": true,
     "declaration": true,
@@ -20,6 +19,20 @@
     "forceConsistentCasingInFileNames": true,
     "noImplicitAny": false,
     "strictBindCallApply": false,
-    "noFallthroughCasesInSwitch": false
+    "noFallthroughCasesInSwitch": false,
+    "paths": {
+      "@app/db": [
+        "libs/db/src/index"
+      ],
+      "@app/db/*": [
+        "libs/db/src/*"
+      ],
+      "@app/common": [
+        "libs/common/src/index"
+      ],
+      "@app/common/*": [
+        "libs/common/src/*"
+      ]
+    }
   }
 }
