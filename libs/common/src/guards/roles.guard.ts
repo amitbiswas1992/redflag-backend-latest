@@ -1,12 +1,13 @@
 import {
-    Injectable,
     CanActivate,
     ExecutionContext,
     ForbiddenException,
+    Injectable,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { ROLES_KEY } from '../decorators/roles.decorator';
 import { Request } from 'express';
+import { AUTH_PUBLIC_ROUTE_KEY } from '../constants/auth.constants';
+import { ROLES_KEY } from '../decorators/roles.decorator';
 
 /**
  * Enforces role-based access control within a tenant.
@@ -24,6 +25,14 @@ export class RolesGuard implements CanActivate {
     constructor(private readonly reflector: Reflector) { }
 
     canActivate(context: ExecutionContext): boolean {
+        const isPublic = this.reflector.getAllAndOverride<boolean>(AUTH_PUBLIC_ROUTE_KEY, [
+            context.getHandler(),
+            context.getClass(),
+        ]);
+        if (isPublic) {
+            return true;
+        }
+
         const requiredRoles = this.reflector.getAllAndOverride<string[]>(ROLES_KEY, [
             context.getHandler(),
             context.getClass(),
@@ -41,9 +50,12 @@ export class RolesGuard implements CanActivate {
             throw new ForbiddenException('ROLE_MISSING: No role found in token');
         }
 
-        if (!requiredRoles.includes(user.role)) {
+        const normalizedUserRole = String(user.role).toUpperCase();
+        const normalizedRequiredRoles = requiredRoles.map(role => String(role).toUpperCase());
+
+        if (!normalizedRequiredRoles.includes(normalizedUserRole)) {
             throw new ForbiddenException(
-                `ROLE_DENIED: Requires one of [${requiredRoles.join(', ')}], got [${user.role}]`
+                `ROLE_DENIED: Requires one of [${normalizedRequiredRoles.join(', ')}], got [${normalizedUserRole}]`
             );
         }
 

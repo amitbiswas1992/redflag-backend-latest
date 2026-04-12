@@ -1,9 +1,9 @@
-import { Injectable, Logger, NotFoundException, BadRequestException, Inject } from '@nestjs/common';
-import { db, patients, encounters, observations, conditions, allergies, medications, procedures, diagnosticReports, ingestionStats, riskEvaluations, riskRules, practitioners } from '@app/db';
-import { eq, count, sum, SQL, desc, inArray } from 'drizzle-orm';
+import { allergies, conditions, db, diagnosticReports, encounters, medications, observations, patients, practitioners, procedures } from '@app/db';
+import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { and, count, desc, eq } from 'drizzle-orm';
 import { ClinicalService } from '../clinical/clinical.service';
 import { RiskEngineService } from '../risk-engine/risk-engine.service';
-import { CreatePatientDto, UpdatePatientDto, CreatePractitionerDto } from './dto/server.dto';
+import { CreatePatientDto, CreatePractitionerDto, UpdatePatientDto } from './dto/server.dto';
 
 @Injectable()
 export class ServerService {
@@ -16,7 +16,7 @@ export class ServerService {
   ) { }
 
   private get orgId(): string {
-    const organizationId = this.request.organizationId;
+    const organizationId = this.request.organizationId ?? this.request.tenantId;
     if (!organizationId) {
       throw new BadRequestException('Organization context missing. Multi-tenancy guard failed.');
     }
@@ -87,13 +87,19 @@ export class ServerService {
   }
 
   async findPatientById(id: string) {
-    const res = await db.select().from(patients).where(eq(patients.id, id));
+    const res = await db
+      .select()
+      .from(patients)
+      .where(and(eq(patients.id, id), eq(patients.organizationId, this.orgId)));
     if (!res.length) throw new NotFoundException('Patient not found');
     return res[0];
   }
 
   async findPatientByEpicId(epicId: string) {
-    const res = await db.select().from(patients).where(eq(patients.sourceId, epicId));
+    const res = await db
+      .select()
+      .from(patients)
+      .where(and(eq(patients.sourceId, epicId), eq(patients.organizationId, this.orgId)));
     if (!res.length) throw new NotFoundException('Patient not found');
     return res[0];
   }
@@ -102,12 +108,17 @@ export class ServerService {
     const up = await db.update(patients).set({
       ...updatePatientDto,
       birthDate: updatePatientDto.birthDate ? new Date(updatePatientDto.birthDate) : undefined
-    }).where(eq(patients.id, id)).returning();
+    }).where(and(eq(patients.id, id), eq(patients.organizationId, this.orgId))).returning();
+    if (!up.length) throw new NotFoundException('Patient not found');
     return up[0];
   }
 
   async deletePatient(id: string) {
-    await db.delete(patients).where(eq(patients.id, id));
+    const deleted = await db
+      .delete(patients)
+      .where(and(eq(patients.id, id), eq(patients.organizationId, this.orgId)))
+      .returning({ id: patients.id });
+    if (!deleted.length) throw new NotFoundException('Patient not found');
     return { message: 'Deleted' };
   }
 
@@ -126,41 +137,75 @@ export class ServerService {
   }
 
   async findPractitionerById(id: string) {
-    const p = await db.select().from(practitioners).where(eq(practitioners.id, id));
+    const p = await db
+      .select()
+      .from(practitioners)
+      .where(and(eq(practitioners.id, id), eq(practitioners.organizationId, this.orgId)));
+    if (!p.length) throw new NotFoundException('Practitioner not found');
     return p[0];
   }
 
   async findPractitionerByEpicId(epicId: string) {
-    const p = await db.select().from(practitioners).where(eq(practitioners.sourceId, epicId));
+    const p = await db
+      .select()
+      .from(practitioners)
+      .where(and(eq(practitioners.sourceId, epicId), eq(practitioners.organizationId, this.orgId)));
+    if (!p.length) throw new NotFoundException('Practitioner not found');
     return p[0];
   }
 
   async findObservationsByPatientId(patientId: string) {
-    return db.select().from(observations).where(eq(observations.patientId, patientId)).orderBy(desc(observations.effectiveDateTime));
+    return db
+      .select()
+      .from(observations)
+      .where(and(eq(observations.patientId, patientId), eq(observations.organizationId, this.orgId)))
+      .orderBy(desc(observations.effectiveDateTime));
   }
 
   async findConditionsByPatientId(patientId: string) {
-    return db.select().from(conditions).where(eq(conditions.patientId, patientId)).orderBy(desc(conditions.recordedDate));
+    return db
+      .select()
+      .from(conditions)
+      .where(and(eq(conditions.patientId, patientId), eq(conditions.organizationId, this.orgId)))
+      .orderBy(desc(conditions.recordedDate));
   }
 
   async findAllergiesByPatientId(patientId: string) {
-    return db.select().from(allergies).where(eq(allergies.patientId, patientId)).orderBy(desc(allergies.recordedDate));
+    return db
+      .select()
+      .from(allergies)
+      .where(and(eq(allergies.patientId, patientId), eq(allergies.organizationId, this.orgId)))
+      .orderBy(desc(allergies.recordedDate));
   }
 
   async findMedicationsByPatientId(patientId: string) {
-    return db.select().from(medications).where(eq(medications.patientId, patientId)).orderBy(desc(medications.createdAt));
+    return db
+      .select()
+      .from(medications)
+      .where(and(eq(medications.patientId, patientId), eq(medications.organizationId, this.orgId)))
+      .orderBy(desc(medications.createdAt));
   }
 
   async findProceduresByPatientId(patientId: string) {
-    return db.select().from(procedures).where(eq(procedures.patientId, patientId));
+    return db
+      .select()
+      .from(procedures)
+      .where(and(eq(procedures.patientId, patientId), eq(procedures.organizationId, this.orgId)));
   }
 
   async findEncountersByPatientId(patientId: string) {
-    return db.select().from(encounters).where(eq(encounters.patientId, patientId)).orderBy(desc(encounters.createdAt));
+    return db
+      .select()
+      .from(encounters)
+      .where(and(eq(encounters.patientId, patientId), eq(encounters.organizationId, this.orgId)))
+      .orderBy(desc(encounters.createdAt));
   }
 
   async findDiagnosticReportsByPatientId(patientId: string) {
-    return db.select().from(diagnosticReports).where(eq(diagnosticReports.patientId, patientId));
+    return db
+      .select()
+      .from(diagnosticReports)
+      .where(and(eq(diagnosticReports.patientId, patientId), eq(diagnosticReports.organizationId, this.orgId)));
   }
 
   async syncPatientFromEpic(patientId: string) {

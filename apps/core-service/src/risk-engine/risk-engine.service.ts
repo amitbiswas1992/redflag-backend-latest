@@ -1,7 +1,7 @@
-import { Injectable, Logger, NotFoundException, BadRequestException, Inject } from '@nestjs/common';
-import { db, riskRules, riskEvaluations, patients } from '@app/db';
-import { eq, desc } from 'drizzle-orm';
-import { CreateRiskRuleDto, UpdateRiskRuleDto, EventName, ConditionLogic } from './dto/risk-engine.dto';
+import { db, riskEvaluations, riskRules } from '@app/db';
+import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { and, eq } from 'drizzle-orm';
+import { CreateRiskRuleDto, EventName, UpdateRiskRuleDto } from './dto/risk-engine.dto';
 
 @Injectable()
 export class RiskEngineService {
@@ -12,7 +12,7 @@ export class RiskEngineService {
   ) { }
 
   private get orgId(): string {
-    const organizationId = this.request.organizationId;
+    const organizationId = this.request.organizationId ?? this.request.tenantId;
     if (!organizationId) throw new BadRequestException('Missing organizationId constraint');
     return organizationId;
   }
@@ -34,7 +34,11 @@ export class RiskEngineService {
   }
 
   async findRuleById(id: string) {
-    const res = await db.select().from(riskRules).where(eq(riskRules.id, id));
+    const res = await db
+      .select()
+      .from(riskRules)
+      .where(and(eq(riskRules.id, id), eq(riskRules.organizationId, this.orgId)));
+    if (!res.length) throw new NotFoundException('Risk rule not found');
     return res[0];
   }
 
@@ -43,12 +47,21 @@ export class RiskEngineService {
   }
 
   async updateRule(id: string, updateRuleDto: UpdateRiskRuleDto) {
-    const up = await db.update(riskRules).set({ ...updateRuleDto } as any).where(eq(riskRules.id, id)).returning();
+    const up = await db
+      .update(riskRules)
+      .set({ ...updateRuleDto } as any)
+      .where(and(eq(riskRules.id, id), eq(riskRules.organizationId, this.orgId)))
+      .returning();
+    if (!up.length) throw new NotFoundException('Risk rule not found');
     return up[0];
   }
 
   async deleteRule(id: string) {
-    await db.delete(riskRules).where(eq(riskRules.id, id));
+    const deleted = await db
+      .delete(riskRules)
+      .where(and(eq(riskRules.id, id), eq(riskRules.organizationId, this.orgId)))
+      .returning({ id: riskRules.id });
+    if (!deleted.length) throw new NotFoundException('Risk rule not found');
     return { message: 'Risk rule deleted successfully' };
   }
 
@@ -68,7 +81,11 @@ export class RiskEngineService {
   }
 
   async getPatientEvaluationHistory(patientId: string, limitNum: number) {
-    return db.select().from(riskEvaluations).where(eq(riskEvaluations.patientId, patientId)).limit(limitNum);
+    return db
+      .select()
+      .from(riskEvaluations)
+      .where(and(eq(riskEvaluations.patientId, patientId), eq(riskEvaluations.organizationId, this.orgId)))
+      .limit(limitNum);
   }
 
   getRiskFieldNames() {

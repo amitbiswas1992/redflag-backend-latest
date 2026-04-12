@@ -1,3 +1,4 @@
+import { RBAC_ROLES, Roles } from '@app/common';
 import {
     Body,
     Controller,
@@ -34,6 +35,7 @@ export class IngestionController {
         },
     })
     @ApiOkResponse({ description: 'Ingestion job created' })
+    @Roles(RBAC_ROLES.OWNER, RBAC_ROLES.ADMIN)
     @Post('jobs')
     @HttpCode(HttpStatus.CREATED)
     async createJob(@Body() body: unknown) {
@@ -56,6 +58,7 @@ export class IngestionController {
         },
     })
     @ApiOkResponse({ description: 'CSV accepted and validated' })
+    @Roles(RBAC_ROLES.OWNER, RBAC_ROLES.ADMIN)
     @Post('jobs/:jobId/upload-csv')
     async uploadCsv(@Param('jobId') jobId: string, @Body() body: unknown) {
         return this.ingestionService.uploadCsv(jobId, body);
@@ -75,6 +78,7 @@ export class IngestionController {
         },
     })
     @ApiOkResponse({ description: 'Job started' })
+    @Roles(RBAC_ROLES.OWNER, RBAC_ROLES.ADMIN)
     @Post('jobs/:jobId/start')
     async startJob(@Param('jobId') jobId: string, @Body() body: unknown) {
         return this.ingestionService.startJob(jobId, body);

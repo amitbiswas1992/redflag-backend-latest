@@ -2,11 +2,15 @@ export * from './auth.guard';
 
 // Guards
 export * from './guards/internal-auth.guard';
-export * from './guards/tenant.guard';
 export * from './guards/roles.guard';
+export * from './guards/tenant.guard';
 
 // Decorators
+export * from './decorators/public.decorator';
 export * from './decorators/roles.decorator';
+
+// Auth constants
+export * from './constants/auth.constants';
 
 // Error pipeline
 export * from './exceptions/domain.exception';

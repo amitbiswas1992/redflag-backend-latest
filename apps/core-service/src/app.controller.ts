@@ -1,16 +1,18 @@
+import { Public } from '@app/common';
 import { Controller, Get } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiOkResponse } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AppService } from './app.service';
 import { AuthService } from './auth/auth.service';
 import { JWKSet } from './auth/utils/jwk.util';
 
 @ApiTags('health')
+@Public()
 @Controller()
 export class AppController {
   constructor(
     private readonly appService: AppService,
     private readonly authService: AuthService,
-  ) {}
+  ) { }
 
   @ApiOperation({
     summary: 'Welcome message',

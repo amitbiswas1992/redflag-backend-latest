@@ -1,7 +1,5 @@
-import { BadRequestException, Injectable, Logger, NotFoundException, Inject } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
 import { RiskEngineService } from '../risk-engine/risk-engine.service';
-import { db, ingestionJobs, ingestionRowResults, patients, practitioners, encounters, observations, conditions, medications, allergies, procedures, diagnosticReports } from '@app/db';
-import { eq } from 'drizzle-orm';
 
 @Injectable()
 export class IngestionService {
@@ -13,7 +11,7 @@ export class IngestionService {
   ) { }
 
   private get orgId(): string {
-    const organizationId = this.request?.organizationId;
+    const organizationId = this.request?.organizationId ?? this.request?.tenantId;
     if (!organizationId) throw new BadRequestException('Organization context missing.');
     return organizationId;
   }

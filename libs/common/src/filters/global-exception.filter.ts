@@ -1,14 +1,15 @@
 import {
-    ExceptionFilter,
-    Catch,
     ArgumentsHost,
+    Catch,
+    ExceptionFilter,
     HttpException,
     HttpStatus,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
-import { LoggerService } from '../logger/logger.service';
+import { CORRELATION_ID_HEADER_KEY } from '../constants/auth.constants';
 import { DomainException } from '../exceptions/domain.exception';
 import { InfrastructureException } from '../exceptions/infrastructure.exception';
+import { LoggerService } from '../logger/logger.service';
 
 /**
  * Global exception filter — registered in main.ts.
@@ -27,7 +28,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         const response = ctx.getResponse<Response>();
 
         const correlationId =
-            (request.headers['x-correlation-id'] as string) ??
+            (request.headers[CORRELATION_ID_HEADER_KEY] as string) ??
             `req_${Date.now().toString(36)}`;
 
         let statusCode: number;

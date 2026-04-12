@@ -1,45 +1,47 @@
+import { RBAC_ROLES, Roles } from '@app/common';
 import {
+  Body,
   Controller,
+  Delete,
   Get,
+  Logger,
+  Param,
   Post,
   Put,
-  Delete,
-  Body,
-  Param,
   Query,
-  Logger,
 } from '@nestjs/common';
 import {
-  ApiTags,
+  ApiBadRequestResponse,
+  ApiCreatedResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
   ApiOperation,
   ApiParam,
   ApiQuery,
-  ApiOkResponse,
-  ApiBadRequestResponse,
-  ApiNotFoundResponse,
-  ApiCreatedResponse,
+  ApiTags,
 } from '@nestjs/swagger';
-import { RiskEngineService } from './risk-engine.service';
 import {
   CreateRiskRuleDto,
-  UpdateRiskRuleDto,
-  RiskEvaluationResultDto,
-  PatientRiskSummaryDto,
   EventName,
+  PatientRiskSummaryDto,
+  RiskEvaluationResultDto,
   RiskFieldNameDto,
+  UpdateRiskRuleDto,
 } from './dto/risk-engine.dto';
+import { RiskEngineService } from './risk-engine.service';
 
 @ApiTags('Risk Engine')
 @Controller('risk-engine')
 export class RiskEngineController {
   private readonly logger = new Logger(RiskEngineController.name);
 
-  constructor(private readonly riskEngineService: RiskEngineService) {}
+  constructor(private readonly riskEngineService: RiskEngineService) { }
 
   // Risk Rule Management
   @ApiOperation({ summary: 'Create a new risk rule' })
   @ApiCreatedResponse({ description: 'Risk rule created successfully' })
   @ApiBadRequestResponse({ description: 'Invalid input data' })
+  @Roles(RBAC_ROLES.OWNER, RBAC_ROLES.ADMIN)
   @Post('rules')
   async createRule(@Body() createRuleDto: CreateRiskRuleDto) {
     return this.riskEngineService.createRule(createRuleDto);
@@ -97,6 +99,7 @@ export class RiskEngineController {
   @ApiOkResponse({ description: 'Risk rule updated successfully' })
   @ApiNotFoundResponse({ description: 'Risk rule not found' })
   @ApiBadRequestResponse({ description: 'Invalid input data' })
+  @Roles(RBAC_ROLES.OWNER, RBAC_ROLES.ADMIN)
   @Put('rules/:id')
   async updateRule(
     @Param('id') id: string,
@@ -109,6 +112,7 @@ export class RiskEngineController {
   @ApiParam({ name: 'id', description: 'Risk rule ID' })
   @ApiOkResponse({ description: 'Risk rule deleted successfully' })
   @ApiNotFoundResponse({ description: 'Risk rule not found' })
+  @Roles(RBAC_ROLES.OWNER, RBAC_ROLES.ADMIN)
   @Delete('rules/:id')
   async deleteRule(@Param('id') id: string) {
     return this.riskEngineService.deleteRule(id);
@@ -126,6 +130,7 @@ export class RiskEngineController {
     type: PatientRiskSummaryDto,
   })
   @ApiNotFoundResponse({ description: 'Patient not found' })
+  @Roles(RBAC_ROLES.OWNER, RBAC_ROLES.ADMIN)
   @Post('evaluate/patient/:patientId')
   async evaluatePatientRules(@Param('patientId') patientId: string) {
     return this.riskEngineService.evaluatePatientRules(patientId);

@@ -1,44 +1,46 @@
+import { RBAC_ROLES, Roles } from '@app/common';
 import {
-  Controller,
-  Get,
-  Post,
-  Put,
-  Delete,
   Body,
-  Param,
-  Query,
+  Controller,
+  Delete,
+  Get,
   HttpCode,
   HttpStatus,
   Logger,
+  Param,
+  Post,
+  Put,
+  Query,
 } from '@nestjs/common';
 import {
+  ApiBadRequestResponse,
+  ApiBody,
+  ApiCreatedResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
   ApiOperation,
   ApiParam,
   ApiQuery,
-  ApiBody,
-  ApiOkResponse,
-  ApiCreatedResponse,
-  ApiBadRequestResponse,
-  ApiNotFoundResponse,
 } from '@nestjs/swagger';
-import { ServerService } from './server.service';
 import {
   CreatePatientDto,
-  UpdatePatientDto,
   CreatePractitionerDto,
+  UpdatePatientDto,
 } from './dto/server.dto';
+import { ServerService } from './server.service';
 
 @Controller('server')
 export class ServerController {
   private readonly logger = new Logger(ServerController.name);
 
-  constructor(private readonly serverService: ServerService) {}
+  constructor(private readonly serverService: ServerService) { }
 
   // Patient endpoints
   @ApiOperation({ summary: 'Create a new patient' })
   @ApiBody({ type: CreatePatientDto })
   @ApiCreatedResponse({ description: 'Patient created successfully' })
   @ApiBadRequestResponse({ description: 'Invalid input or patient already exists' })
+  @Roles(RBAC_ROLES.OWNER, RBAC_ROLES.ADMIN)
   @Post('patients')
   async createPatient(@Body() createPatientDto: CreatePatientDto) {
     return this.serverService.createPatient(createPatientDto);
@@ -99,6 +101,7 @@ export class ServerController {
   @ApiBody({ type: UpdatePatientDto })
   @ApiOkResponse({ description: 'Patient updated successfully' })
   @ApiNotFoundResponse({ description: 'Patient not found' })
+  @Roles(RBAC_ROLES.OWNER, RBAC_ROLES.ADMIN)
   @Put('patients/:id')
   async updatePatient(
     @Param('id') id: string,
@@ -112,6 +115,7 @@ export class ServerController {
   @ApiOkResponse({ description: 'Patient deleted successfully' })
   @ApiNotFoundResponse({ description: 'Patient not found' })
   @HttpCode(HttpStatus.OK)
+  @Roles(RBAC_ROLES.OWNER, RBAC_ROLES.ADMIN)
   @Delete('patients/:id')
   async deletePatient(@Param('id') id: string) {
     return this.serverService.deletePatient(id);
@@ -122,6 +126,7 @@ export class ServerController {
   @ApiBody({ type: CreatePractitionerDto })
   @ApiCreatedResponse({ description: 'Practitioner created successfully' })
   @ApiBadRequestResponse({ description: 'Invalid input or practitioner already exists' })
+  @Roles(RBAC_ROLES.OWNER, RBAC_ROLES.ADMIN)
   @Post('practitioners')
   async createPractitioner(@Body() createPractitionerDto: CreatePractitionerDto) {
     return this.serverService.createPractitioner(createPractitionerDto);
@@ -277,6 +282,7 @@ export class ServerController {
   @ApiBadRequestResponse({
     description: 'Invalid patient ID or patient not found in Epic',
   })
+  @Roles(RBAC_ROLES.OWNER, RBAC_ROLES.ADMIN)
   @Post('sync/patient/:patientId')
   async syncPatientFromEpic(@Param('patientId') patientId: string) {
     return this.serverService.syncPatientFromEpic(patientId);

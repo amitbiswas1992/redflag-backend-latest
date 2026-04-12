@@ -60,7 +60,14 @@ async function bootstrap() {
     origin: true,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Organization-Id', 'X-Correlation-Id'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'Accept',
+      'x-tenant-id',
+      'x-organization-id',
+      'x-correlation-id',
+    ],
   });
 
   // Enable validation pipes globally

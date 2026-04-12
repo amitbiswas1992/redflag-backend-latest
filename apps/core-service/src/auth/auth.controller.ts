@@ -1,14 +1,16 @@
-import { Controller, Get, BadRequestException, Logger } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { Public } from '@app/common';
+import { Controller, Get, Logger } from '@nestjs/common';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { RefreshTokenResponseDto, RefreshTokenErrorDto } from './dto/auth.dto';
+import { RefreshTokenErrorDto, RefreshTokenResponseDto } from './dto/auth.dto';
 
 @ApiTags('auth')
+@Public()
 @Controller('auth')
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
 
-  constructor(private authService: AuthService) {}
+  constructor(private authService: AuthService) { }
 
   /**
    * GET /auth/token
