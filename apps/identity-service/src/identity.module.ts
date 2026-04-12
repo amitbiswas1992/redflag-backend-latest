@@ -1,10 +1,10 @@
+import { LoggerService } from '@app/common';
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
-import { LoggerService } from '@app/common';
-import { IdentityController } from './identity.controller';
-import { IdentityService } from './identity.service';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { IdentityController } from './identity.controller';
+import { IdentityService } from './identity.service';
 
 @Module({
     imports: [

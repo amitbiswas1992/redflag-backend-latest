@@ -1,58 +1,58 @@
 import {
+  BadRequestException,
+  Body,
   Controller,
   Get,
+  Logger,
   Post,
   Query,
-  Body,
-  BadRequestException,
-  Logger,
 } from '@nestjs/common';
 import {
-  ApiTags,
-  ApiOperation,
-  ApiQuery,
+  ApiBadRequestResponse,
   ApiBody,
   ApiOkResponse,
-  ApiBadRequestResponse,
+  ApiOperation,
+  ApiQuery,
+  ApiTags,
 } from '@nestjs/swagger';
 import { ClinicalService } from './clinical.service';
 import {
-  NormalizedPatient,
-  NormalizedPractitioner,
-  NormalizedObservation,
-  NormalizedCondition,
-  NormalizedAllergy,
-  NormalizedMedication,
-  NormalizedProcedure,
-  NormalizedEncounter,
-  NormalizedDiagnosticReport,
-  ClinicalDataResponse,
-  DiagnosisDataResponse,
-  BulkPatientResponse,
-  HumanReadableClinicalData,
-} from './interfaces/clinical.interface';
-import {
-  NormalizedPatientDto,
-  NormalizedPractitionerDto,
-  NormalizedObservationDto,
-  NormalizedConditionDto,
-  NormalizedAllergyDto,
-  NormalizedMedicationDto,
-  NormalizedProcedureDto,
-  NormalizedEncounterDto,
-  NormalizedDiagnosticReportDto,
+  BulkPatientResponseDto,
   ClinicalDataResponseDto,
   DiagnosisDataResponseDto,
-  BulkPatientResponseDto,
   HumanReadableClinicalDataDto,
+  NormalizedAllergyDto,
+  NormalizedConditionDto,
+  NormalizedDiagnosticReportDto,
+  NormalizedEncounterDto,
+  NormalizedMedicationDto,
+  NormalizedObservationDto,
+  NormalizedPatientDto,
+  NormalizedPractitionerDto,
+  NormalizedProcedureDto,
 } from './dto/clinical.dto';
+import {
+  BulkPatientResponse,
+  ClinicalDataResponse,
+  DiagnosisDataResponse,
+  HumanReadableClinicalData,
+  NormalizedAllergy,
+  NormalizedCondition,
+  NormalizedDiagnosticReport,
+  NormalizedEncounter,
+  NormalizedMedication,
+  NormalizedObservation,
+  NormalizedPatient,
+  NormalizedPractitioner,
+  NormalizedProcedure,
+} from './interfaces/clinical.interface';
 
 @ApiTags('clinical')
 @Controller('api/clinical')
 export class ClinicalController {
   private readonly logger = new Logger(ClinicalController.name);
 
-  constructor(private readonly clinicalService: ClinicalService) {}
+  constructor(private readonly clinicalService: ClinicalService) { }
 
   /**
    * GET /api/clinical/patient

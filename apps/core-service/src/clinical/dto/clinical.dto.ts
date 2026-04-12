@@ -647,7 +647,8 @@ export class DiagnosisDataResponseDto {
   conditions: NormalizedConditionDto[];
 
   @ApiProperty({
-    description: 'Forbidden scopes - scopes that are not enabled in Epic App Orchard',
+    description:
+      'Forbidden scopes - scopes that are not enabled in Epic App Orchard',
     example: {
       'system/Observation.read': 'forbidden',
       'system/Condition.read': 'forbidden',
@@ -1036,7 +1037,8 @@ export class HumanReadableClinicalDataDto {
   narrative: string;
 
   @ApiProperty({
-    description: 'Forbidden scopes - scopes that are not enabled in Epic App Orchard',
+    description:
+      'Forbidden scopes - scopes that are not enabled in Epic App Orchard',
     example: {
       'system/Observation.read': 'forbidden',
       'system/Condition.read': 'forbidden',
