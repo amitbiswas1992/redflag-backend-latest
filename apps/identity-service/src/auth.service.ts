@@ -1,8 +1,8 @@
-import { Injectable, UnauthorizedException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { db, organizationMemberships, organizations, users } from '@app/db';
+import { BadRequestException, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { db, users, organizations, organizationMemberships } from '@app/db';
-import { eq, inArray } from 'drizzle-orm';
 import axios from 'axios';
+import { eq, or } from 'drizzle-orm';
 
 export interface InternalJwtPayload {
     sub: string;
@@ -12,6 +12,12 @@ export interface InternalJwtPayload {
     activeTenant: string;
     role: string;
 }
+
+type SyncOptions = {
+    preferredTenantId?: string;
+    createDefaultOrgIfMissing?: boolean;
+    defaultOrganizationName?: string;
+};
 
 @Injectable()
 export class AuthService {
@@ -34,29 +40,93 @@ export class AuthService {
         email: string;
         firstName?: string;
         lastName?: string;
-    }, preferredTenantId?: string): Promise<{ access_token: string; user: any; tenants: any[] }> {
-        // Upsert user
+    }, options: SyncOptions = {}): Promise<{ access_token: string; user: any; tenants: any[]; needsOrganizationSetup: boolean }> {
+        const normalizedEmail = keycloakUser.email?.trim().toLowerCase();
+        const {
+            preferredTenantId,
+            createDefaultOrgIfMissing = false,
+            defaultOrganizationName,
+        } = options;
+
+        let createdInThisSync = false;
+
         let user = await this.findUserByKeycloakId(keycloakUser.sub);
-        if (!user) {
-            const inserted = await db.insert(users).values({
-                keycloakId: keycloakUser.sub,
-                email: keycloakUser.email,
-                firstName: keycloakUser.firstName,
-                lastName: keycloakUser.lastName,
-            }).returning();
-            user = inserted[0];
+
+        // Existing Keycloak user: keep profile fresh.
+        if (user) {
+            const [updated] = await db
+                .update(users)
+                .set({
+                    email: normalizedEmail || user.email,
+                    firstName: keycloakUser.firstName ?? user.firstName,
+                    lastName: keycloakUser.lastName ?? user.lastName,
+                })
+                .where(eq(users.id, user.id))
+                .returning();
+            user = updated ?? user;
+        } else {
+            // Reconcile by email to avoid unique(email) violations when the same person
+            // already exists from a previous auth/linking flow.
+            const byEmail = normalizedEmail ? await this.findUserByEmail(normalizedEmail) : null;
+            if (byEmail) {
+                const [updated] = await db
+                    .update(users)
+                    .set({
+                        keycloakId: keycloakUser.sub,
+                        email: normalizedEmail,
+                        firstName: keycloakUser.firstName ?? byEmail.firstName,
+                        lastName: keycloakUser.lastName ?? byEmail.lastName,
+                    })
+                    .where(eq(users.id, byEmail.id))
+                    .returning();
+                user = updated ?? byEmail;
+            } else {
+                try {
+                    const inserted = await db.insert(users).values({
+                        keycloakId: keycloakUser.sub,
+                        email: normalizedEmail,
+                        firstName: keycloakUser.firstName,
+                        lastName: keycloakUser.lastName,
+                    }).returning();
+                    user = inserted[0];
+                    createdInThisSync = true;
+                } catch (err: any) {
+                    // Handle races/duplicate keys by resolving existing record and proceeding.
+                    if (!this.isUniqueViolation(err)) {
+                        throw err;
+                    }
+
+                    const recovered = await db
+                        .select()
+                        .from(users)
+                        .where(or(eq(users.keycloakId, keycloakUser.sub), eq(users.email, normalizedEmail)) as any)
+                        .then(r => r[0] ?? null);
+
+                    if (!recovered) {
+                        throw err;
+                    }
+
+                    const [updated] = await db
+                        .update(users)
+                        .set({
+                            keycloakId: keycloakUser.sub,
+                            email: normalizedEmail,
+                            firstName: keycloakUser.firstName ?? recovered.firstName,
+                            lastName: keycloakUser.lastName ?? recovered.lastName,
+                        })
+                        .where(eq(users.id, recovered.id))
+                        .returning();
+                    user = updated ?? recovered;
+                }
+            }
         }
 
-        // Load all tenant memberships
-        const memberships = await db
-            .select({
-                organizationId: organizationMemberships.organizationId,
-                role: organizationMemberships.role,
-                org: organizations,
-            })
-            .from(organizationMemberships)
-            .innerJoin(organizations, eq(organizations.id, organizationMemberships.organizationId))
-            .where(eq(organizationMemberships.userId, user.id));
+        let memberships = await this.getMembershipsForUser(user.id);
+
+        if (memberships.length === 0 && (createDefaultOrgIfMissing || createdInThisSync)) {
+            await this.createOrganizationForUser(user.id, defaultOrganizationName ?? this.buildDefaultOrganizationName(user));
+            memberships = await this.getMembershipsForUser(user.id);
+        }
 
         const tenantIds = memberships.map(m => m.organizationId);
         const tenants = memberships.map(m => ({
@@ -81,6 +151,7 @@ export class AuthService {
         };
 
         const access_token = await this.jwtService.signAsync(jwtPayload);
+        const needsOrganizationSetup = tenantIds.length === 0;
 
         return {
             access_token,
@@ -93,6 +164,46 @@ export class AuthService {
                 role: jwtPayload.role,
             },
             tenants,
+            needsOrganizationSetup,
+        };
+    }
+
+    async bootstrapOrganizationForUser(userId: string, organizationName: string) {
+        const user = await db.select().from(users).where(eq(users.id, userId)).then(r => r[0] ?? null);
+        if (!user) {
+            throw new UnauthorizedException('User not found');
+        }
+
+        const org = await this.createOrganizationForUser(user.id, organizationName);
+        const memberships = await this.getMembershipsForUser(user.id);
+        const tenantIds = memberships.map(m => m.organizationId);
+        const tenants = memberships.map(m => ({
+            id: m.org.id,
+            name: m.org.name,
+            slug: m.org.slug,
+            role: m.role,
+        }));
+
+        const access_token = await this.jwtService.signAsync({
+            sub: user.id,
+            email: user.email,
+            keycloakId: user.keycloakId,
+            tenantIds,
+            activeTenant: org.id,
+            role: 'OWNER',
+        } satisfies InternalJwtPayload);
+
+        return {
+            access_token,
+            activeTenant: org.id,
+            organization: {
+                id: org.id,
+                name: org.name,
+                slug: org.slug,
+                role: 'OWNER',
+            },
+            tenants,
+            needsOrganizationSetup: false,
         };
     }
 
@@ -210,6 +321,93 @@ export class AuthService {
 
     private async findUserByKeycloakId(keycloakId: string) {
         return db.select().from(users).where(eq(users.keycloakId, keycloakId)).then(r => r[0] ?? null);
+    }
+
+    private async findUserByEmail(email: string) {
+        return db.select().from(users).where(eq(users.email, email)).then(r => r[0] ?? null);
+    }
+
+    private async getMembershipsForUser(userId: string) {
+        return db
+            .select({
+                organizationId: organizationMemberships.organizationId,
+                role: organizationMemberships.role,
+                org: organizations,
+            })
+            .from(organizationMemberships)
+            .innerJoin(organizations, eq(organizations.id, organizationMemberships.organizationId))
+            .where(eq(organizationMemberships.userId, userId));
+    }
+
+    private async createOrganizationForUser(userId: string, organizationName: string) {
+        const trimmed = organizationName?.trim();
+        if (!trimmed) {
+            throw new BadRequestException('Organization name is required');
+        }
+
+        const slug = await this.generateUniqueSlug(trimmed);
+        const [organization] = await db.insert(organizations).values({
+            name: trimmed,
+            slug,
+        }).returning();
+
+        await db.insert(organizationMemberships)
+            .values({
+                userId,
+                organizationId: organization.id,
+                role: 'OWNER',
+            })
+            .onConflictDoNothing();
+
+        return organization;
+    }
+
+    private async generateUniqueSlug(name: string) {
+        const base = this.slugify(name) || `org-${Date.now()}`;
+        let candidate = base;
+        let suffix = 1;
+
+        while (true) {
+            const exists = await db
+                .select({ id: organizations.id })
+                .from(organizations)
+                .where(eq(organizations.slug, candidate))
+                .then(r => r[0] ?? null);
+
+            if (!exists) {
+                return candidate;
+            }
+
+            suffix += 1;
+            candidate = `${base}-${suffix}`;
+        }
+    }
+
+    private buildDefaultOrganizationName(user: { email: string; firstName?: string | null; lastName?: string | null }) {
+        const firstName = user.firstName?.trim();
+        const lastName = user.lastName?.trim();
+
+        if (firstName || lastName) {
+            return `${[firstName, lastName].filter(Boolean).join(' ')} Workspace`;
+        }
+
+        const emailPrefix = user.email?.split('@')[0] || 'Team';
+        return `${emailPrefix} Workspace`;
+    }
+
+    private slugify(input: string) {
+        return input
+            .toLowerCase()
+            .trim()
+            .replace(/[^a-z0-9\s-]/g, '')
+            .replace(/\s+/g, '-')
+            .replace(/-+/g, '-');
+    }
+
+    private isUniqueViolation(err: any): boolean {
+        const code = err?.code ?? err?.cause?.code;
+        const message = `${err?.message ?? ''} ${err?.cause?.message ?? ''}`.toLowerCase();
+        return code === '23505' || message.includes('duplicate key') || message.includes('unique');
     }
 
     private async getAdminToken(): Promise<string> {

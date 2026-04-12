@@ -1,11 +1,15 @@
+import { InternalAuthGuard, KeycloakAuthGuard } from '@app/common';
 import {
-    Controller, Post, Get, Body, UseGuards, Req,
+    Body,
+    Controller,
+    Get,
     HttpCode, HttpStatus,
+    Post,
+    Req,
+    UseGuards,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { IdentityService } from './identity.service';
-import { KeycloakAuthGuard } from '@app/common';
-import { InternalAuthGuard } from '@app/common';
 
 @Controller('auth')
 export class AuthController {
@@ -27,10 +31,13 @@ export class AuthController {
     @HttpCode(HttpStatus.OK)
     async sync(
         @Req() req: any,
-        @Body() body: { preferred_tenant_id?: string },
+        @Body() body: { preferred_tenant_id?: string; organization_name?: string },
     ) {
         const keycloakUser = req.keycloakUser;
-        return this.authService.syncWithKeycloak(keycloakUser, body.preferred_tenant_id);
+        return this.authService.syncWithKeycloak(keycloakUser, {
+            preferredTenantId: body.preferred_tenant_id,
+            defaultOrganizationName: body.organization_name,
+        });
     }
 
     /**
@@ -84,6 +91,7 @@ export class AuthController {
         password: string;
         firstName?: string;
         lastName?: string;
+        organizationName?: string;
     }) {
         await this.authService.registerWithKeycloak(
             body.email,
@@ -98,11 +106,27 @@ export class AuthController {
         // Decode to extract Keycloak sub/email (token was just issued by us — safe)
         const payload = this.authService.decodeToken(kcToken);
 
-        return this.authService.syncWithKeycloak({
-            sub: payload.sub,
-            email: payload.email,
-            firstName: body.firstName,
-            lastName: body.lastName,
-        });
+        return this.authService.syncWithKeycloak(
+            {
+                sub: payload.sub,
+                email: payload.email,
+                firstName: body.firstName,
+                lastName: body.lastName,
+            },
+            {
+                createDefaultOrgIfMissing: true,
+                defaultOrganizationName: body.organizationName,
+            },
+        );
+    }
+
+    @Post('bootstrap-organization')
+    @UseGuards(InternalAuthGuard)
+    @HttpCode(HttpStatus.OK)
+    async bootstrapOrganization(
+        @Req() req: any,
+        @Body() body: { name: string },
+    ) {
+        return this.authService.bootstrapOrganizationForUser(req.user.id, body.name);
     }
 }
