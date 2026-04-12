@@ -15,7 +15,7 @@ import { ApiBody, ApiOkResponse, ApiOperation, ApiParam, ApiQuery, ApiTags } fro
 import { IngestionService } from './ingestion.service';
 
 @ApiTags('Data Ingestion')
-@Controller('api/ingestion')
+@Controller(['api/ingestion', 'api/ingestion/v2'])
 export class IngestionController {
     constructor(private readonly ingestionService: IngestionService) { }
 
