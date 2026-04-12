@@ -10,6 +10,5 @@ import { IngestionWorkerService } from './ingestion-worker.service';
   imports: [ServerModule, ClinicalModule, RiskEngineModule],
   controllers: [IngestionController],
   providers: [IngestionService, IngestionWorkerService],
-  exports: [IngestionService, IngestionWorkerService],
 })
 export class IngestionModule { }

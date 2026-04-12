@@ -1,4 +1,8 @@
-import { GlobalExceptionFilter, LoggerService, LoggingInterceptor } from '@app/common';
+import {
+  GlobalExceptionFilter,
+  LoggerService,
+  LoggingInterceptor,
+} from '@app/common';
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -20,12 +24,17 @@ function swaggerBasicAuth(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Basic ')) {
-    res.setHeader('WWW-Authenticate', 'Basic realm="Swagger API Documentation"');
+    res.setHeader(
+      'WWW-Authenticate',
+      'Basic realm="Swagger API Documentation"',
+    );
     return res.status(401).send('Unauthorized');
   }
 
   const base64Credentials = authHeader.split(' ')[1];
-  const credentials = Buffer.from(base64Credentials, 'base64').toString('utf-8');
+  const credentials = Buffer.from(base64Credentials, 'base64').toString(
+    'utf-8',
+  );
   const [username, password] = credentials.split(':');
 
   if (username === swaggerUsername && password === swaggerPassword) {
@@ -40,7 +49,8 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   // ─── Centralized Error Pipeline ────────────────────────────────────────────
-  const logger = new LoggerService('core-service');
+  const logger = app.get(LoggerService);
+  logger.setServiceContext('core-service');
   app.useGlobalFilters(new GlobalExceptionFilter(logger));
   app.useGlobalInterceptors(new LoggingInterceptor(logger));
 
@@ -50,7 +60,10 @@ async function bootstrap() {
     logger.error('Unhandled Promise Rejection', { reason: String(reason) });
   });
   process.on('uncaughtException', (error) => {
-    logger.error('Uncaught Exception', { error: error.message, stack: error.stack });
+    logger.error('Uncaught Exception', {
+      error: error.message,
+      stack: error.stack,
+    });
     process.exit(1); // Safe exit — let the orchestrator restart cleanly
   });
   // ───────────────────────────────────────────────────────────────────────────
@@ -101,4 +114,3 @@ async function bootstrap() {
   logger.log(`Core Service listening on port ${process.env.PORT ?? 3000}`);
 }
 void bootstrap();
-

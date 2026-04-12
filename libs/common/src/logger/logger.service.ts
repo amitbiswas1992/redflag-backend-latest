@@ -1,5 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { createLogger, format, transports, Logger as WinstonLogger } from 'winston';
+import {
+    createLogger,
+    format,
+    transports,
+    Logger as WinstonLogger,
+} from 'winston';
 import 'winston-daily-rotate-file';
 
 const { combine, timestamp, errors, json, colorize, printf } = format;
@@ -14,30 +19,25 @@ const devFormat = combine(
     }),
 );
 
-const prodFormat = combine(
-    timestamp(),
-    errors({ stack: true }),
-    json(),
-);
+const prodFormat = combine(timestamp(), errors({ stack: true }), json());
 
 @Injectable()
 export class LoggerService {
     private readonly winston: WinstonLogger;
-    private readonly service: string;
+    private service = 'redflag';
 
-    constructor(service = 'redflag') {
-        this.service = service;
+    constructor() {
         this.winston = createLogger({
             level: process.env.NODE_ENV === 'production' ? 'warn' : 'info',
             format: process.env.NODE_ENV === 'production' ? prodFormat : devFormat,
-            defaultMeta: { service },
+            defaultMeta: { service: this.service },
             transports: [
                 // Always log to console
                 new transports.Console(),
 
                 // Rotating file log — info and above
                 new (transports as any).DailyRotateFile({
-                    filename: `logs/${service}-%DATE%.log`,
+                    filename: `logs/${this.service}-%DATE%.log`,
                     datePattern: 'YYYY-MM-DD',
                     zippedArchive: true,
                     maxSize: '20m',
@@ -47,7 +47,7 @@ export class LoggerService {
 
                 // Separate error-only log file
                 new (transports as any).DailyRotateFile({
-                    filename: `logs/${service}-errors-%DATE%.log`,
+                    filename: `logs/${this.service}-errors-%DATE%.log`,
                     datePattern: 'YYYY-MM-DD',
                     zippedArchive: true,
                     maxSize: '20m',
@@ -56,6 +56,11 @@ export class LoggerService {
                 }),
             ],
         });
+    }
+
+    setServiceContext(service: string): void {
+        this.service = service;
+        this.winston.defaultMeta = { service };
     }
 
     error(message: string, payload?: Record<string, unknown>): void {

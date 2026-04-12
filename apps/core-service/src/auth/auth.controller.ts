@@ -10,7 +10,7 @@ import { RefreshTokenErrorDto, RefreshTokenResponseDto } from './dto/auth.dto';
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
 
-  constructor(private authService: AuthService) { }
+  constructor(private readonly authService: AuthService) { }
 
   /**
    * GET /auth/token
@@ -44,12 +44,14 @@ export class AuthController {
         success: true,
         expiresAt: new Date(tokens.expiresAt).toISOString(),
       };
-    } catch (err) {
-      this.logger.error(`Token error: ${err.message}`, err.stack);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      const errorStack = err instanceof Error ? err.stack : undefined;
+      this.logger.error(`Token error: ${errorMessage}`, errorStack);
       return {
         success: false,
         expiresAt: '',
-        error: err.message,
+        error: 'Authentication failed',
       };
     }
   }
@@ -86,12 +88,14 @@ export class AuthController {
         success: true,
         expiresAt: new Date(tokens.expiresAt).toISOString(),
       };
-    } catch (err) {
-      this.logger.error(`Refresh error: ${err.message}`, err.stack);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      const errorStack = err instanceof Error ? err.stack : undefined;
+      this.logger.error(`Refresh error: ${errorMessage}`, errorStack);
       return {
         success: false,
         expiresAt: '',
-        error: err.message,
+        error: 'Token refresh failed',
       };
     }
   }

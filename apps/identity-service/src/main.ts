@@ -7,7 +7,8 @@ async function bootstrap() {
     const app = await NestFactory.create(IdentityModule);
 
     // ─── Centralized Error Pipeline ──────────────────────────────────────────
-    const logger = new LoggerService('identity-service');
+    const logger = app.get(LoggerService);
+    logger.setServiceContext('identity-service');
     app.useGlobalFilters(new GlobalExceptionFilter(logger));
     app.useGlobalInterceptors(new LoggingInterceptor(logger));
 

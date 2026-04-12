@@ -52,7 +52,7 @@ import {
 export class ClinicalController {
   private readonly logger = new Logger(ClinicalController.name);
 
-  constructor(private clinicalService: ClinicalService) {}
+  constructor(private readonly clinicalService: ClinicalService) {}
 
   /**
    * GET /api/clinical/patient
@@ -87,11 +87,8 @@ export class ClinicalController {
 
     try {
       return await this.clinicalService.getPatient(patientId);
-    } catch (error) {
-      this.logger.error(
-        `Error fetching patient: ${error.message}`,
-        error.stack,
-      );
+    } catch (error: unknown) {
+      this.logFetchError('patient', error);
       throw error;
     }
   }
@@ -110,7 +107,7 @@ export class ClinicalController {
     name: 'practitionerId',
     required: true,
     description: 'Practitioner ID from Epic',
-    example: 'eBwfo7qYXcN8PpOaJ7E0lJcR8X4y5Z6A7B8C9D0E1F2G3',
+    example: 'practitioner-0001',
   })
   @ApiOkResponse({
     description: 'Practitioner information retrieved successfully',
@@ -130,12 +127,7 @@ export class ClinicalController {
     try {
       return await this.clinicalService.getPractitioner(practitionerId);
     } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error occurred';
-      this.logger.error(
-        `Error fetching practitioner: ${errorMessage}`,
-        error instanceof Error ? error.stack : undefined,
-      );
+      this.logFetchError('practitioner', error);
       throw error;
     }
   }
@@ -181,11 +173,8 @@ export class ClinicalController {
 
     try {
       return await this.clinicalService.getObservations(patientId, category);
-    } catch (error) {
-      this.logger.error(
-        `Error fetching observations: ${error.message}`,
-        error.stack,
-      );
+    } catch (error: unknown) {
+      this.logFetchError('observations', error);
       throw error;
     }
   }
@@ -223,11 +212,8 @@ export class ClinicalController {
 
     try {
       return await this.clinicalService.getConditions(patientId);
-    } catch (error) {
-      this.logger.error(
-        `Error fetching conditions: ${error.message}`,
-        error.stack,
-      );
+    } catch (error: unknown) {
+      this.logFetchError('conditions', error);
       throw error;
     }
   }
@@ -265,11 +251,8 @@ export class ClinicalController {
 
     try {
       return await this.clinicalService.getClinicalData(patientId);
-    } catch (error) {
-      this.logger.error(
-        `Error fetching clinical data: ${error.message}`,
-        error.stack,
-      );
+    } catch (error: unknown) {
+      this.logFetchError('clinical data', error);
       throw error;
     }
   }
@@ -306,11 +289,8 @@ export class ClinicalController {
 
     try {
       return await this.clinicalService.getAllergies(patientId);
-    } catch (error) {
-      this.logger.error(
-        `Error fetching allergies: ${error.message}`,
-        error.stack,
-      );
+    } catch (error: unknown) {
+      this.logFetchError('allergies', error);
       throw error;
     }
   }
@@ -347,11 +327,8 @@ export class ClinicalController {
 
     try {
       return await this.clinicalService.getMedications(patientId);
-    } catch (error) {
-      this.logger.error(
-        `Error fetching medications: ${error.message}`,
-        error.stack,
-      );
+    } catch (error: unknown) {
+      this.logFetchError('medications', error);
       throw error;
     }
   }
@@ -388,11 +365,8 @@ export class ClinicalController {
 
     try {
       return await this.clinicalService.getProcedures(patientId);
-    } catch (error) {
-      this.logger.error(
-        `Error fetching procedures: ${error.message}`,
-        error.stack,
-      );
+    } catch (error: unknown) {
+      this.logFetchError('procedures', error);
       throw error;
     }
   }
@@ -429,11 +403,8 @@ export class ClinicalController {
 
     try {
       return await this.clinicalService.getEncounters(patientId);
-    } catch (error) {
-      this.logger.error(
-        `Error fetching encounters: ${error.message}`,
-        error.stack,
-      );
+    } catch (error: unknown) {
+      this.logFetchError('encounters', error);
       throw error;
     }
   }
@@ -470,11 +441,8 @@ export class ClinicalController {
 
     try {
       return await this.clinicalService.getDiagnosticReports(patientId);
-    } catch (error) {
-      this.logger.error(
-        `Error fetching diagnostic reports: ${error.message}`,
-        error.stack,
-      );
+    } catch (error: unknown) {
+      this.logFetchError('diagnostic reports', error);
       throw error;
     }
   }
@@ -512,11 +480,8 @@ export class ClinicalController {
 
     try {
       return await this.clinicalService.getDiagnosisData(patientId);
-    } catch (error) {
-      this.logger.error(
-        `Error fetching diagnosis data: ${error.message}`,
-        error.stack,
-      );
+    } catch (error: unknown) {
+      this.logFetchError('diagnosis data', error);
       throw error;
     }
   }
@@ -540,7 +505,7 @@ export class ClinicalController {
           items: { type: 'string' },
           example: [
             'Tbt3KuCY0B5PSrJvCu2j-PlK.aiHsu2xUjUM8bWpetXoB',
-            'eBwfo7qYXcN8PpOaJ7E0lJcR8X4y5Z6A7B8C9D0E1F2G3',
+            'patient-0002',
           ],
         },
       },
@@ -558,25 +523,27 @@ export class ClinicalController {
   async getBulkPatients(
     @Body() body: { patientIds: string[] },
   ): Promise<BulkPatientResponse> {
+    const patientIds = this.validateBulkPatientBody(body);
+    if (patientIds.length === 0) {
+      return { patients: [], total: 0 };
+    }
+
+    try {
+      return await this.clinicalService.getBulkPatients(patientIds);
+    } catch (error: unknown) {
+      this.logFetchError('bulk patients', error);
+      throw error;
+    }
+  }
+
+  private validateBulkPatientBody(body: { patientIds: string[] }): string[] {
     if (!body.patientIds || !Array.isArray(body.patientIds)) {
       throw new BadRequestException(
         'patientIds array is required in request body',
       );
     }
 
-    if (body.patientIds.length === 0) {
-      return { patients: [], total: 0 };
-    }
-
-    try {
-      return await this.clinicalService.getBulkPatients(body.patientIds);
-    } catch (error) {
-      this.logger.error(
-        `Error fetching bulk patients: ${error.message}`,
-        error.stack,
-      );
-      throw error;
-    }
+    return body.patientIds;
   }
 
   /**
@@ -613,13 +580,15 @@ export class ClinicalController {
     try {
       return await this.clinicalService.getHumanReadableData(patientId);
     } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error occurred';
-      this.logger.error(
-        `Error fetching human-readable data: ${errorMessage}`,
-        error instanceof Error ? error.stack : undefined,
-      );
+      this.logFetchError('human-readable data', error);
       throw error;
     }
+  }
+
+  private logFetchError(resource: string, error: unknown): void {
+    const message =
+      error instanceof Error ? error.message : 'Unknown error occurred';
+    const stack = error instanceof Error ? error.stack : undefined;
+    this.logger.error(`Error fetching ${resource}: ${message}`, stack);
   }
 }

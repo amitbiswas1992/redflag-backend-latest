@@ -1,4 +1,4 @@
-import { InternalAuthGuard, RolesGuard, TenantGuard } from '@app/common';
+import { InternalAuthGuard, LoggerService, RolesGuard, TenantGuard } from '@app/common';
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
@@ -31,6 +31,7 @@ import { TokenModule } from './token/token.module';
   controllers: [AppController],
   providers: [
     AppService,
+    LoggerService,
     {
       provide: APP_GUARD,
       useClass: InternalAuthGuard,

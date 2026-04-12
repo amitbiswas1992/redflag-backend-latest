@@ -64,16 +64,10 @@ export class ServerController {
     @Query('take') take?: string,
     @Query('hasIssue') hasIssue?: string,
   ) {
-    let hasIssueFilter: boolean | undefined;
-    if (typeof hasIssue === 'string') {
-      const normalized = hasIssue.toLowerCase();
-      if (normalized === 'true') hasIssueFilter = true;
-      else if (normalized === 'false') hasIssueFilter = false;
-    }
-
+    const hasIssueFilter = this.parseBooleanQuery(hasIssue);
     return this.serverService.findAllPatients(
-      skip ? parseInt(skip, 10) : 0,
-      take ? parseInt(take, 10) : 10,
+      this.parsePaginationValue(skip, 0),
+      this.parsePaginationValue(take, 10),
       hasIssueFilter,
     );
   }
@@ -142,9 +136,29 @@ export class ServerController {
     @Query('take') take?: string,
   ) {
     return this.serverService.findAllPractitioners(
-      skip ? parseInt(skip, 10) : 0,
-      take ? parseInt(take, 10) : 10,
+      this.parsePaginationValue(skip, 0),
+      this.parsePaginationValue(take, 10),
     );
+  }
+
+  private parsePaginationValue(value: string | undefined, defaultValue: number): number {
+    if (!value) {
+      return defaultValue;
+    }
+
+    const parsed = Number.parseInt(value, 10);
+    return Number.isNaN(parsed) ? defaultValue : parsed;
+  }
+
+  private parseBooleanQuery(value: string | undefined): boolean | undefined {
+    if (typeof value !== 'string') {
+      return undefined;
+    }
+
+    const normalized = value.toLowerCase();
+    if (normalized === 'true') return true;
+    if (normalized === 'false') return false;
+    return undefined;
   }
 
   @ApiOperation({ summary: 'Get practitioner by ID' })

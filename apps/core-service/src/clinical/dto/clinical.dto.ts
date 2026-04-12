@@ -162,7 +162,7 @@ export class PractitionerQualificationDto {
 export class NormalizedPractitionerDto {
   @ApiProperty({
     description: 'Practitioner ID',
-    example: 'eBwfo7qYXcN8PpOaJ7E0lJcR8X4y5Z6A7B8C9D0E1F2G3',
+    example: 'practitioner-0001',
   })
   id: string;
 
