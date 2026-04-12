@@ -1,0 +1,715 @@
+/* ============================================================
+   Keycloak Custom Theme — Modern Blue/White Design
+   Inspired by clean SaaS login interfaces
+   ============================================================ */
+body #kc-content,
+body #kc-content-wrapper,
+body #kc-page-title,
+body #kc-header,
+body #kc-header-wrapper,
+body .login-pf {
+    all: unset;
+    display: block;
+}
+
+@layer base, keycloak, theme;
+
+@layer theme {
+    /* ── Google Fonts ── */
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=DM+Mono:wght@400;500&display=swap');
+
+    /* ── Reset & Base ── */
+    *,
+    *::before,
+    *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+    :root {
+        --blue-50: #eff6ff;
+        --blue-100: #dbeafe;
+        --blue-200: #bfdbfe;
+        --blue-500: #3b82f6;
+        --blue-600: #2563eb;
+        --blue-700: #1d4ed8;
+        --blue-900: #1e3a8a;
+
+        --gray-50: #f9fafb;
+        --gray-100: #f3f4f6;
+        --gray-200: #e5e7eb;
+        --gray-300: #d1d5db;
+        --gray-400: #9ca3af;
+        --gray-500: #6b7280;
+        --gray-600: #4b5563;
+        --gray-700: #374151;
+        --gray-800: #1f2937;
+        --gray-900: #111827;
+
+        --red-50: #fef2f2;
+        --red-200: #fecaca;
+        --red-500: #ef4444;
+        --red-700: #b91c1c;
+
+        --green-50: #f0fdf4;
+        --green-200: #bbf7d0;
+        --green-600: #16a34a;
+
+        --amber-50: #fffbeb;
+        --amber-200: #fde68a;
+        --amber-700: #b45309;
+
+        --radius-sm: 8px;
+        --radius-md: 12px;
+        --radius-lg: 16px;
+        --radius-xl: 20px;
+        --radius-full: 9999px;
+
+        --shadow-sm: 0 1px 3px rgba(0, 0, 0, .06), 0 1px 2px rgba(0, 0, 0, .04);
+        --shadow-md: 0 4px 16px rgba(0, 0, 0, .07), 0 2px 6px rgba(0, 0, 0, .05);
+        --shadow-lg: 0 10px 40px rgba(0, 0, 0, .10), 0 4px 12px rgba(0, 0, 0, .06);
+        --shadow-blue: 0 4px 16px rgba(37, 99, 235, .25);
+
+        --font: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+        --font-mono: 'DM Mono', 'Courier New', monospace;
+
+        --transition: 150ms cubic-bezier(.4, 0, .2, 1);
+    }
+
+    html,
+    body {
+        height: 100%;
+        font-family: var(--font);
+        font-size: 15px;
+        line-height: 1.6;
+        color: var(--gray-800);
+        background: var(--gray-50);
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* ── Full-page background ── */
+    body {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background-color: var(--gray-50);
+        background-image:
+            radial-gradient(ellipse 60% 50% at 70% 20%, rgba(59, 130, 246, .08) 0%, transparent 60%),
+            radial-gradient(ellipse 40% 40% at 10% 80%, rgba(37, 99, 235, .05) 0%, transparent 55%);
+    }
+
+    /* ── Keycloak wrapper overrides ── */
+    #kc-header,
+    #kc-header-wrapper {
+        display: none !important;
+    }
+
+    .login-pf,
+    .login-pf body,
+    #kc-content,
+    #kc-content-wrapper,
+    #kc-form,
+    #kc-form-wrapper {
+        all: unset;
+        display: block;
+    }
+
+    #kc-page-title {
+        display: none;
+    }
+
+
+
+    /* ── Card container ── */
+    body .login-container {
+        width: 100%;
+        max-width: 420px;
+        background: #fff;
+        border-radius: var(--radius-xl);
+        box-shadow: var(--shadow-lg);
+        border: 1px solid var(--gray-200);
+        padding: 40px 36px;
+        animation: cardIn 400ms cubic-bezier(.22, 1, .36, 1) both;
+    }
+
+    @keyframes cardIn {
+        from {
+            opacity: 0;
+            transform: translateY(12px) scale(.98);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+
+    /* ── Brand ── */
+    .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 28px;
+    }
+
+    .brand-icon {
+        width: 38px;
+        height: 38px;
+        background: var(--blue-600);
+        border-radius: var(--radius-sm);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        box-shadow: var(--shadow-blue);
+    }
+
+    .brand-icon svg {
+        width: 20px;
+        height: 20px;
+        stroke: #fff;
+    }
+
+    .brand-name {
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--gray-900);
+        letter-spacing: -0.01em;
+    }
+
+    /* ── Page headings ── */
+    .page-title {
+        font-size: 22px;
+        font-weight: 600;
+        color: var(--gray-900);
+        letter-spacing: -0.02em;
+        line-height: 1.25;
+        margin-bottom: 6px;
+    }
+
+    .page-subtitle {
+        font-size: 14px;
+        color: var(--gray-500);
+        margin-bottom: 28px;
+    }
+
+    /* ── Social Providers ── */
+    .social-providers {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-bottom: 24px;
+    }
+
+    .social-btn {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 0 16px;
+        height: 44px;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--gray-200);
+        background: #fff;
+        color: var(--gray-700);
+        font-size: 14px;
+        font-weight: 500;
+        text-decoration: none;
+        transition: background var(--transition), border-color var(--transition), box-shadow var(--transition);
+        cursor: pointer;
+        font-family: var(--font);
+    }
+
+    .social-btn:hover {
+        background: var(--gray-50);
+        border-color: var(--gray-300);
+        box-shadow: var(--shadow-sm);
+    }
+
+    .social-btn:active {
+        transform: scale(.99);
+    }
+
+    /* Keycloak SSO button — blue accent */
+    .social-btn-keycloak,
+    .social-btn-keycloak-oidc {
+        background: var(--blue-50);
+        border-color: var(--blue-200);
+        color: var(--blue-700);
+    }
+
+    .social-btn-keycloak:hover,
+    .social-btn-keycloak-oidc:hover {
+        background: var(--blue-100);
+        border-color: var(--blue-300);
+    }
+
+    .social-icon {
+        width: 20px;
+        height: 20px;
+        flex-shrink: 0;
+    }
+
+    .social-btn-keycloak .social-icon,
+    .social-btn-keycloak-oidc .social-icon {
+        stroke: var(--blue-600);
+    }
+
+    .social-icon-text {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: var(--blue-600);
+        color: #fff;
+        font-size: 11px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    /* ── Divider ── */
+    .divider {
+        position: relative;
+        text-align: center;
+        margin: 20px 0;
+    }
+
+    .divider::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: var(--gray-200);
+    }
+
+    .divider span {
+        position: relative;
+        background: #fff;
+        padding: 0 12px;
+        font-size: 13px;
+        color: var(--gray-400);
+    }
+
+    /* ── Form ── */
+    .login-form {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+    }
+
+    /* Two-column row for first/last name */
+    .field-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+
+    @media (max-width: 380px) {
+        .field-row {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    /* ── Field group ── */
+    .field-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .field-label {
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--gray-700);
+        letter-spacing: 0.01em;
+    }
+
+    .field-input-wrap {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+
+    .field-icon {
+        position: absolute;
+        left: 12px;
+        width: 16px;
+        height: 16px;
+        stroke: var(--gray-400);
+        flex-shrink: 0;
+        pointer-events: none;
+        transition: stroke var(--transition);
+    }
+
+    body .field-input {
+        width: 100%;
+        height: 44px;
+        padding: 0 40px 0 38px;
+        font-family: var(--font);
+        font-size: 14px;
+        color: var(--gray-900);
+        background: #fff;
+        border: 1px solid var(--gray-200);
+        border-radius: var(--radius-md);
+        outline: none;
+        transition: border-color var(--transition), box-shadow var(--transition);
+        appearance: none;
+    }
+
+    .field-input::placeholder {
+        color: var(--gray-400);
+    }
+
+    .field-input:hover {
+        border-color: var(--gray-300);
+    }
+
+    .field-input:focus {
+        border-color: var(--blue-500);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, .15);
+    }
+
+    .field-input:focus+.field-icon,
+    .field-input-wrap:focus-within .field-icon {
+        stroke: var(--blue-500);
+    }
+
+    /* Has error */
+    .field-group:has(.field-error) .field-input {
+        border-color: var(--red-500);
+    }
+
+    .field-group:has(.field-error) .field-input:focus {
+        box-shadow: 0 0 0 3px rgba(239, 68, 68, .12);
+    }
+
+    .field-error {
+        font-size: 12px;
+        color: var(--red-500);
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    /* Toggle password button */
+    .toggle-password {
+        position: absolute;
+        right: 10px;
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 4px;
+        display: flex;
+        align-items: center;
+        border-radius: 4px;
+        transition: background var(--transition);
+    }
+
+    .toggle-password:hover {
+        background: var(--gray-100);
+    }
+
+    .toggle-password svg {
+        width: 16px;
+        height: 16px;
+        stroke: var(--gray-400);
+    }
+
+    /* ── Form row (remember + forgot) ── */
+    .form-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+    }
+
+    /* ── Checkbox ── */
+    .checkbox-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        font-size: 13px;
+        color: var(--gray-700);
+        user-select: none;
+    }
+
+    .checkbox-input {
+        position: absolute;
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+
+    .checkbox-custom {
+        width: 16px;
+        height: 16px;
+        border: 1.5px solid var(--gray-300);
+        border-radius: 4px;
+        background: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        transition: all var(--transition);
+    }
+
+    .checkbox-input:checked~.checkbox-custom {
+        background: var(--blue-600);
+        border-color: var(--blue-600);
+    }
+
+    .checkbox-input:checked~.checkbox-custom::after {
+        content: '';
+        width: 9px;
+        height: 5px;
+        border-left: 2px solid #fff;
+        border-bottom: 2px solid #fff;
+        transform: rotate(-45deg) translateY(-1px);
+        display: block;
+    }
+
+    /* ── Forgot link ── */
+    .forgot-link {
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--blue-600);
+        text-decoration: none;
+        transition: color var(--transition);
+    }
+
+    .forgot-link:hover {
+        color: var(--blue-700);
+        text-decoration: underline;
+    }
+
+    /* ── Alert messages ── */
+    .alert {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 12px 14px;
+        border-radius: var(--radius-md);
+        font-size: 13px;
+        line-height: 1.5;
+    }
+
+    .alert svg {
+        width: 15px;
+        height: 15px;
+        flex-shrink: 0;
+        margin-top: 1px;
+    }
+
+    .alert-error {
+        background: var(--red-50);
+        color: var(--red-700);
+        border: 1px solid var(--red-200);
+    }
+
+    .alert-error svg {
+        stroke: var(--red-500);
+    }
+
+    .alert-warning {
+        background: var(--amber-50);
+        color: var(--amber-700);
+        border: 1px solid var(--amber-200);
+    }
+
+    .alert-warning svg {
+        stroke: var(--amber-700);
+    }
+
+    .alert-success {
+        background: var(--green-50);
+        color: var(--green-600);
+        border: 1px solid var(--green-200);
+    }
+
+    .alert-success svg {
+        stroke: var(--green-600);
+    }
+
+    .alert-info {
+        background: var(--blue-50);
+        color: var(--blue-700);
+        border: 1px solid var(--blue-200);
+    }
+
+    /* ── Primary button ── */
+    .btn-primary {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: 44px;
+        padding: 0 20px;
+        font-family: var(--font);
+        font-size: 14px;
+        font-weight: 600;
+        color: #fff;
+        background: var(--blue-600);
+        border: none;
+        border-radius: var(--radius-md);
+        cursor: pointer;
+        transition: background var(--transition), box-shadow var(--transition), transform var(--transition);
+        letter-spacing: 0.01em;
+        margin-top: 4px;
+        box-shadow: var(--shadow-blue);
+    }
+
+    .btn-primary:hover {
+        background: var(--blue-700);
+        box-shadow: 0 6px 20px rgba(37, 99, 235, .35);
+    }
+
+    .btn-primary:active {
+        transform: scale(.99);
+        box-shadow: var(--shadow-blue);
+    }
+
+    /* ── Register / back link ── */
+    .register-link {
+        margin-top: 24px;
+        text-align: center;
+        font-size: 13px;
+        color: var(--gray-500);
+    }
+
+    .register-link a {
+        color: var(--blue-600);
+        font-weight: 500;
+        text-decoration: none;
+        transition: color var(--transition);
+    }
+
+    .register-link a:hover {
+        color: var(--blue-700);
+        text-decoration: underline;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 480px) {
+        body {
+            padding: 16px;
+            background-image: none;
+        }
+
+        .login-container {
+            padding: 28px 22px;
+            border-radius: var(--radius-lg);
+        }
+
+        .page-title {
+            font-size: 20px;
+        }
+    }
+
+    /* ── Required Action: Update Profile ── */
+    #kc-update-profile-form {
+        gap: 14px;
+    }
+
+    #kc-update-profile-form .pf-v5-c-form__group,
+    #kc-update-profile-form .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin: 0;
+    }
+
+    #kc-update-profile-form label,
+    #kc-update-profile-form .pf-v5-c-form__label,
+    #kc-update-profile-form .field-label {
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--gray-700);
+    }
+
+    #kc-update-profile-form input[type="text"],
+    #kc-update-profile-form input[type="email"],
+    #kc-update-profile-form input[type="password"],
+    #kc-update-profile-form input[type="url"],
+    #kc-update-profile-form input:not([type]),
+    #kc-update-profile-form select,
+    #kc-update-profile-form textarea,
+    #kc-update-profile-form .pf-v5-c-form-control,
+    #kc-update-profile-form .pf-v5-c-text-input-group__text-input {
+        width: 100%;
+        height: 44px;
+        padding: 0 14px;
+        font-family: var(--font);
+        font-size: 14px;
+        color: var(--gray-900);
+        background: #fff;
+        border: 1px solid var(--gray-200);
+        border-radius: var(--radius-md);
+        outline: none;
+        transition: border-color var(--transition), box-shadow var(--transition);
+        appearance: none;
+    }
+
+    #kc-update-profile-form input:hover,
+    #kc-update-profile-form select:hover,
+    #kc-update-profile-form textarea:hover {
+        border-color: var(--gray-300);
+    }
+
+    #kc-update-profile-form input:focus,
+    #kc-update-profile-form select:focus,
+    #kc-update-profile-form textarea:focus {
+        border-color: var(--blue-500);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, .15);
+    }
+
+    #kc-update-profile-form .required {
+        color: var(--red-500);
+        margin-left: 4px;
+    }
+
+    #kc-update-profile-form .pf-v5-c-helper-text,
+    #kc-update-profile-form .pf-v5-c-form__helper-text,
+    #kc-update-profile-form .field-error {
+        font-size: 12px;
+        color: var(--red-500);
+    }
+
+    #kc-update-profile-form .form-row-actions {
+        margin-top: 6px;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    #kc-update-profile-form .btn-secondary {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: 44px;
+        padding: 0 20px;
+        font-family: var(--font);
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--blue-700);
+        background: var(--blue-50);
+        border: 1px solid var(--blue-200);
+        border-radius: var(--radius-md);
+        cursor: pointer;
+        transition: background var(--transition), border-color var(--transition);
+    }
+
+    #kc-update-profile-form .btn-secondary:hover {
+        background: var(--blue-100);
+        border-color: var(--blue-300);
+    }
+
+}

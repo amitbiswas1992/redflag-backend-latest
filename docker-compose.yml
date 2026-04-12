@@ -1,13 +1,41 @@
 services:
+  keycloak-db:
+    image: postgres:16-alpine
+    container_name: redflag-keycloak-db
+    environment:
+      - POSTGRES_DB=keycloak
+      - POSTGRES_USER=keycloak
+      - POSTGRES_PASSWORD=keycloak
+    volumes:
+      - keycloak-db-data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    networks:
+      - redflag-network
+    restart: unless-stopped
+
   keycloak:
     image: quay.io/keycloak/keycloak:26.1
     container_name: redflag-keycloak
-    command: start-dev
+    command:
+      - start-dev
+      - --db=postgres
+      - --spi-theme-cache-themes=false
+      - --spi-theme-cache-templates=false
+      - --spi-theme-static-max-age=-1
     environment:
       - KEYCLOAK_ADMIN=admin
       - KEYCLOAK_ADMIN_PASSWORD=admin
+      - KC_DB=postgres
+      - KC_DB_URL=jdbc:postgresql://keycloak-db:5432/keycloak
+      - KC_DB_USERNAME=keycloak
+      - KC_DB_PASSWORD=keycloak
       - KC_HEALTH_ENABLED=true
       - KC_METRICS_ENABLED=true
+    depends_on:
+      - keycloak-db
+    volumes:
+      - ./keycloak/themes:/opt/keycloak/themes
     ports:
       - "8080:8080"
     networks:
@@ -19,7 +47,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: redflag-core
-    command: ["node", "dist/apps/core-service/main.js"]
+    command: [ "node", "dist/apps/core-service/main.js" ]
     env_file:
       - .env
     ports:
@@ -58,7 +86,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: redflag-identity
-    command: ["node", "dist/apps/identity-service/main.js"]
+    command: [ "node", "dist/apps/identity-service/main.js" ]
     env_file:
       - .env
     ports:
@@ -74,3 +102,6 @@ services:
 networks:
   redflag-network:
     driver: bridge
+
+volumes:
+  keycloak-db-data:
