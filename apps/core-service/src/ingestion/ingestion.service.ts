@@ -1,38 +1,55 @@
 import {
+  db,
+  ingestionJobs,
+  ingestionRowResults,
+  rawFhirIngestions,
+} from '@app/db';
+import {
   BadRequestException,
   Inject,
   Injectable,
   Logger,
+  MessageEvent,
   NotFoundException,
 } from '@nestjs/common';
-import { db, ingestionJobs, ingestionRowResults } from '@app/db';
-import { and, asc, count, eq } from 'drizzle-orm';
 import { createHash } from 'crypto';
-import { normalizeDateValue } from './date-normalizer';
+import { and, asc, count, eq } from 'drizzle-orm';
+import {
+  from,
+  interval,
+  map,
+  Observable,
+  startWith,
+  switchMap,
+  takeWhile,
+} from 'rxjs';
 import { parseCsvRows, ParsedCsvRow } from './csv';
+import { normalizeDateValue } from './date-normalizer';
+import { IngestionQueueService } from './ingestion-queue.service';
 import {
   createJobRequestSchema,
+  MappingManifest,
   mappingManifestSchema,
   normalizedCsvRowSchema,
   startJobRequestSchema,
   uploadCsvRequestSchema,
-  MappingManifest,
 } from './schemas';
-import { RiskEngineService } from '../risk-engine/risk-engine.service';
 
 @Injectable()
 export class IngestionService {
   private readonly logger = new Logger(IngestionService.name);
 
   constructor(
-    private readonly riskEngineService: RiskEngineService,
+    private readonly ingestionQueueService: IngestionQueueService,
     @Inject('REQUEST')
     private readonly request: { organizationId?: string; tenantId?: string },
   ) { }
 
   private get orgId(): string {
-    const organizationId = this.request?.organizationId ?? this.request?.tenantId;
-    if (!organizationId) throw new BadRequestException('Organization context missing.');
+    const organizationId =
+      this.request?.organizationId ?? this.request?.tenantId;
+    if (!organizationId)
+      throw new BadRequestException('Organization context missing.');
     return organizationId;
   }
 
@@ -68,17 +85,24 @@ export class IngestionService {
     const job = await this.getJobForOrg(jobId);
 
     if (job.status === 'RUNNING') {
-      throw new BadRequestException('Job is currently running. CSV upload is locked.');
+      throw new BadRequestException(
+        'Job is currently running. CSV upload is locked.',
+      );
     }
     if (job.status === 'COMPLETED' || job.status === 'FAILED') {
-      throw new BadRequestException('Job is finalized and cannot accept new CSV uploads.');
+      throw new BadRequestException(
+        'Job is finalized and cannot accept new CSV uploads.',
+      );
     }
 
-    const checksumSha256 = createHash('sha256').update(input.csvData).digest('hex');
+    const checksumSha256 = createHash('sha256')
+      .update(input.csvData)
+      .digest('hex');
     const parsedRows = parseCsvRows(input.csvData);
     const mappingManifest = this.parseMappingManifest(job.mappingManifest);
 
     const rowResults: Array<typeof ingestionRowResults.$inferInsert> = [];
+    const rawRows: Array<typeof rawFhirIngestions.$inferInsert> = [];
     const errorSummary: Record<string, number> = {};
     let successRows = 0;
     let failedRows = 0;
@@ -86,6 +110,14 @@ export class IngestionService {
     parsedRows.forEach((rawRow, index) => {
       const rowNumber = index + 1;
       const normalized = this.normalizeAndValidateRow(rawRow, mappingManifest);
+
+      rawRows.push({
+        organizationId: this.orgId,
+        jobId,
+        rowNumber,
+        sourceRecordKey: this.resolveSourceRecordKey(rawRow),
+        rawPayloadJson: rawRow,
+      });
 
       if (!normalized.ok) {
         failedRows += 1;
@@ -134,6 +166,19 @@ export class IngestionService {
             eq(ingestionRowResults.jobId, jobId),
           ),
         );
+
+      await tx
+        .delete(rawFhirIngestions)
+        .where(
+          and(
+            eq(rawFhirIngestions.organizationId, this.orgId),
+            eq(rawFhirIngestions.jobId, jobId),
+          ),
+        );
+
+      if (rawRows.length > 0) {
+        await tx.insert(rawFhirIngestions).values(rawRows);
+      }
 
       if (rowResults.length > 0) {
         await tx.insert(ingestionRowResults).values(rowResults);
@@ -188,72 +233,39 @@ export class IngestionService {
       .update(ingestionJobs)
       .set({
         status: 'RUNNING',
+        processedRows: 0,
         startedAt,
         updatedAt: startedAt,
       })
       .where(
-        and(eq(ingestionJobs.id, jobId), eq(ingestionJobs.organizationId, this.orgId)),
+        and(
+          eq(ingestionJobs.id, jobId),
+          eq(ingestionJobs.organizationId, this.orgId),
+        ),
       );
 
     try {
-      const [{ total }] = await db
-        .select({ total: count() })
-        .from(ingestionRowResults)
-        .where(
-          and(
-            eq(ingestionRowResults.organizationId, this.orgId),
-            eq(ingestionRowResults.jobId, jobId),
-          ),
-        );
-
-      const [{ failed }] = await db
-        .select({ failed: count() })
-        .from(ingestionRowResults)
-        .where(
-          and(
-            eq(ingestionRowResults.organizationId, this.orgId),
-            eq(ingestionRowResults.jobId, jobId),
-            eq(ingestionRowResults.outcome, 'ERROR'),
-          ),
-        );
-
-      const totalRows = Number(total ?? 0);
-      const failedRows = Number(failed ?? 0);
-      const successRows = totalRows - failedRows;
-      const persistedCount = successRows;
-      const completedAt = new Date();
-
-      await db
-        .update(ingestionJobs)
-        .set({
-          status: 'COMPLETED',
-          totalRows,
-          processedRows: totalRows,
-          successRows,
-          failedRows,
-          completedAt,
-          updatedAt: completedAt,
-        })
-        .where(
-          and(
-            eq(ingestionJobs.id, jobId),
-            eq(ingestionJobs.organizationId, this.orgId),
-          ),
-        );
+      const queueJobId = await this.ingestionQueueService.enqueueIngestionJob(
+        jobId,
+        this.orgId,
+      );
 
       return {
         jobId,
-        status: 'COMPLETED',
-        totalRows,
-        successRows,
-        failedRows,
-        persistedCount,
+        status: 'RUNNING',
+        totalRows: existingJob.totalRows,
+        successRows: existingJob.successRows,
+        failedRows: existingJob.failedRows,
+        persistedCount: 0,
         startedAt,
-        completedAt,
+        completedAt: null,
+        queueJobId,
       };
     } catch (error: unknown) {
       const errorMessage =
-        error instanceof Error ? error.message : 'Unknown ingestion start error';
+        error instanceof Error
+          ? error.message
+          : 'Unknown ingestion start error';
 
       await db
         .update(ingestionJobs)
@@ -270,7 +282,9 @@ export class IngestionService {
           ),
         );
 
-      this.logger.error(`Failed to start ingestion job ${jobId}: ${errorMessage}`);
+      this.logger.error(
+        `Failed to start ingestion job ${jobId}: ${errorMessage}`,
+      );
       throw error;
     }
   }
@@ -290,6 +304,43 @@ export class IngestionService {
       createdAt: job.createdAt,
       updatedAt: job.updatedAt,
     };
+  }
+
+  async getJobProgress(jobId: string) {
+    const job = await this.getJobForOrg(jobId);
+    const workerProgress = this.ingestionQueueService.getProgress(jobId);
+    const isUnknownProgress = workerProgress.status === 'UNKNOWN';
+
+    return {
+      id: job.id,
+      status: isUnknownProgress ? job.status : workerProgress.status,
+      totalRows: isUnknownProgress ? job.totalRows : workerProgress.total,
+      processedRows: isUnknownProgress
+        ? job.processedRows
+        : workerProgress.processed,
+      successRows: job.successRows,
+      failedRows: job.failedRows,
+      startedAt: job.startedAt,
+      completedAt: job.completedAt,
+      updatedAt: job.updatedAt,
+    };
+  }
+
+  streamJobProgress(jobId: string): Observable<MessageEvent> {
+    return interval(1000).pipe(
+      startWith(0),
+      switchMap(() => from(this.getJobProgress(jobId))),
+      map(
+        (progress): MessageEvent => ({
+          type: 'progress',
+          data: progress,
+        }),
+      ),
+      takeWhile((event) => {
+        const payload = event.data as { status?: string };
+        return !this.isTerminalJobStatus(payload.status);
+      }, true),
+    );
   }
 
   async getRowResults(jobId: string, page = 1, pageSize = 50) {
@@ -322,6 +373,7 @@ export class IngestionService {
         reasonCode: ingestionRowResults.reasonCode,
         message: ingestionRowResults.message,
         rowData: ingestionRowResults.rowData,
+        persisted: ingestionRowResults.persisted,
       })
       .from(ingestionRowResults)
       .where(
@@ -346,7 +398,12 @@ export class IngestionService {
     const jobs = await db
       .select()
       .from(ingestionJobs)
-      .where(and(eq(ingestionJobs.id, jobId), eq(ingestionJobs.organizationId, this.orgId)))
+      .where(
+        and(
+          eq(ingestionJobs.id, jobId),
+          eq(ingestionJobs.organizationId, this.orgId),
+        ),
+      )
       .limit(1);
 
     const [job] = jobs;
@@ -364,10 +421,18 @@ export class IngestionService {
 
     const parsedManifest = mappingManifestSchema.safeParse(rawManifest);
     if (!parsedManifest.success) {
-      throw new BadRequestException('Stored mapping manifest is invalid for this ingestion job.');
+      throw new BadRequestException(
+        'Stored mapping manifest is invalid for this ingestion job.',
+      );
     }
 
     return parsedManifest.data;
+  }
+
+  private isTerminalJobStatus(status?: string): boolean {
+    return (
+      status === 'COMPLETED' || status === 'FAILED' || status === 'CANCELLED'
+    );
   }
 
   private normalizeAndValidateRow(
@@ -391,7 +456,9 @@ export class IngestionService {
     }
 
     const normalizedRow: ParsedCsvRow = { ...structuralResult.data };
-    for (const [columnName, dateRule] of Object.entries(mappingManifest.dateColumns)) {
+    for (const [columnName, dateRule] of Object.entries(
+      mappingManifest.dateColumns,
+    )) {
       const currentValue = normalizedRow[columnName];
       const normalizedDate = normalizeDateValue(currentValue, dateRule);
       if (!normalizedDate.success) {

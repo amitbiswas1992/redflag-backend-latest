@@ -35,6 +35,18 @@ export const ingestionJobs = pgTable('ingestion_jobs', {
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+export const rawFhirIngestions = pgTable('raw_fhir_ingestions', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id').references(() => organizations.id, { onDelete: 'cascade' }).notNull(),
+    jobId: uuid('job_id').references(() => ingestionJobs.id, { onDelete: 'cascade' }).notNull(),
+    rowNumber: integer('row_number').notNull(),
+    sourceRecordKey: text('source_record_key'),
+    rawPayloadJson: jsonb('raw_payload_json').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => [
+    uniqueIndex('unq_org_job_raw_row').on(table.organizationId, table.jobId, table.rowNumber)
+]);
+
 export const ingestionRowResults = pgTable('ingestion_row_results', {
     id: uuid('id').primaryKey().defaultRandom(),
     organizationId: uuid('organization_id').references(() => organizations.id, { onDelete: 'cascade' }).notNull(),

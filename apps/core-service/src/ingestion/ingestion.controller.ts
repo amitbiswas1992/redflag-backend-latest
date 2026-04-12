@@ -6,12 +6,15 @@ import {
     Get,
     HttpCode,
     HttpStatus,
+    MessageEvent,
     Param,
     ParseIntPipe,
     Post,
     Query,
+    Sse,
 } from '@nestjs/common';
 import { ApiBody, ApiOkResponse, ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { Observable } from 'rxjs';
 import { IngestionService } from './ingestion.service';
 
 @ApiTags('Data Ingestion')
@@ -66,7 +69,7 @@ export class IngestionController {
 
     @ApiOperation({
         summary: 'Start ingestion job',
-        description: 'Transitions an UPLOADED job into RUNNING and then COMPLETED for phase 1 foundation flow.',
+        description: 'Transitions an UPLOADED job into RUNNING and enqueues async processing.',
     })
     @ApiParam({ name: 'jobId', description: 'Ingestion job ID' })
     @ApiBody({
@@ -80,6 +83,7 @@ export class IngestionController {
     @ApiOkResponse({ description: 'Job started' })
     @Roles(RBAC_ROLES.OWNER, RBAC_ROLES.ADMIN)
     @Post('jobs/:jobId/start')
+    @HttpCode(HttpStatus.ACCEPTED)
     async startJob(@Param('jobId') jobId: string, @Body() body: unknown) {
         return this.ingestionService.startJob(jobId, body);
     }
@@ -90,6 +94,23 @@ export class IngestionController {
     @Get('jobs/:jobId')
     async getJobStatus(@Param('jobId') jobId: string) {
         return this.ingestionService.getJobStatus(jobId);
+    }
+
+    @ApiOperation({ summary: 'Get job progress snapshot' })
+    @ApiParam({ name: 'jobId', description: 'Ingestion job ID' })
+    @ApiOkResponse({ description: 'Job progress returned' })
+    @Get('jobs/:jobId/progress')
+    async getJobProgress(@Param('jobId') jobId: string) {
+        return this.ingestionService.getJobProgress(jobId);
+    }
+
+    @ApiOperation({ summary: 'Stream job progress events' })
+    @ApiParam({ name: 'jobId', description: 'Ingestion job ID' })
+    @Sse('jobs/:jobId/progress/stream')
+    streamJobProgress(
+        @Param('jobId') jobId: string,
+    ): Observable<MessageEvent> {
+        return this.ingestionService.streamJobProgress(jobId);
     }
 
     @ApiOperation({ summary: 'Get row-level results' })
