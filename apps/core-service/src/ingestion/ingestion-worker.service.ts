@@ -114,6 +114,7 @@ export class IngestionWorkerService {
         const expectedEncounterProjectionIds = new Set<string>();
         const expectedMedicationProjectionIds = new Set<string>();
         const runtimeErrorSummary: Record<string, number> = {};
+        const uniquePatientSourceIds = new Set<string>();
         const persistenceCounters = {
             patientsInserted: 0,
             patientsUpdated: 0,
@@ -160,6 +161,14 @@ export class IngestionWorkerService {
                                 organizationId,
                                 persistenceCounters,
                             );
+
+                            const persistedPatient = materialized.persisted.patient as
+                                | Record<string, unknown>
+                                | undefined;
+                            const persistedPatientSourceId = persistedPatient?.sourceId;
+                            if (typeof persistedPatientSourceId === 'string') {
+                                uniquePatientSourceIds.add(persistedPatientSourceId);
+                            }
 
                             const persistedEncounter =
                                 (materialized.persisted.encounter as Record<string, unknown> | undefined)
@@ -375,9 +384,9 @@ export class IngestionWorkerService {
                 organizationId,
                 date: new Date(),
                 source: job.sourceType,
-                patients:
-                    persistenceCounters.patientsInserted +
-                    persistenceCounters.patientsUpdated,
+                // Track unique patient sources touched in this ingestion run,
+                // not row-level upserts (which can include repeated patients).
+                patients: uniquePatientSourceIds.size,
                 observations:
                     persistenceCounters.observationsInserted +
                     persistenceCounters.observationsUpdated,

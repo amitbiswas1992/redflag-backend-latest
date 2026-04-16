@@ -63,12 +63,22 @@ export class ServerController {
     @Query('skip') skip?: string,
     @Query('take') take?: string,
     @Query('hasIssue') hasIssue?: string,
+    @Query('search') search?: string,
+    @Query('dateRange') dateRange?: string,
+    @Query('department') department?: string,
+    @Query('encounterType') encounterType?: string,
   ) {
     const hasIssueFilter = this.parseBooleanQuery(hasIssue);
     return this.serverService.findAllPatients(
       this.parsePaginationValue(skip, 0),
       this.parsePaginationValue(take, 10),
       hasIssueFilter,
+      {
+        search,
+        dateRange,
+        department,
+        encounterType,
+      },
     );
   }
 
@@ -384,6 +394,48 @@ export class ServerController {
               type: 'number',
               example: 124,
               description: 'Sum of all today ingestion counts',
+            },
+          },
+        },
+        pendingRecords: {
+          type: 'number',
+          example: 42,
+          description: 'Estimated records still pending processing in non-terminal jobs',
+        },
+        failedRecords: {
+          type: 'number',
+          example: 7,
+          description: 'Estimated failed records across failed jobs',
+        },
+        recentJobs: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string', format: 'uuid' },
+              status: { type: 'string', example: 'RUNNING' },
+              sourceType: { type: 'string', example: 'FLAT_FHIR_CSV' },
+              totalRows: { type: 'number', example: 500 },
+              processedRows: { type: 'number', example: 400 },
+              successRows: { type: 'number', example: 390 },
+              failedRows: { type: 'number', example: 10 },
+              pendingRows: { type: 'number', example: 100 },
+              recordCount: { type: 'number', example: 500 },
+              startedAt: { type: 'string', format: 'date-time', nullable: true },
+              completedAt: { type: 'string', format: 'date-time', nullable: true },
+              createdAt: { type: 'string', format: 'date-time' },
+              updatedAt: { type: 'string', format: 'date-time' },
+            },
+          },
+        },
+        dailyStats: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              date: { type: 'string', example: '2026-04-16' },
+              source: { type: 'string', example: 'FLAT_FHIR_CSV' },
+              records: { type: 'number', example: 120 },
             },
           },
         },
