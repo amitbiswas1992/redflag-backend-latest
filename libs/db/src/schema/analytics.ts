@@ -1,6 +1,15 @@
-import { pgTable, text, timestamp, uuid, boolean, integer, uniqueIndex } from 'drizzle-orm/pg-core';
-import { organizations } from './identity';
+import {
+    boolean,
+    index,
+    integer,
+    pgTable,
+    text,
+    timestamp,
+    uniqueIndex,
+    uuid,
+} from 'drizzle-orm/pg-core';
 import { encounters, medications } from './clinical';
+import { organizations } from './identity';
 
 export const encounterAnalytics = pgTable('encounter_analytics', {
     id: uuid('id').primaryKey().defaultRandom(),
@@ -22,7 +31,13 @@ export const encounterAnalytics = pgTable('encounter_analytics', {
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => [
-    uniqueIndex('unq_encounter_analytics').on(table.encounterId)
+    uniqueIndex('unq_encounter_analytics').on(table.encounterId),
+    index('idx_encounter_analytics_org').on(table.organizationId),
+    index('idx_encounter_analytics_rule_hot_path').on(
+        table.isTelehealth,
+        table.documentationComplete,
+        table.crossStateFlag,
+    ),
 ]);
 
 export const medicationAnalytics = pgTable('medication_analytics', {
@@ -41,5 +56,10 @@ export const medicationAnalytics = pgTable('medication_analytics', {
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => [
-    uniqueIndex('unq_medication_analytics').on(table.medicationId)
+    uniqueIndex('unq_medication_analytics').on(table.medicationId),
+    index('idx_medication_analytics_org').on(table.organizationId),
+    index('idx_medication_analytics_rule_hot_path').on(
+        table.controlledSubstance,
+        table.deaSchedule,
+    ),
 ]);

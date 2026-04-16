@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, jsonb, uniqueIndex } from 'drizzle-orm/pg-core';
+import { jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { organizations } from './identity';
 
 export const patients = pgTable('patients', {
@@ -72,6 +72,28 @@ export const medications = pgTable('medications', {
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => [
     uniqueIndex('unq_source_org_medication').on(table.organizationId, table.sourceId)
+]);
+
+export const substances = pgTable('substances', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id').references(() => organizations.id, { onDelete: 'cascade' }).notNull(),
+    sourceId: text('source_id').notNull(),
+    patientId: uuid('patient_id').references(() => patients.id, { onDelete: 'cascade' }).notNull(),
+    encounterId: uuid('encounter_id').references(() => encounters.id, { onDelete: 'cascade' }),
+    status: text('status'),
+    code: text('code'),
+    codeDisplay: text('code_display'),
+    category: text('category'),
+    instance: text('instance'),
+    quantityValue: text('quantity_value'),
+    quantityUnit: text('quantity_unit'),
+    expiry: timestamp('expiry'),
+    description: text('description'),
+    extension: jsonb('extension'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => [
+    uniqueIndex('unq_source_org_substance').on(table.organizationId, table.sourceId)
 ]);
 
 export const conditions = pgTable('conditions', {

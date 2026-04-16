@@ -37,6 +37,11 @@ export const startJobRequestSchema = z.object({
     strictDateParsing: z.boolean().default(true),
 });
 
+export const confirmTemplateRequestSchema = z.object({
+    acceptedTemplate: z.string().min(1).optional(),
+    mappingManifest: mappingManifestSchema.optional(),
+});
+
 export const normalizedCsvRowSchema = z
     .record(z.string(), z.union([z.string(), z.null()]))
     .refine(
@@ -67,4 +72,5 @@ export type MappingManifest = z.infer<typeof mappingManifestSchema>;
 export type CreateJobRequest = z.infer<typeof createJobRequestSchema>;
 export type UploadCsvRequest = z.infer<typeof uploadCsvRequestSchema>;
 export type StartJobRequest = z.infer<typeof startJobRequestSchema>;
+export type ConfirmTemplateRequest = z.infer<typeof confirmTemplateRequestSchema>;
 export type RowResult = z.infer<typeof rowResultSchema>;

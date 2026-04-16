@@ -27,6 +27,7 @@ import { parseCsvRows, ParsedCsvRow } from './csv';
 import { normalizeDateValue } from './date-normalizer';
 import { IngestionQueueService } from './ingestion-queue.service';
 import {
+  confirmTemplateRequestSchema,
   createJobRequestSchema,
   MappingManifest,
   mappingManifestSchema,
@@ -34,6 +35,13 @@ import {
   startJobRequestSchema,
   uploadCsvRequestSchema,
 } from './schemas';
+
+type TemplateDetectionResult = {
+  templateVersion: string;
+  confidence: number;
+  matchedHeaders: number;
+  totalHeaders: number;
+};
 
 @Injectable()
 export class IngestionService {
@@ -99,6 +107,7 @@ export class IngestionService {
       .update(input.csvData)
       .digest('hex');
     const parsedRows = parseCsvRows(input.csvData);
+    const detection = this.detectTemplateVersion(parsedRows);
     const mappingManifest = this.parseMappingManifest(job.mappingManifest);
 
     const rowResults: Array<typeof ingestionRowResults.$inferInsert> = [];
@@ -187,7 +196,7 @@ export class IngestionService {
       await tx
         .update(ingestionJobs)
         .set({
-          status: 'UPLOADED',
+          status: 'DETECTING',
           checksumSha256,
           totalRows,
           processedRows: 0,
@@ -206,14 +215,69 @@ export class IngestionService {
         );
     });
 
+    await db
+      .update(ingestionJobs)
+      .set({
+        status: 'AWAITING_CONFIRMATION',
+        templateVersion: detection.templateVersion,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(ingestionJobs.id, jobId),
+          eq(ingestionJobs.organizationId, this.orgId),
+        ),
+      );
+
     return {
       jobId,
-      status: 'UPLOADED',
+      status: 'AWAITING_CONFIRMATION',
       checksumSha256,
       totalRows,
       successRows,
       failedRows,
       errorSummary,
+      templateDetection: detection,
+    };
+  }
+
+  async confirmTemplate(jobId: string, rawInput: unknown) {
+    const input = confirmTemplateRequestSchema.parse(rawInput);
+    const job = await this.getJobForOrg(jobId);
+
+    if (job.status === 'UPLOADED') {
+      return {
+        jobId,
+        status: 'UPLOADED',
+        templateVersion: job.templateVersion,
+      };
+    }
+
+    if (job.status !== 'AWAITING_CONFIRMATION') {
+      throw new BadRequestException(
+        `Job must be in AWAITING_CONFIRMATION before confirming template. Current status: ${job.status}`,
+      );
+    }
+
+    await db
+      .update(ingestionJobs)
+      .set({
+        status: 'UPLOADED',
+        templateVersion: input.acceptedTemplate ?? job.templateVersion,
+        mappingManifest: input.mappingManifest ?? job.mappingManifest,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(ingestionJobs.id, jobId),
+          eq(ingestionJobs.organizationId, this.orgId),
+        ),
+      );
+
+    return {
+      jobId,
+      status: 'UPLOADED',
+      templateVersion: input.acceptedTemplate ?? job.templateVersion,
     };
   }
 
@@ -427,6 +491,55 @@ export class IngestionService {
     }
 
     return parsedManifest.data;
+  }
+
+  private detectTemplateVersion(rows: ParsedCsvRow[]): TemplateDetectionResult {
+    const headers = new Set<string>();
+    for (const row of rows) {
+      for (const key of Object.keys(row)) {
+        headers.add(key);
+      }
+    }
+
+    const fingerprints = [
+      {
+        templateVersion: 'EPIC_FLAT_FHIR_V1',
+        headers: ['patient_epic_id', 'encounter_epic_id', 'medication_request_id'],
+      },
+      {
+        templateVersion: 'CERNER_FLAT_FHIR_V1',
+        headers: ['patient_id', 'encounter_id', 'medication_id'],
+      },
+      {
+        templateVersion: 'ORACLE_HEALTH_FLAT_FHIR_V1',
+        headers: ['patient_identifier_value', 'encounter_id', 'organization_name'],
+      },
+    ] as const;
+
+    let winner = {
+      templateVersion: 'CUSTOM_FLAT_FHIR',
+      confidence: 0,
+      matchedHeaders: 0,
+      totalHeaders: headers.size,
+    };
+
+    for (const candidate of fingerprints) {
+      const matched = candidate.headers.filter((header) => headers.has(header)).length;
+      const confidence = candidate.headers.length
+        ? matched / candidate.headers.length
+        : 0;
+
+      if (confidence > winner.confidence) {
+        winner = {
+          templateVersion: candidate.templateVersion,
+          confidence,
+          matchedHeaders: matched,
+          totalHeaders: headers.size,
+        };
+      }
+    }
+
+    return winner;
   }
 
   private isTerminalJobStatus(status?: string): boolean {

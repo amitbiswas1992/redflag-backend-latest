@@ -113,6 +113,36 @@ export class IngestionController {
         return this.ingestionService.streamJobProgress(jobId);
     }
 
+    @ApiOperation({ summary: 'Stream job events (SSE alias)' })
+    @ApiParam({ name: 'jobId', description: 'Ingestion job ID' })
+    @Sse('jobs/:jobId/events')
+    streamJobEvents(
+        @Param('jobId') jobId: string,
+    ): Observable<MessageEvent> {
+        return this.ingestionService.streamJobProgress(jobId);
+    }
+
+    @ApiOperation({
+        summary: 'Confirm detected template and mark job upload-ready',
+        description: 'Transitions AWAITING_CONFIRMATION jobs into UPLOADED.',
+    })
+    @ApiParam({ name: 'jobId', description: 'Ingestion job ID' })
+    @ApiBody({
+        schema: {
+            type: 'object',
+            properties: {
+                acceptedTemplate: { type: 'string' },
+                mappingManifest: { type: 'object' },
+            },
+        },
+    })
+    @ApiOkResponse({ description: 'Template confirmed and job is ready to start' })
+    @Roles(RBAC_ROLES.OWNER, RBAC_ROLES.ADMIN)
+    @Post('jobs/:jobId/confirm-template')
+    async confirmTemplate(@Param('jobId') jobId: string, @Body() body: unknown) {
+        return this.ingestionService.confirmTemplate(jobId, body);
+    }
+
     @ApiOperation({ summary: 'Get row-level results' })
     @ApiParam({ name: 'jobId', description: 'Ingestion job ID' })
     @ApiQuery({ name: 'page', required: false, type: Number })

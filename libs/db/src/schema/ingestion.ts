@@ -13,6 +13,8 @@ import { organizations } from './identity';
 export const ingestionJobStatusEnum = pgEnum('ingestion_job_status', [
     'CREATED',
     'UPLOADED',
+    'DETECTING',
+    'AWAITING_CONFIRMATION',
     'RUNNING',
     'COMPLETED',
     'FAILED',

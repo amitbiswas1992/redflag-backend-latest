@@ -141,7 +141,9 @@ export function normalizeDateValue(
     const acceptsSlashDayFirst = rule.acceptedFormats.includes('DD_MM_YYYY');
 
     if (acceptsSlashMonthFirst && acceptsSlashDayFirst && slashDateRegex.test(value)) {
-        const [_, firstText, secondText] = slashDateRegex.exec(value) ?? [];
+        const match = slashDateRegex.exec(value);
+        const firstText = match?.[1] ?? '';
+        const secondText = match?.[2] ?? '';
         const first = Number(firstText);
         const second = Number(secondText);
 

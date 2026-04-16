@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, jsonb, integer } from 'drizzle-orm/pg-core';
+import { index, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { organizations } from './identity';
 
 export const complianceFlags = pgTable('compliance_flags', {
@@ -12,7 +12,9 @@ export const complianceFlags = pgTable('compliance_flags', {
     resolvedAt: timestamp('resolved_at'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (table) => [
+    index('idx_compliance_flags_org').on(table.organizationId),
+]);
 
 export const riskScores = pgTable('risk_scores', {
     id: uuid('id').primaryKey().defaultRandom(),
@@ -24,7 +26,9 @@ export const riskScores = pgTable('risk_scores', {
     category: text('category').notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (table) => [
+    index('idx_risk_scores_org').on(table.organizationId),
+]);
 
 export const auditLogs = pgTable('audit_logs', {
     id: uuid('id').primaryKey().defaultRandom(),
@@ -36,4 +40,6 @@ export const auditLogs = pgTable('audit_logs', {
     resourceId: text('resource_id').notNull(),
     changes: jsonb('changes').notNull(),
     timestamp: timestamp('timestamp').defaultNow().notNull(),
-});
+}, (table) => [
+    index('idx_audit_logs_org').on(table.organizationId),
+]);

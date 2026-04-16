@@ -1,9 +1,22 @@
 import {
+    allergies,
+    auditLogs,
+    complianceFlags,
+    conditions,
+    diagnosticReports,
+    encounterAnalytics,
     encounters,
     ingestionJobs,
     ingestionRowResults,
+    medicationAnalytics,
+    medications,
+    observations,
     patients,
+    practitioners,
+    procedures,
     rawFhirIngestions,
+    riskScores,
+    substances,
 } from '@app/db';
 import { IngestionWorkerService } from './ingestion-worker.service';
 import { IngestionService } from './ingestion.service';
@@ -77,7 +90,141 @@ const encountersTable = makeTable([
     'updatedAt',
 ]);
 
-const dbMock = {
+const practitionersTable = makeTable([
+    'id',
+    'organizationId',
+    'sourceId',
+    'name',
+    'gender',
+    'birthDate',
+    'updatedAt',
+]);
+
+const observationsTable = makeTable([
+    'id',
+    'organizationId',
+    'sourceId',
+    'patientId',
+    'status',
+    'code',
+    'effectiveDateTime',
+    'updatedAt',
+]);
+
+const conditionsTable = makeTable([
+    'id',
+    'organizationId',
+    'sourceId',
+    'patientId',
+    'clinicalStatus',
+    'code',
+    'onsetDateTime',
+    'updatedAt',
+]);
+
+const medicationsTable = makeTable([
+    'id',
+    'organizationId',
+    'sourceId',
+    'patientId',
+    'status',
+    'medicationCodeableConcept',
+    'updatedAt',
+]);
+
+const allergiesTable = makeTable([
+    'id',
+    'organizationId',
+    'sourceId',
+    'patientId',
+    'status',
+    'code',
+    'updatedAt',
+]);
+
+const proceduresTable = makeTable([
+    'id',
+    'organizationId',
+    'sourceId',
+    'patientId',
+    'status',
+    'code',
+    'updatedAt',
+]);
+
+const diagnosticReportsTable = makeTable([
+    'id',
+    'organizationId',
+    'sourceId',
+    'patientId',
+    'status',
+    'code',
+    'updatedAt',
+]);
+
+const substancesTable = makeTable([
+    'id',
+    'organizationId',
+    'sourceId',
+    'patientId',
+    'encounterId',
+    'status',
+    'code',
+    'updatedAt',
+]);
+
+const encounterAnalyticsTable = makeTable([
+    'id',
+    'organizationId',
+    'encounterId',
+    'isTelehealth',
+    'crossStateFlag',
+    'updatedAt',
+]);
+
+const medicationAnalyticsTable = makeTable([
+    'id',
+    'organizationId',
+    'medicationId',
+    'controlledSubstance',
+    'deaSchedule',
+    'updatedAt',
+]);
+
+const complianceFlagsTable = makeTable([
+    'id',
+    'organizationId',
+    'entityType',
+    'entityId',
+    'flagType',
+    'severity',
+    'description',
+    'updatedAt',
+]);
+
+const riskScoresTable = makeTable([
+    'id',
+    'organizationId',
+    'entityType',
+    'entityId',
+    'complianceScore',
+    'riskLevel',
+    'category',
+    'updatedAt',
+]);
+
+const auditLogsTable = makeTable([
+    'id',
+    'organizationId',
+    'actorType',
+    'actorId',
+    'action',
+    'resourceType',
+    'resourceId',
+    'changes',
+]);
+
+const dbMockState = {
     select: jest.fn(),
     insert: jest.fn(),
     update: jest.fn(),
@@ -85,19 +232,43 @@ const dbMock = {
     transaction: jest.fn(),
 };
 
-jest.mock('@app/db', () => ({
-    db: dbMock,
-    ingestionJobs: ingestionJobsTable,
-    ingestionRowResults: ingestionRowResultsTable,
-    rawFhirIngestions: rawFhirIngestionsTable,
-    patients: patientsTable,
-    encounters: encountersTable,
-}));
+function getDbMock() {
+    return dbMockState;
+}
+
+jest.mock('@app/db', () => {
+    const mockedModule: Record<string, unknown> = {};
+
+    Object.defineProperties(mockedModule, {
+        db: { get: () => getDbMock() },
+        ingestionJobs: { get: () => ingestionJobsTable },
+        ingestionRowResults: { get: () => ingestionRowResultsTable },
+        rawFhirIngestions: { get: () => rawFhirIngestionsTable },
+        patients: { get: () => patientsTable },
+        practitioners: { get: () => practitionersTable },
+        encounters: { get: () => encountersTable },
+        observations: { get: () => observationsTable },
+        conditions: { get: () => conditionsTable },
+        medications: { get: () => medicationsTable },
+        substances: { get: () => substancesTable },
+        allergies: { get: () => allergiesTable },
+        procedures: { get: () => proceduresTable },
+        diagnosticReports: { get: () => diagnosticReportsTable },
+        encounterAnalytics: { get: () => encounterAnalyticsTable },
+        medicationAnalytics: { get: () => medicationAnalyticsTable },
+        complianceFlags: { get: () => complianceFlagsTable },
+        riskScores: { get: () => riskScoresTable },
+        auditLogs: { get: () => auditLogsTable },
+    });
+
+    return mockedModule;
+});
 
 jest.mock('drizzle-orm', () => ({
     and: jest.fn((...args: unknown[]) => ({ and: args })),
     asc: jest.fn((arg: unknown) => ({ asc: arg })),
     count: jest.fn(() => ({ count: true })),
+    inArray: jest.fn((left: unknown, right: unknown[]) => ({ left, right })),
     eq: jest.fn((left: unknown, right: unknown) => ({ left, right })),
 }));
 
@@ -118,7 +289,7 @@ function makeTerminalResult(value: unknown) {
 }
 
 function queueSelectResults(results: unknown[]) {
-    dbMock.select.mockImplementation(() => ({
+    dbMockState.select.mockImplementation(() => ({
         from: jest.fn(() => {
             const current = results.shift();
             if (current === undefined) {
@@ -134,24 +305,163 @@ function queueSelectResults(results: unknown[]) {
     }));
 }
 
-function configureInsertMocks() {
-    dbMock.insert.mockImplementation((table: unknown) => {
+function configureInsertMocks(capture?: {
+    patientValues?: Array<Record<string, unknown>>;
+    encounterValues?: Array<Record<string, unknown>>;
+    patientConflictSets?: Array<Record<string, unknown>>;
+}) {
+    dbMockState.insert.mockImplementation((table: unknown) => {
         if (table === patients) {
             return {
-                values: jest.fn(() => ({
-                    onConflictDoUpdate: jest.fn(() => ({
-                        returning: jest.fn().mockResolvedValue([{ id: 'pat-db-id' }]),
-                    })),
-                })),
+                values: jest.fn((values: Record<string, unknown>) => {
+                    capture?.patientValues?.push(values);
+                    return {
+                        onConflictDoUpdate: jest.fn(
+                            (args: { set: Record<string, unknown> }) => {
+                                capture?.patientConflictSets?.push(args.set);
+                                return {
+                                    returning: jest.fn().mockResolvedValue([{ id: 'pat-db-id' }]),
+                                };
+                            },
+                        ),
+                    };
+                }),
             };
         }
 
         if (table === encounters) {
             return {
+                values: jest.fn((values: Record<string, unknown>) => {
+                    capture?.encounterValues?.push(values);
+                    return {
+                        onConflictDoUpdate: jest.fn(() => ({
+                            returning: jest.fn().mockResolvedValue([{ id: 'enc-db-id' }]),
+                        })),
+                    };
+                }),
+            };
+        }
+
+        if (table === practitioners) {
+            return {
                 values: jest.fn(() => ({
                     onConflictDoUpdate: jest.fn(() => ({
-                        returning: jest.fn().mockResolvedValue([{ id: 'enc-db-id' }]),
+                        returning: jest.fn().mockResolvedValue([{ id: 'prac-db-id' }]),
                     })),
+                })),
+            };
+        }
+
+        if (table === observations) {
+            return {
+                values: jest.fn(() => ({
+                    onConflictDoUpdate: jest.fn(() => ({
+                        returning: jest.fn().mockResolvedValue([{ id: 'obs-db-id' }]),
+                    })),
+                })),
+            };
+        }
+
+        if (table === conditions) {
+            return {
+                values: jest.fn(() => ({
+                    onConflictDoUpdate: jest.fn(() => ({
+                        returning: jest.fn().mockResolvedValue([{ id: 'cond-db-id' }]),
+                    })),
+                })),
+            };
+        }
+
+        if (table === medications) {
+            return {
+                values: jest.fn(() => ({
+                    onConflictDoUpdate: jest.fn(() => ({
+                        returning: jest.fn().mockResolvedValue([{ id: 'med-db-id' }]),
+                    })),
+                })),
+            };
+        }
+
+        if (table === substances) {
+            return {
+                values: jest.fn(() => ({
+                    onConflictDoUpdate: jest.fn(() => ({
+                        returning: jest.fn().mockResolvedValue([{ id: 'sub-db-id' }]),
+                    })),
+                })),
+            };
+        }
+
+        if (table === allergies) {
+            return {
+                values: jest.fn(() => ({
+                    onConflictDoUpdate: jest.fn(() => ({
+                        returning: jest.fn().mockResolvedValue([{ id: 'all-db-id' }]),
+                    })),
+                })),
+            };
+        }
+
+        if (table === procedures) {
+            return {
+                values: jest.fn(() => ({
+                    onConflictDoUpdate: jest.fn(() => ({
+                        returning: jest.fn().mockResolvedValue([{ id: 'proc-db-id' }]),
+                    })),
+                })),
+            };
+        }
+
+        if (table === diagnosticReports) {
+            return {
+                values: jest.fn(() => ({
+                    onConflictDoUpdate: jest.fn(() => ({
+                        returning: jest.fn().mockResolvedValue([{ id: 'dr-db-id' }]),
+                    })),
+                })),
+            };
+        }
+
+        if (table === encounterAnalytics) {
+            return {
+                values: jest.fn(() => ({
+                    onConflictDoUpdate: jest.fn(() => ({
+                        returning: jest.fn().mockResolvedValue([{ id: 'enca-db-id' }]),
+                    })),
+                })),
+            };
+        }
+
+        if (table === medicationAnalytics) {
+            return {
+                values: jest.fn(() => ({
+                    onConflictDoUpdate: jest.fn(() => ({
+                        returning: jest.fn().mockResolvedValue([{ id: 'meda-db-id' }]),
+                    })),
+                })),
+            };
+        }
+
+        if (table === complianceFlags) {
+            return {
+                values: jest.fn(() => ({
+                    returning: jest.fn().mockResolvedValue([{ id: 'flag-db-id' }]),
+                })),
+            };
+        }
+
+        if (table === riskScores) {
+            return {
+                values: jest.fn(() => ({
+                    returning: jest.fn().mockResolvedValue([{ id: 'risk-db-id' }]),
+                })),
+            };
+        }
+
+        if (table === auditLogs) {
+            return {
+                values: jest.fn(() => ({
+                    returning: jest.fn().mockResolvedValue([{ id: 'audit-db-id' }]),
                 })),
             };
         }
@@ -165,7 +475,7 @@ function configureInsertMocks() {
 function configureUpdateCapture(
     capturedUpdates: Array<{ table: unknown; values: Record<string, unknown> }>,
 ) {
-    dbMock.update.mockImplementation((table: unknown) => ({
+    dbMockState.update.mockImplementation((table: unknown) => ({
         set: jest.fn((values: Record<string, unknown>) => ({
             where: jest.fn(() => {
                 capturedUpdates.push({ table, values });
@@ -208,22 +518,30 @@ describe('Ingestion materialization integration', () => {
             })),
         };
 
-        dbMock.transaction.mockImplementation(
+        dbMockState.transaction.mockImplementation(
             (callback: (trx: typeof tx) => Promise<void>) => callback(tx),
         );
+        dbMockState.update.mockImplementation(() => ({
+            set: jest.fn(() => ({ where: jest.fn().mockResolvedValue(undefined) })),
+        }));
 
         const service = new IngestionService(
             queueServiceMock as never,
             { organizationId: 'org-a' } as never,
         );
 
-        await service.uploadCsv('job-1', {
+        const uploadResult = await service.uploadCsv('job-1', {
             csvData: [
                 'patient_epic_id,patient_name,encounter_epic_id',
                 'p-1,John Doe,e-1',
                 ',Missing Patient,e-2',
             ].join('\n'),
         });
+
+        expect(uploadResult.status).toBe('AWAITING_CONFIRMATION');
+        expect(uploadResult.templateDetection.templateVersion).toBe(
+            'EPIC_FLAT_FHIR_V1',
+        );
 
         const rawInsert = txInsertCalls.find(
             (call) => call.table === rawFhirIngestions,
@@ -248,22 +566,77 @@ describe('Ingestion materialization integration', () => {
                     outcome: 'INSERTED',
                     rowData: {
                         patient_epic_id: 'pat-100',
-                        patient_name: 'Jane Roe',
+                        practitioner_epic_id: 'pract-100',
+                        practitioner_name: 'Dr. Carter',
+                        given_name: 'Jane',
+                        family_name: 'Roe',
                         patient_dob: '1980-01-01',
                         encounter_epic_id: 'enc-100',
                         encounter_status: 'finished',
                         encounter_type: 'Emergency',
+                        observation_id: 'obs-100',
+                        observation_test_name: 'Blood Pressure',
+                        observation_value: '120/80',
+                        condition_id: 'cond-100',
+                        condition_diagnosis: 'Hypertension',
+                        medication_request_id: 'med-100',
+                        medication_name: 'Metformin',
+                        medication_status: 'active',
+                        controlled_substance_prescribed: 'true',
+                        dea_schedule: 'II',
+                        prescriber_dea: 'AB1234567',
+                        auto_refill_enabled: 'false',
+                        refill_count: '0',
+                        substance_id: 'sub-100',
+                        substance_status: 'active',
+                        substance_code: 'S-123',
+                        substance_code_display: 'Substance 123',
+                        substance_category: 'allergen',
+                        substance_quantity_value: '4',
+                        substance_quantity_unit: 'mg',
+                        session_duration: '45',
+                        is_telehealth: 'true',
+                        hipaa_compliant_platform: 'true',
+                        patient_identity_verified: 'true',
+                        session_recording_consent: 'true',
+                        clinical_notes_completed: 'true',
+                        provider_location_state: 'TX',
+                        patient_location_state: 'CA',
+                        state_licensure_verified: 'true',
+                        allergy_id: 'all-100',
+                        allergy_allergen: 'Penicillin',
+                        allergy_status: 'active',
+                        procedure_id: 'proc-100',
+                        procedure_name: 'Echocardiogram',
+                        procedure_status: 'completed',
+                        diagnostic_report_id: 'dr-100',
+                        diagnostic_report_name: 'CMP',
+                        diagnostic_report_status: 'final',
                     },
                     entityType: 'PATIENT',
                 },
             ],
             [],
             [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
             [{ failedRows: 0 }],
             [{ totalRows: 1 }],
+            [{ rawRows: 1 }],
+            [{ availableEncounterProjections: 1 }],
+            [{ availableMedicationProjections: 1 }],
         ]);
 
-        configureInsertMocks();
+        const patientValues: Array<Record<string, unknown>> = [];
+        configureInsertMocks({ patientValues });
 
         const updateCalls: Array<{
             table: unknown;
@@ -284,6 +657,43 @@ describe('Ingestion materialization integration', () => {
         expect((persisted.encounter as Record<string, unknown>).id).toBe(
             'enc-db-id',
         );
+        expect((persisted.practitioner as Record<string, unknown>).id).toBe(
+            'prac-db-id',
+        );
+        expect((persisted.observation as Record<string, unknown>).id).toBe(
+            'obs-db-id',
+        );
+        expect((persisted.condition as Record<string, unknown>).id).toBe(
+            'cond-db-id',
+        );
+        expect((persisted.medication as Record<string, unknown>).id).toBe(
+            'med-db-id',
+        );
+        expect((persisted.substance as Record<string, unknown>).id).toBe(
+            'sub-db-id',
+        );
+        expect((persisted.allergy as Record<string, unknown>).id).toBe('all-db-id');
+        expect((persisted.procedure as Record<string, unknown>).id).toBe(
+            'proc-db-id',
+        );
+        expect((persisted.diagnosticReport as Record<string, unknown>).id).toBe(
+            'dr-db-id',
+        );
+        expect((persisted.encounterAnalytics as Record<string, unknown>).id).toBe(
+            'enca-db-id',
+        );
+        expect((persisted.medicationAnalytics as Record<string, unknown>).id).toBe(
+            'meda-db-id',
+        );
+        expect((persisted.compliance as Record<string, unknown>).riskScoreId).toBe(
+            'risk-db-id',
+        );
+        expect((persisted.compliance as Record<string, unknown>).auditLogId).toBe(
+            'audit-db-id',
+        );
+        expect((persisted.compliance as Record<string, unknown>).riskLevel).toBe(
+            'LOW',
+        );
 
         const jobUpdate = updateCalls.find(
             (call) =>
@@ -297,14 +707,48 @@ describe('Ingestion materialization integration', () => {
             | Record<string, unknown>
             | undefined;
         expect(errorSummary?.PATIENT_INSERTED).toBe(1);
+        expect(errorSummary?.PRACTITIONER_INSERTED).toBe(1);
         expect(errorSummary?.ENCOUNTER_INSERTED).toBe(1);
+        expect(errorSummary?.OBSERVATION_INSERTED).toBe(1);
+        expect(errorSummary?.CONDITION_INSERTED).toBe(1);
+        expect(errorSummary?.MEDICATION_INSERTED).toBe(1);
+        expect(errorSummary?.SUBSTANCE_INSERTED).toBe(1);
+        expect(errorSummary?.ALLERGY_INSERTED).toBe(1);
+        expect(errorSummary?.PROCEDURE_INSERTED).toBe(1);
+        expect(errorSummary?.DIAGNOSTIC_REPORT_INSERTED).toBe(1);
+        expect(errorSummary?.ENCOUNTER_ANALYTICS_INSERTED).toBe(1);
+        expect(errorSummary?.MEDICATION_ANALYTICS_INSERTED).toBe(1);
+        expect(errorSummary?.COMPLIANCE_FLAG_INSERTED).toBe(0);
+        expect(errorSummary?.RISK_SCORE_INSERTED).toBe(1);
+        expect(errorSummary?.AUDIT_LOG_INSERTED).toBe(1);
+        expect(patientValues).toHaveLength(1);
+        expect(patientValues[0].name).toEqual([{ given: ['Jane'], family: 'Roe' }]);
 
         const drizzleUnknown: unknown = jest.requireMock('drizzle-orm');
         const drizzleRecord = drizzleUnknown as Record<string, unknown>;
         const eqMock = drizzleRecord.eq as jest.Mock;
         expect(eqMock).toHaveBeenCalledWith(ingestionJobs.organizationId, 'org-a');
         expect(eqMock).toHaveBeenCalledWith(patients.organizationId, 'org-a');
+        expect(eqMock).toHaveBeenCalledWith(practitioners.organizationId, 'org-a');
         expect(eqMock).toHaveBeenCalledWith(encounters.organizationId, 'org-a');
+        expect(eqMock).toHaveBeenCalledWith(observations.organizationId, 'org-a');
+        expect(eqMock).toHaveBeenCalledWith(conditions.organizationId, 'org-a');
+        expect(eqMock).toHaveBeenCalledWith(medications.organizationId, 'org-a');
+        expect(eqMock).toHaveBeenCalledWith(substances.organizationId, 'org-a');
+        expect(eqMock).toHaveBeenCalledWith(allergies.organizationId, 'org-a');
+        expect(eqMock).toHaveBeenCalledWith(procedures.organizationId, 'org-a');
+        expect(eqMock).toHaveBeenCalledWith(
+            diagnosticReports.organizationId,
+            'org-a',
+        );
+        expect(eqMock).toHaveBeenCalledWith(
+            encounterAnalytics.organizationId,
+            'org-a',
+        );
+        expect(eqMock).toHaveBeenCalledWith(
+            medicationAnalytics.organizationId,
+            'org-a',
+        );
     });
 
     it('keeps invalid rows as ERROR and increments failed counters', async () => {
@@ -323,6 +767,7 @@ describe('Ingestion materialization integration', () => {
             ],
             [{ failedRows: 1 }],
             [{ totalRows: 1 }],
+            [{ rawRows: 1 }],
         ]);
 
         configureInsertMocks();
@@ -352,5 +797,46 @@ describe('Ingestion materialization integration', () => {
         expect(jobUpdate).toBeDefined();
         expect(jobUpdate?.values.failedRows).toBe(1);
         expect(jobUpdate?.values.successRows).toBe(0);
+    });
+
+    it('does not overwrite existing patient name when incoming row has no name fields', async () => {
+        queueSelectResults([
+            [{ id: 'job-4', errorSummary: null }],
+            [
+                {
+                    id: 'row-1',
+                    rowNumber: 1,
+                    outcome: 'INSERTED',
+                    rowData: {
+                        patient_epic_id: 'pat-200',
+                        encounter_epic_id: 'enc-200',
+                        encounter_status: 'finished',
+                    },
+                    entityType: 'PATIENT',
+                },
+            ],
+            [{ id: 'existing-patient-id' }],
+            [],
+            [],
+            [{ failedRows: 0 }],
+            [{ totalRows: 1 }],
+            [{ rawRows: 1 }],
+            [{ availableEncounterProjections: 1 }],
+        ]);
+
+        const patientConflictSets: Array<Record<string, unknown>> = [];
+        configureInsertMocks({ patientConflictSets });
+
+        const updateCalls: Array<{
+            table: unknown;
+            values: Record<string, unknown>;
+        }> = [];
+        configureUpdateCapture(updateCalls);
+
+        const worker = new IngestionWorkerService();
+        await worker.processQueuedJob('job-4', 'org-a');
+
+        expect(patientConflictSets).toHaveLength(1);
+        expect(patientConflictSets[0]).not.toHaveProperty('name');
     });
 });

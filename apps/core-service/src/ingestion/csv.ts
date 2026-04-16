@@ -12,12 +12,12 @@ function normalizeHeader(header: string): string {
 }
 
 export function parseCsvRows(csvData: string): ParsedCsvRow[] {
-    const parsed = parse(csvData, {
+    const parsed: Array<Record<string, unknown>> = parse(csvData, {
         columns: true,
         skip_empty_lines: true,
         trim: true,
         bom: true,
-    }) as Record<string, unknown>[];
+    });
 
     return parsed.map((row) => {
         const normalized: ParsedCsvRow = {};
@@ -31,10 +31,26 @@ export function parseCsvRows(csvData: string): ParsedCsvRow[] {
             if (value === undefined || value === null) {
                 normalized[header] = null;
             } else {
-                normalized[header] = String(value).trim();
+                normalized[header] = normalizeCellValue(value);
             }
         }
 
         return normalized;
     });
+}
+
+function normalizeCellValue(value: unknown): string {
+    if (typeof value === 'string') {
+        return value.trim();
+    }
+
+    if (typeof value === 'number' || typeof value === 'boolean') {
+        return String(value);
+    }
+
+    if (value instanceof Date) {
+        return value.toISOString();
+    }
+
+    return JSON.stringify(value);
 }

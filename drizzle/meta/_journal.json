@@ -22,6 +22,20 @@
       "when": 1776007918943,
       "tag": "0002_flaky_catseye",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1776363000000,
+      "tag": "0003_state_machine_and_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1776341812066,
+      "tag": "0004_square_vindicator",
+      "breakpoints": true
     }
   ]
 }
