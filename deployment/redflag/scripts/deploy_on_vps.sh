@@ -40,6 +40,33 @@ API_DOMAIN="${API_DOMAIN:?API_DOMAIN is required}"
 IDENTITY_DOMAIN="${IDENTITY_DOMAIN:?IDENTITY_DOMAIN is required}"
 KEYCLOAK_DOMAIN="${KEYCLOAK_DOMAIN:-}"
 
+trim_value() {
+  printf '%s' "$1" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//'
+}
+
+validate_site_address() {
+  local name="$1"
+  local value
+
+  value="$(trim_value "$2")"
+  if [[ -z "${value}" ]]; then
+    echo "${name} is empty after trimming whitespace."
+    exit 1
+  fi
+
+  if [[ "${value}" == "{" || "${value}" == "}" ]]; then
+    echo "${name} is invalid: '${value}'."
+    exit 1
+  fi
+
+  printf '%s' "${value}"
+}
+
+FRONTEND_DOMAIN="$(validate_site_address "FRONTEND_DOMAIN" "${FRONTEND_DOMAIN}")"
+API_DOMAIN="$(validate_site_address "API_DOMAIN" "${API_DOMAIN}")"
+IDENTITY_DOMAIN="$(validate_site_address "IDENTITY_DOMAIN" "${IDENTITY_DOMAIN}")"
+KEYCLOAK_DOMAIN="$(trim_value "${KEYCLOAK_DOMAIN}")"
+
 SUDO_BIN=""
 
 prepare_sudo() {
@@ -175,12 +202,20 @@ EOF
 
   run_root cp "${tmp_file}" "${snippet_file}"
 
-  if ! run_root caddy validate --config "${CADDYFILE_PATH}" >/dev/null; then
+  local caddy_validate_output
+  if ! caddy_validate_output="$(run_root caddy validate --config "${CADDYFILE_PATH}" 2>&1)"; then
     if [[ -n "${backup_file}" ]]; then
       run_root cp "${backup_file}" "${snippet_file}"
     else
       run_root rm -f "${snippet_file}"
     fi
+
+    echo "${caddy_validate_output}" >&2
+    if grep -q "server block without any key is global configuration" <<<"${caddy_validate_output}"; then
+      echo "Hint: ensure the global options block '{ ... }' appears only in ${CADDYFILE_PATH} and is the first block in that file." >&2
+      echo "Also check ${CADDY_SNIPPETS_DIR}/*.caddy for accidental standalone '{ ... }' blocks." >&2
+    fi
+
     echo "Caddy validation failed. Existing project snippet has been restored."
     exit 1
   fi
