@@ -3,13 +3,13 @@ name: Build And Deploy Redflag Backend To VPS
 on:
   push:
     branches:
-      - main
+      - master
   workflow_dispatch:
     inputs:
       ref:
         description: "Git ref to deploy (branch, tag, or SHA)"
         required: true
-        default: "main"
+        default: "master"
       note:
         description: "Optional deployment note"
         required: false
@@ -55,8 +55,8 @@ jobs:
           BACKEND_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/backend"
           BACKEND_TAGS="${BACKEND_IMAGE}:${IMAGE_TAG}"
 
-          if [[ "${SAFE_REF}" == "main" ]]; then
-            BACKEND_TAGS+=$'\n'"${BACKEND_IMAGE}:main"
+          if [[ "${SAFE_REF}" == "master" ]]; then
+            BACKEND_TAGS+=$'\n'"${BACKEND_IMAGE}:master"
           fi
 
           {
