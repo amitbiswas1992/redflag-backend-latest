@@ -1,0 +1,143 @@
+name: Build And Deploy Redflag Backend To VPS
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to deploy (branch, tag, or SHA)"
+        required: true
+        default: "main"
+      note:
+        description: "Optional deployment note"
+        required: false
+        default: "manual backend deploy"
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: redflag-backend-vps-deploy
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAMESPACE: ${{ github.repository_owner }}/redflag
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    outputs:
+      backend_image_tag: ${{ steps.vars.outputs.backend_image_tag }}
+      git_sha: ${{ steps.vars.outputs.git_sha }}
+      backend_tags: ${{ steps.vars.outputs.backend_tags }}
+
+    steps:
+      - name: Checkout selected ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
+
+      - name: Set deployment variables
+        id: vars
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          RAW_REF="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref_name }}"
+          SAFE_REF="$(echo "${RAW_REF}" | tr '/:@' '-' | tr -cd '[:alnum:]._-')"
+          GIT_SHA="$(git rev-parse --short=12 HEAD)"
+          IMAGE_TAG="${SAFE_REF}-${GIT_SHA}"
+
+          BACKEND_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/backend"
+          BACKEND_TAGS="${BACKEND_IMAGE}:${IMAGE_TAG}"
+
+          if [[ "${SAFE_REF}" == "main" ]]; then
+            BACKEND_TAGS+=$'\n'"${BACKEND_IMAGE}:main"
+          fi
+
+          {
+            echo "git_sha=${GIT_SHA}"
+            echo "backend_image_tag=${IMAGE_TAG}"
+            echo "backend_tags<<EOF"
+            echo "${BACKEND_TAGS}"
+            echo "EOF"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.vars.outputs.backend_tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy-backend:
+    runs-on: ubuntu-latest
+    needs:
+      - build-and-push
+
+    steps:
+      - name: Checkout selected ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
+
+      - name: Upload deployment bundle to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          source: "deployment"
+          target: "/tmp/redflag-backend-deploy-${{ needs.build-and-push.outputs.git_sha }}"
+
+      - name: Deploy backend stack over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          DEPLOY_BUNDLE_DIR: /tmp/redflag-backend-deploy-${{ needs.build-and-push.outputs.git_sha }}
+          PROJECT_SLUG: redflag
+          PROJECT_ROOT: /opt/projects/redflag
+          IMAGE_REGISTRY: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}
+          BACKEND_IMAGE_TAG: ${{ needs.build-and-push.outputs.backend_image_tag }}
+          FRONTEND_IMAGE_TAG: ${{ vars.REDFLAG_FRONTEND_BASE_TAG }}
+          GHCR_USERNAME: ${{ secrets.GHCR_PULL_USERNAME }}
+          GHCR_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
+          FRONTEND_DOMAIN: ${{ secrets.FRONTEND_DOMAIN }}
+          API_DOMAIN: ${{ secrets.API_DOMAIN }}
+          IDENTITY_DOMAIN: ${{ secrets.IDENTITY_DOMAIN }}
+          KEYCLOAK_DOMAIN: ${{ secrets.KEYCLOAK_DOMAIN }}
+          FRONTEND_BIND_PORT: ${{ vars.REDFLAG_FRONTEND_BIND_PORT }}
+          API_BIND_PORT: ${{ vars.REDFLAG_API_BIND_PORT }}
+          IDENTITY_BIND_PORT: ${{ vars.REDFLAG_IDENTITY_BIND_PORT }}
+          KEYCLOAK_BIND_PORT: ${{ vars.REDFLAG_KEYCLOAK_BIND_PORT }}
+          CADDYFILE_PATH: ${{ vars.CADDYFILE_PATH }}
+          CADDY_SNIPPETS_DIR: ${{ vars.CADDY_SNIPPETS_DIR }}
+          CADDY_SERVICE_NAME: ${{ vars.CADDY_SERVICE_NAME }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          envs: DEPLOY_BUNDLE_DIR,PROJECT_SLUG,PROJECT_ROOT,IMAGE_REGISTRY,BACKEND_IMAGE_TAG,FRONTEND_IMAGE_TAG,GHCR_USERNAME,GHCR_TOKEN,FRONTEND_DOMAIN,API_DOMAIN,IDENTITY_DOMAIN,KEYCLOAK_DOMAIN,FRONTEND_BIND_PORT,API_BIND_PORT,IDENTITY_BIND_PORT,KEYCLOAK_BIND_PORT,CADDYFILE_PATH,CADDY_SNIPPETS_DIR,CADDY_SERVICE_NAME
+          script_stop: true
+          script: |
+            set -euo pipefail
+            bash "${DEPLOY_BUNDLE_DIR}/deployment/redflag/scripts/deploy_on_vps.sh"
+            rm -rf "${DEPLOY_BUNDLE_DIR}"

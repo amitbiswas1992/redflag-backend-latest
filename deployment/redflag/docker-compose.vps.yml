@@ -1,0 +1,86 @@
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: [ "redis-server", "--save", "", "--appendonly", "no" ]
+    networks:
+      - redflag-internal
+
+  keycloak-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    env_file:
+      - ../env/keycloak-db.env
+    volumes:
+      - keycloak_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - redflag-internal
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.1
+    restart: unless-stopped
+    command:
+      - start
+      - --http-enabled=true
+      - --proxy-headers=xforwarded
+      - --hostname-strict=false
+    env_file:
+      - ../env/keycloak.env
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${KEYCLOAK_BIND_PORT:-18103}:8080"
+    networks:
+      - redflag-internal
+
+  redflag-core:
+    image: ${IMAGE_REGISTRY}/backend:${BACKEND_IMAGE_TAG}
+    restart: unless-stopped
+    command: [ "node", "dist/apps/core-service/main.js" ]
+    env_file:
+      - ../env/backend.env
+    depends_on:
+      - redis
+    ports:
+      - "127.0.0.1:${API_BIND_PORT:-18101}:3000"
+    networks:
+      - redflag-internal
+
+  redflag-identity:
+    image: ${IMAGE_REGISTRY}/backend:${BACKEND_IMAGE_TAG}
+    restart: unless-stopped
+    command: [ "node", "dist/apps/identity-service/main.js" ]
+    env_file:
+      - ../env/backend.env
+    depends_on:
+      - keycloak
+    ports:
+      - "127.0.0.1:${IDENTITY_BIND_PORT:-18102}:3001"
+    networks:
+      - redflag-internal
+
+  redflag-frontend:
+    image: ${IMAGE_REGISTRY}/frontend:${FRONTEND_IMAGE_TAG}
+    restart: unless-stopped
+    env_file:
+      - ../env/frontend.env
+    depends_on:
+      - redflag-core
+      - redflag-identity
+    ports:
+      - "127.0.0.1:${FRONTEND_BIND_PORT:-18100}:3000"
+    networks:
+      - redflag-internal
+
+volumes:
+  keycloak_db_data:
+
+
+networks:
+  redflag-internal:

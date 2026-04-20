@@ -1,0 +1,6 @@
+{
+  # Set your operational email for ACME notifications.
+  email you@example.com
+}
+
+import /etc/caddy/sites/*.caddy
