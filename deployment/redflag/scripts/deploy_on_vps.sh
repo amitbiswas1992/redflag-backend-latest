@@ -18,7 +18,8 @@ fi
 
 IMAGE_TAG="${IMAGE_TAG:-}"
 BACKEND_IMAGE_TAG="${BACKEND_IMAGE_TAG:-${IMAGE_TAG:-${EXISTING_BACKEND_IMAGE_TAG}}}"
-FRONTEND_IMAGE_TAG="${FRONTEND_IMAGE_TAG:-${IMAGE_TAG:-${EXISTING_FRONTEND_IMAGE_TAG:-main}}}"
+FRONTEND_IMAGE_TAG="${FRONTEND_IMAGE_TAG:-${IMAGE_TAG:-${EXISTING_FRONTEND_IMAGE_TAG:-master}}}"
+DEPLOY_FRONTEND="${DEPLOY_FRONTEND:-false}"
 
 if [[ -z "${BACKEND_IMAGE_TAG}" ]]; then
   echo "BACKEND_IMAGE_TAG is required for deployment."
@@ -90,6 +91,14 @@ EOF
 }
 
 pull_and_deploy_stack() {
+  local pull_services=(redis keycloak-db keycloak redflag-core redflag-identity)
+  local up_services=(redis keycloak-db keycloak redflag-core redflag-identity)
+
+  if [[ "${DEPLOY_FRONTEND}" == "true" ]]; then
+    pull_services+=(redflag-frontend)
+    up_services+=(redflag-frontend)
+  fi
+
   if [[ -n "${GHCR_USERNAME:-}" && -n "${GHCR_TOKEN:-}" ]]; then
     echo "${GHCR_TOKEN}" | docker login ghcr.io --username "${GHCR_USERNAME}" --password-stdin >/dev/null
   fi
@@ -98,13 +107,13 @@ pull_and_deploy_stack() {
     --project-name "${PROJECT_SLUG}" \
     --env-file "${PROJECT_ROOT}/compose/.deploy.env" \
     -f "${PROJECT_ROOT}/compose/docker-compose.yml" \
-    pull
+    pull "${pull_services[@]}"
 
   docker compose \
     --project-name "${PROJECT_SLUG}" \
     --env-file "${PROJECT_ROOT}/compose/.deploy.env" \
     -f "${PROJECT_ROOT}/compose/docker-compose.yml" \
-    up -d --remove-orphans
+    up -d --remove-orphans "${up_services[@]}"
 }
 
 ensure_caddy_import() {
