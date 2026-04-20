@@ -149,6 +149,9 @@ ensure_caddy_import() {
     exit 1
   fi
 
+  run_root mkdir -p "${CADDY_SNIPPETS_DIR}"
+  run_root chmod 755 "${CADDY_SNIPPETS_DIR}"
+
   local import_line="import ${CADDY_SNIPPETS_DIR}/*.caddy"
   if run_root grep -Fqx "${import_line}" "${CADDYFILE_PATH}"; then
     return
@@ -160,13 +163,14 @@ ensure_caddy_import() {
 
 render_caddy_site_and_reload() {
   run_root mkdir -p "${CADDY_SNIPPETS_DIR}"
+  run_root chmod 755 "${CADDY_SNIPPETS_DIR}"
 
   local snippet_file="${CADDY_SNIPPETS_DIR}/${PROJECT_SLUG}.caddy"
   local backup_file=""
   local tmp_file
 
   tmp_file="$(mktemp)"
-  trap 'rm -f "${tmp_file}"' EXIT
+  trap 'rm -f "${tmp_file:-}"' EXIT
 
   if run_root test -f "${snippet_file}"; then
     backup_file="$(mktemp)"
@@ -201,11 +205,13 @@ EOF
   fi
 
   run_root cp "${tmp_file}" "${snippet_file}"
+  run_root chmod 644 "${snippet_file}"
 
   local caddy_validate_output
   if ! caddy_validate_output="$(run_root caddy validate --config "${CADDYFILE_PATH}" 2>&1)"; then
     if [[ -n "${backup_file}" ]]; then
       run_root cp "${backup_file}" "${snippet_file}"
+      run_root chmod 644 "${snippet_file}"
     else
       run_root rm -f "${snippet_file}"
     fi
@@ -222,9 +228,19 @@ EOF
 
   if run_root systemctl status "${CADDY_SERVICE_NAME}" >/dev/null 2>&1; then
     if run_root systemctl is-active --quiet "${CADDY_SERVICE_NAME}"; then
-      run_root systemctl reload "${CADDY_SERVICE_NAME}"
+      if ! run_root systemctl reload "${CADDY_SERVICE_NAME}"; then
+        echo "Failed to reload ${CADDY_SERVICE_NAME}. Showing recent status and logs:" >&2
+        run_root systemctl status "${CADDY_SERVICE_NAME}" --no-pager -n 50 >&2 || true
+        run_root journalctl -xeu "${CADDY_SERVICE_NAME}" --no-pager -n 50 >&2 || true
+        exit 1
+      fi
     else
-      run_root systemctl restart "${CADDY_SERVICE_NAME}"
+      if ! run_root systemctl restart "${CADDY_SERVICE_NAME}"; then
+        echo "Failed to restart ${CADDY_SERVICE_NAME}. Showing recent status and logs:" >&2
+        run_root systemctl status "${CADDY_SERVICE_NAME}" --no-pager -n 50 >&2 || true
+        run_root journalctl -xeu "${CADDY_SERVICE_NAME}" --no-pager -n 50 >&2 || true
+        exit 1
+      fi
     fi
   else
     echo "Caddy service ${CADDY_SERVICE_NAME} is not managed by systemd. Reload it manually."
