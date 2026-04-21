@@ -13,6 +13,8 @@ services:
       - ../env/keycloak-db.env
     volumes:
       - keycloak_db_data:/var/lib/postgresql/data
+      # Optional: mount an init script to initialize keycloak database on first start
+      # - ./init-keycloak-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB" ]
       interval: 10s
@@ -33,6 +35,7 @@ services:
       - --http-enabled=true
       - --proxy-headers=xforwarded
       - --hostname-strict=false
+      - --db-url=jdbc:postgresql://keycloak-db:5432/keycloak
     env_file:
       - ../env/keycloak.env
     # Volume mount for theme (fallback if using standard image)
@@ -44,6 +47,13 @@ services:
         condition: service_healthy
     ports:
       - "127.0.0.1:${KEYCLOAK_BIND_PORT:-18103}:8080"
+    # Add health check to detect initialization failures
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -s http://localhost:8080/health/ready | grep -q UP" ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
     networks:
       - redflag-internal
 
