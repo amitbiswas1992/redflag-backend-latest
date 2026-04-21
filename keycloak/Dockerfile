@@ -6,7 +6,8 @@ FROM quay.io/keycloak/keycloak:26.1
 # Themes are located at: keycloak/themes/redflag/
 COPY keycloak/themes/redflag /opt/keycloak/themes/redflag
 
-# Set the default theme for the realm
-ENV KC_SPI_THEME_DEFAULT=redflag
+# Do NOT set KC_SPI_THEME_DEFAULT=redflag as it will break the admin theme which we haven't overridden.
+# Instead we configure it only for the login theme:
+# ENV KC_SPI_THEME_LOGIN_DEFAULT=redflag
 
 # The base image already defines the startup command, so no CMD override needed
