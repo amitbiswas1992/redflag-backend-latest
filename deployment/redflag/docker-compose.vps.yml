@@ -22,7 +22,11 @@ services:
       - redflag-internal
 
   keycloak:
-    image: quay.io/keycloak/keycloak:26.1
+    # Use custom image with redflag theme included
+    # Build locally: cd keycloak/ && ./build.sh keycloak-redflag v26.1
+    # Or use pre-built: ghcr.io/your-org/keycloak-redflag:v26.1
+    # Fallback to standard image: quay.io/keycloak/keycloak:26.1
+    image: ${KEYCLOAK_IMAGE:-quay.io/keycloak/keycloak:26.1}
     restart: unless-stopped
     command:
       - start
@@ -31,6 +35,10 @@ services:
       - --hostname-strict=false
     env_file:
       - ../env/keycloak.env
+    # Volume mount for theme (fallback if using standard image)
+    # Uncomment if not using custom image:
+    # volumes:
+    #   - /opt/projects/redflag/keycloak/themes:/opt/keycloak/themes:ro
     depends_on:
       keycloak-db:
         condition: service_healthy
