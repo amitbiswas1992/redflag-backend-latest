@@ -20,6 +20,7 @@ export class AuthService {
     jwtIssuer: string;
     jwtSubject: string;
     jwtAudience: string;
+    isValid: boolean;
   };
 
   constructor(
@@ -45,6 +46,7 @@ export class AuthService {
     }
 
     // Validate JWT configuration (required for Backend Systems)
+    let isJwtValid = false;
     try {
       validateJwtConfig({
         privateKey: config.jwtPrivateKey,
@@ -53,11 +55,11 @@ export class AuthService {
         subject: config.jwtSubject,
         audience: config.jwtAudience,
       });
+      isJwtValid = true;
     } catch (error) {
-      this.logger.error(
-        `JWT configuration validation failed: ${error.message}`,
+      this.logger.warn(
+        `Epic JWT configuration validation failed. Epic FHIR integration will be disabled: ${error.message}`,
       );
-      throw new Error(`Invalid JWT configuration: ${error.message}`);
     }
 
     this.epicConfig = {
@@ -70,6 +72,7 @@ export class AuthService {
       jwtIssuer: config.jwtIssuer,
       jwtSubject: config.jwtSubject,
       jwtAudience: config.jwtAudience,
+      isValid: isJwtValid,
     };
 
     this.httpClient = axios.create({
@@ -82,6 +85,12 @@ export class AuthService {
    * Gets a new access token and stores it globally
    */
   async authenticate(): Promise<TokenData> {
+    if (!this.epicConfig.isValid) {
+      throw new BadRequestException(
+        'Epic integration is not properly configured. Missing or invalid JWT credentials.',
+      );
+    }
+
     try {
       // Generate JWT
       const jwt = generateEpicJWT({
