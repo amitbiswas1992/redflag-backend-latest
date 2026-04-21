@@ -28,7 +28,7 @@ services:
     # Build locally: cd keycloak/ && ./build.sh keycloak-redflag v26.1
     # Or use pre-built: ghcr.io/your-org/keycloak-redflag:v26.1
     # Fallback to standard image: quay.io/keycloak/keycloak:26.1
-    image: ${KEYCLOAK_IMAGE:-quay.io/keycloak/keycloak:26.1}
+    image: ${IMAGE_REGISTRY}/keycloak:${KEYCLOAK_IMAGE_TAG:-26.1}
     restart: unless-stopped
     command:
       - start

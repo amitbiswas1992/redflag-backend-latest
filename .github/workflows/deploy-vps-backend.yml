@@ -34,6 +34,7 @@ jobs:
       backend_image_tag: ${{ steps.vars.outputs.backend_image_tag }}
       git_sha: ${{ steps.vars.outputs.git_sha }}
       backend_tags: ${{ steps.vars.outputs.backend_tags }}
+      keycloak_tags: ${{ steps.vars.outputs.keycloak_tags }}
 
     steps:
       - name: Checkout selected ref
@@ -53,10 +54,14 @@ jobs:
           IMAGE_TAG="${SAFE_REF}-${GIT_SHA}"
 
           BACKEND_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/backend"
+          KEYCLOAK_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/keycloak"
+
           BACKEND_TAGS="${BACKEND_IMAGE}:${IMAGE_TAG}"
+          KEYCLOAK_TAGS="${KEYCLOAK_IMAGE}:${IMAGE_TAG}"
 
           if [[ "${SAFE_REF}" == "master" ]]; then
             BACKEND_TAGS+=$'\n'"${BACKEND_IMAGE}:master"
+            KEYCLOAK_TAGS+=$'\n'"${KEYCLOAK_IMAGE}:master"
           fi
 
           {
@@ -64,6 +69,9 @@ jobs:
             echo "backend_image_tag=${IMAGE_TAG}"
             echo "backend_tags<<EOF"
             echo "${BACKEND_TAGS}"
+            echo "EOF"
+            echo "keycloak_tags<<EOF"
+            echo "${KEYCLOAK_TAGS}"
             echo "EOF"
           } >> "${GITHUB_OUTPUT}"
 
@@ -87,35 +95,15 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Build and push Keycloak image with redflag theme
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          KEYCLOAK_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/keycloak"
-          IMAGE_TAG="${{ steps.vars.outputs.backend_image_tag }}"
-          KEYCLOAK_TAGS="${KEYCLOAK_IMAGE}:${IMAGE_TAG}"
-
-          if [[ "${GITHUB_REF_NAME}" == "master" ]]; then
-            KEYCLOAK_TAGS+=$'\n'"${KEYCLOAK_IMAGE}:master"
-          fi
-
-          echo "Building Keycloak image with tags:"
-          echo "${KEYCLOAK_TAGS}"
-
-          # Parse tags into docker build args
-          TAG_ARGS=""
-          while IFS= read -r tag; do
-            TAG_ARGS+=" -t ${tag}"
-          done <<< "${KEYCLOAK_TAGS}"
-
-          docker buildx build \
-            --push \
-            ${TAG_ARGS} \
-            -f keycloak/Dockerfile \
-            --cache-from type=gha \
-            --cache-to type=gha,mode=max \
-            .
+      - name: Build and push keycloak image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./keycloak/Dockerfile
+          push: true
+          tags: ${{ steps.vars.outputs.keycloak_tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   deploy-backend:
     runs-on: ubuntu-latest
