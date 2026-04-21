@@ -20,15 +20,15 @@ import { Request } from 'express';
 export class KeycloakAuthGuard implements CanActivate {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private readonly jwksClient: any;
-    private readonly issuer: string;
+    private readonly keycloakUrl: string;
+    private readonly realm: string;
 
     constructor() {
-        const keycloakUrl = process.env.KEYCLOAK_URL ?? 'http://localhost:8080';
-        const realm = process.env.KEYCLOAK_REALM ?? 'redflag-saas';
-        this.issuer = `${keycloakUrl}/realms/${realm}`;
+        this.keycloakUrl = process.env.KEYCLOAK_URL ?? 'http://localhost:8080';
+        this.realm = process.env.KEYCLOAK_REALM ?? 'redflag-saas';
 
         this.jwksClient = jwksRsa({
-            jwksUri: `${this.issuer}/protocol/openid-connect/certs`,
+            jwksUri: `${this.keycloakUrl}/realms/${this.realm}/protocol/openid-connect/certs`,
             cache: true,
             cacheMaxAge: 60 * 60 * 1000, // Cache JWKS for 1 hour
             rateLimit: true,
@@ -53,9 +53,14 @@ export class KeycloakAuthGuard implements CanActivate {
             const publicKey = signingKey.getPublicKey();
 
             const payload = jwt.verify(token, publicKey, {
-                issuer: this.issuer,
                 algorithms: ['RS256'],
             }) as any;
+
+            // Soft-validate the issuer so that NextJs tokens from public URLs don't break validation inside internal dockers
+            const expectedIssuerSuffix = `/realms/${this.realm}`;
+            if (!payload.iss || typeof payload.iss !== 'string' || !payload.iss.endsWith(expectedIssuerSuffix)) {
+                throw new UnauthorizedException(`KC_OIDC_ISSUER_MISMATCH`);
+            }
 
             // Attach verified Keycloak payload to request for the sync endpoint
             request['keycloakUser'] = {
