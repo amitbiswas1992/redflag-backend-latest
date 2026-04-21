@@ -32,48 +32,48 @@ export class AuthService {
       throw new Error('Epic configuration is missing');
     }
 
-    // Validate required URLs
-    if (!config.tokenUrl || config.tokenUrl.trim() === '') {
-      throw new Error(
-        'EPIC_TOKEN_URL is required. Either set EPIC_USE_SANDBOX=true or provide EPIC_TOKEN_URL environment variable.',
-      );
-    }
+    // Epic Config validation commented out as per request
+    // if (!config.tokenUrl || config.tokenUrl.trim() === '') {
+    //   throw new Error(
+    //     'EPIC_TOKEN_URL is required. Either set EPIC_USE_SANDBOX=true or provide EPIC_TOKEN_URL environment variable.',
+    //   );
+    // }
 
-    if (!config.fhirBaseUrl || config.fhirBaseUrl.trim() === '') {
-      throw new Error(
-        'EPIC_FHIR_BASE_URL is required. Either set EPIC_USE_SANDBOX=true or provide EPIC_FHIR_BASE_URL environment variable.',
-      );
-    }
+    // if (!config.fhirBaseUrl || config.fhirBaseUrl.trim() === '') {
+    //   throw new Error(
+    //     'EPIC_FHIR_BASE_URL is required. Either set EPIC_USE_SANDBOX=true or provide EPIC_FHIR_BASE_URL environment variable.',
+    //   );
+    // }
 
     // Validate JWT configuration (required for Backend Systems)
-    let isJwtValid = false;
-    try {
-      validateJwtConfig({
-        privateKey: config.jwtPrivateKey,
-        keyId: config.jwtKeyId,
-        issuer: config.jwtIssuer,
-        subject: config.jwtSubject,
-        audience: config.jwtAudience,
-      });
-      isJwtValid = true;
-    } catch (error) {
-      this.logger.warn(
-        `Epic JWT configuration validation failed. Epic FHIR integration will be disabled: ${error.message}`,
-      );
-    }
+    // let isJwtValid = false;
+    // try {
+    //   validateJwtConfig({
+    //     privateKey: config.jwtPrivateKey,
+    //     keyId: config.jwtKeyId,
+    //     issuer: config.jwtIssuer,
+    //     subject: config.jwtSubject,
+    //     audience: config.jwtAudience,
+    //   });
+    //   isJwtValid = true;
+    // } catch (error) {
+    //   this.logger.warn(
+    //     `Epic JWT configuration validation failed. Epic FHIR integration will be disabled: ${error.message}`,
+    //   );
+    // }
 
-    this.epicConfig = {
-      clientId: config.clientId,
-      fhirBaseUrl: config.fhirBaseUrl,
-      tokenUrl: config.tokenUrl,
-      scope: config.scope,
-      jwtPrivateKey: config.jwtPrivateKey,
-      jwtKeyId: config.jwtKeyId,
-      jwtIssuer: config.jwtIssuer,
-      jwtSubject: config.jwtSubject,
-      jwtAudience: config.jwtAudience,
-      isValid: isJwtValid,
-    };
+    // this.epicConfig = {
+    //   clientId: config.clientId,
+    //   fhirBaseUrl: config.fhirBaseUrl,
+    //   tokenUrl: config.tokenUrl,
+    //   scope: config.scope,
+    //   jwtPrivateKey: config.jwtPrivateKey,
+    //   jwtKeyId: config.jwtKeyId,
+    //   jwtIssuer: config.jwtIssuer,
+    //   jwtSubject: config.jwtSubject,
+    //   jwtAudience: config.jwtAudience,
+    //   // isValid: isJwtValid,
+    // };
 
     this.httpClient = axios.create({
       timeout: 30000,
@@ -85,11 +85,11 @@ export class AuthService {
    * Gets a new access token and stores it globally
    */
   async authenticate(): Promise<TokenData> {
-    if (!this.epicConfig.isValid) {
-      throw new BadRequestException(
-        'Epic integration is not properly configured. Missing or invalid JWT credentials.',
-      );
-    }
+    // if (!this.epicConfig.isValid) {
+    //   throw new BadRequestException(
+    //     'Epic integration is not properly configured. Missing or invalid JWT credentials.',
+    //   );
+    // }
 
     try {
       // Generate JWT
