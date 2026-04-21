@@ -161,3 +161,14 @@ jobs:
             set -euo pipefail
             bash "${DEPLOY_BUNDLE_DIR}/deployment/redflag/scripts/deploy_on_vps.sh"
             rm -rf "${DEPLOY_BUNDLE_DIR}"
+            
+            echo "Waiting 15 seconds for startup logs to populate..."
+            sleep 15
+            
+            echo "=========================================="
+            echo "   DOCKER LOGS FOR REDFLAG-CORE           "
+            echo "=========================================="
+            # Execute as root if needed, or normal deploy user
+            cd /opt/projects/redflag/compose
+            docker compose logs redflag-core --tail=100 || sudo docker compose logs redflag-core --tail=100
+            echo "=========================================="
