@@ -1,5 +1,6 @@
 import {
   allergies,
+  complianceFlags,
   conditions,
   db,
   diagnosticReports,
@@ -11,7 +12,6 @@ import {
   patients,
   practitioners,
   procedures,
-  riskEvaluations,
   riskRules,
 } from '@app/db';
 import {
@@ -23,7 +23,6 @@ import {
 } from '@nestjs/common';
 import { and, count, desc, eq, inArray } from 'drizzle-orm';
 import { ClinicalService } from '../clinical/clinical.service';
-import { RiskEngineService } from '../risk-engine/risk-engine.service';
 import {
   CreatePatientDto,
   CreatePractitionerDto,
@@ -36,8 +35,7 @@ export class ServerService {
 
   constructor(
     private clinicalService: ClinicalService,
-    private riskEngineService: RiskEngineService,
-    @Inject('REQUEST') private request: any, // Inject request to extract OrganizationId from Headers via AuthGuard
+    @Inject('REQUEST') private request: any,
   ) { }
 
   private get orgId(): string {
@@ -167,34 +165,34 @@ export class ServerService {
       this.findDiagnosticReportsByPatientId(patientId),
       db
         .select({
-          id: riskEvaluations.id,
-          patientId: riskEvaluations.patientId,
-          ruleId: riskEvaluations.ruleId,
-          score: riskEvaluations.score,
-          matched: riskEvaluations.matched,
-          matchedValue: riskEvaluations.matchedValue,
-          evaluatedAt: riskEvaluations.evaluatedAt,
-          eventType: riskEvaluations.eventType,
-          eventId: riskEvaluations.eventId,
-          ruleRoleName: riskRules.roleName,
-          ruleRiskLevel: riskRules.riskLevel,
+          id: complianceFlags.id,
+          entityId: complianceFlags.entityId,
+          entityType: complianceFlags.entityType,
+          ruleId: complianceFlags.ruleId,
+          flagType: complianceFlags.flagType,
+          severity: complianceFlags.severity,
+          description: complianceFlags.description,
+          violationContext: complianceFlags.violationContext,
+          resolvedAt: complianceFlags.resolvedAt,
+          createdAt: complianceFlags.createdAt,
+          ruleName: riskRules.ruleName,
+          ruleCode: riskRules.ruleCode,
         })
-        .from(riskEvaluations)
+        .from(complianceFlags)
         .leftJoin(
           riskRules,
           and(
-            eq(riskEvaluations.ruleId, riskRules.id),
+            eq(complianceFlags.ruleId, riskRules.id),
             eq(riskRules.organizationId, this.orgId),
           ),
         )
         .where(
           and(
-            eq(riskEvaluations.organizationId, this.orgId),
-            eq(riskEvaluations.patientId, patientId),
-            eq(riskEvaluations.matched, true),
+            eq(complianceFlags.organizationId, this.orgId),
+            eq(complianceFlags.entityType, 'ENCOUNTER'),
           ),
         )
-        .orderBy(desc(riskEvaluations.evaluatedAt)),
+        .orderBy(desc(complianceFlags.createdAt)),
     ]);
 
     const observations = patientObservations.map((observation) => {
@@ -337,17 +335,18 @@ export class ServerService {
 
     const issues = patientIssues.map((issue) => ({
       id: issue.id,
-      patientId: issue.patientId,
+      entityId: issue.entityId,
+      entityType: issue.entityType,
       ruleId: issue.ruleId,
-      score: issue.score,
-      matched: issue.matched,
-      matchedValue: issue.matchedValue,
-      evaluatedAt: issue.evaluatedAt,
-      eventType: issue.eventType,
-      eventId: issue.eventId,
+      flagType: issue.flagType,
+      severity: issue.severity,
+      description: issue.description,
+      violationContext: issue.violationContext,
+      resolvedAt: issue.resolvedAt,
+      createdAt: issue.createdAt,
       rule: {
-        roleName: issue.ruleRoleName ?? 'Unknown Rule',
-        riskLevel: issue.ruleRiskLevel ?? 'medium',
+        ruleName: issue.ruleName ?? 'Unknown Rule',
+        ruleCode: issue.ruleCode ?? null,
       },
     }));
 
@@ -718,18 +717,17 @@ export class ServerService {
       patientIds.length > 0
         ? await db
           .select({
-            patientId: riskEvaluations.patientId,
+            entityId: complianceFlags.entityId,
             issueCount: count(),
           })
-          .from(riskEvaluations)
+          .from(complianceFlags)
           .where(
             and(
-              eq(riskEvaluations.organizationId, this.orgId),
-              eq(riskEvaluations.matched, true),
-              inArray(riskEvaluations.patientId, patientIds),
+              eq(complianceFlags.organizationId, this.orgId),
+              inArray(complianceFlags.entityId, patientIds),
             ),
           )
-          .groupBy(riskEvaluations.patientId)
+          .groupBy(complianceFlags.entityId)
         : [];
 
     const encounterCountMap = new Map(
@@ -737,7 +735,7 @@ export class ServerService {
     );
 
     const issueCountMap = new Map(
-      issueCounts.map((row) => [row.patientId, Number(row.issueCount)]),
+      issueCounts.map((row) => [row.entityId, Number(row.issueCount)]),
     );
 
     const encountersByPatient = new Map<

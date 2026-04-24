@@ -1,7 +1,5 @@
 import {
     allergies,
-    auditLogs,
-    complianceFlags,
     conditions,
     db,
     diagnosticReports,
@@ -17,11 +15,11 @@ import {
     practitioners,
     procedures,
     rawFhirIngestions,
-    riskScores,
     substances,
 } from '@app/db';
 import { Injectable, Logger } from '@nestjs/common';
 import { and, asc, count, eq, inArray } from 'drizzle-orm';
+import { RuleEvaluatorService } from '../rule-builder/rule-evaluator.service';
 
 type PersistenceCounters = {
     patientsInserted: number;
@@ -48,14 +46,13 @@ type PersistenceCounters = {
     encounterAnalyticsUpdated: number;
     medicationAnalyticsInserted: number;
     medicationAnalyticsUpdated: number;
-    complianceFlagsInserted: number;
-    riskScoresInserted: number;
-    auditLogsInserted: number;
 };
 
 @Injectable()
 export class IngestionWorkerService {
     private readonly logger = new Logger(IngestionWorkerService.name);
+
+    constructor(private readonly ruleEvaluatorService: RuleEvaluatorService) {}
 
     private readonly progressMap = new Map<
         string,
@@ -140,9 +137,6 @@ export class IngestionWorkerService {
             encounterAnalyticsUpdated: 0,
             medicationAnalyticsInserted: 0,
             medicationAnalyticsUpdated: 0,
-            complianceFlagsInserted: 0,
-            riskScoresInserted: 0,
-            auditLogsInserted: 0,
         };
 
         this.progressMap.set(jobId, { total, processed, status: 'RUNNING' });
@@ -258,7 +252,7 @@ export class IngestionWorkerService {
 
             const persistedErrorSummary =
                 job.errorSummary && typeof job.errorSummary === 'object'
-                    ? (job.errorSummary as Record<string, number>)
+                    ? (job.errorSummary as Record<string, number | string>)
                     : {};
 
             const [{ rawRows }] = await db
@@ -323,7 +317,7 @@ export class IngestionWorkerService {
 
             for (const [code, countValue] of Object.entries(runtimeErrorSummary)) {
                 persistedErrorSummary[code] =
-                    (persistedErrorSummary[code] ?? 0) + countValue;
+                    (Number(persistedErrorSummary[code] ?? 0)) + countValue;
             }
             persistedErrorSummary.PATIENT_INSERTED =
                 persistenceCounters.patientsInserted;
@@ -373,12 +367,22 @@ export class IngestionWorkerService {
                 persistenceCounters.medicationAnalyticsInserted;
             persistedErrorSummary.MEDICATION_ANALYTICS_UPDATED =
                 persistenceCounters.medicationAnalyticsUpdated;
-            persistedErrorSummary.COMPLIANCE_FLAG_INSERTED =
-                persistenceCounters.complianceFlagsInserted;
-            persistedErrorSummary.RISK_SCORE_INSERTED =
-                persistenceCounters.riskScoresInserted;
-            persistedErrorSummary.AUDIT_LOG_INSERTED =
-                persistenceCounters.auditLogsInserted;
+            // ── V2 Rule Engine Evaluation ─────────────────────────────────────
+            // Runs AFTER all rows are materialized — 2 SQL roundtrips total
+            // regardless of rule count. Never blocks individual row processing.
+            try {
+                const evalResult = await this.ruleEvaluatorService.evaluateJob(
+                    organizationId,
+                    Array.from(expectedEncounterProjectionIds),
+                    Array.from(expectedMedicationProjectionIds),
+                );
+                persistedErrorSummary.RULE_FLAGS_INSERTED = evalResult.flagsInserted;
+                persistedErrorSummary.RULES_EVALUATED = evalResult.rulesEvaluated;
+            } catch (evalError: unknown) {
+                const msg = evalError instanceof Error ? evalError.message : 'Unknown rule evaluation error';
+                this.logger.error(`Rule engine evaluation failed for job ${jobId}: ${msg}`);
+                persistedErrorSummary.RULE_ENGINE_ERROR = msg;
+            }
 
             await db.insert(ingestionStats).values({
                 organizationId,
@@ -1603,18 +1607,8 @@ export class IngestionWorkerService {
             ? 'UPDATED'
             : 'INSERTED';
 
-        const complianceSummary =
-            await this.persistComplianceEvaluationForRow(
-                organizationId,
-                normalized,
-                upsertedPatient.id,
-                encounterId,
-                persistenceCounters,
-            );
-
-        if (complianceSummary) {
-            persistedEntities.compliance = complianceSummary;
-        }
+        // V1 per-row compliance evaluation removed — V2 RuleEvaluatorService
+        // runs a single bulk SQL evaluation after all rows are processed.
 
         const materializedEntityCount = Object.keys(persistedEntities).length;
 
@@ -1627,168 +1621,6 @@ export class IngestionWorkerService {
                 ...persistedEntities,
             },
         };
-    }
-
-    private async persistComplianceEvaluationForRow(
-        organizationId: string,
-        row: Record<string, string | null>,
-        patientId: string,
-        encounterId: string | null,
-        persistenceCounters: PersistenceCounters,
-    ): Promise<Record<string, unknown> | null> {
-        try {
-            const isTelehealth = this.parseBoolean(
-                this.pickFirst(row, ['is_telehealth']),
-            );
-            const documentationComplete = this.parseBoolean(
-                this.pickFirst(row, ['clinical_notes_completed']),
-            );
-            const identityVerified = this.parseBoolean(
-                this.pickFirst(row, ['patient_identity_verified']),
-            );
-            const stateLicensureVerified = this.parseBoolean(
-                this.pickFirst(row, ['state_licensure_verified']),
-            );
-            const crossStateFlag =
-                this.parseBoolean(this.pickFirst(row, ['cross_state_license'])) ??
-                this.deriveCrossStateFlag(row);
-            const controlledSubstance = this.parseBoolean(
-                this.pickFirst(row, ['controlled_substance_prescribed']),
-            );
-            const prescriberDea = this.pickFirst(row, ['prescriber_dea']);
-
-            const flagsToInsert: Array<typeof complianceFlags.$inferInsert> = [];
-            const deductions: number[] = [];
-
-            const scoreEntityType = encounterId ? 'ENCOUNTER' : 'PATIENT';
-            const scoreEntityId = encounterId ?? patientId;
-
-            if (isTelehealth === true && documentationComplete === false) {
-                flagsToInsert.push({
-                    organizationId,
-                    entityType: scoreEntityType,
-                    entityId: scoreEntityId,
-                    flagType: 'MISSING_CLINICAL_DOCUMENTATION',
-                    severity: 'HIGH',
-                    description:
-                        'Telehealth encounter missing complete clinical notes.',
-                    updatedAt: new Date(),
-                });
-                deductions.push(30);
-            }
-
-            if (isTelehealth === true && identityVerified === false) {
-                flagsToInsert.push({
-                    organizationId,
-                    entityType: scoreEntityType,
-                    entityId: scoreEntityId,
-                    flagType: 'PATIENT_IDENTITY_NOT_VERIFIED',
-                    severity: 'HIGH',
-                    description:
-                        'Telehealth encounter was completed without patient identity verification.',
-                    updatedAt: new Date(),
-                });
-                deductions.push(25);
-            }
-
-            if (crossStateFlag === true && stateLicensureVerified === false) {
-                flagsToInsert.push({
-                    organizationId,
-                    entityType: scoreEntityType,
-                    entityId: scoreEntityId,
-                    flagType: 'CROSS_STATE_LICENSURE_NOT_VERIFIED',
-                    severity: 'CRITICAL',
-                    description:
-                        'Cross-state encounter lacks verified state licensure.',
-                    updatedAt: new Date(),
-                });
-                deductions.push(40);
-            }
-
-            if (controlledSubstance === true && !prescriberDea) {
-                flagsToInsert.push({
-                    organizationId,
-                    entityType: scoreEntityType,
-                    entityId: scoreEntityId,
-                    flagType: 'MISSING_DEA_FOR_CONTROLLED_SUBSTANCE',
-                    severity: 'CRITICAL',
-                    description:
-                        'Controlled substance was prescribed without a prescriber DEA value.',
-                    updatedAt: new Date(),
-                });
-                deductions.push(45);
-            }
-
-            let insertedComplianceFlagIds: string[] = [];
-            if (flagsToInsert.length > 0) {
-                const insertedFlags = await db
-                    .insert(complianceFlags)
-                    .values(flagsToInsert)
-                    .returning({ id: complianceFlags.id });
-                insertedComplianceFlagIds = insertedFlags.map((rowValue) => rowValue.id);
-                persistenceCounters.complianceFlagsInserted +=
-                    insertedComplianceFlagIds.length;
-            }
-
-            const deductionTotal = deductions.reduce(
-                (sum, currentValue) => sum + currentValue,
-                0,
-            );
-            const complianceScore = Math.max(0, 100 - deductionTotal);
-            const riskLevel = this.deriveRiskLevel(complianceScore);
-
-            const [insertedRiskScore] = await db
-                .insert(riskScores)
-                .values({
-                    organizationId,
-                    entityType: scoreEntityType,
-                    entityId: scoreEntityId,
-                    complianceScore,
-                    riskLevel,
-                    category: 'INGESTION_EVALUATION',
-                    updatedAt: new Date(),
-                })
-                .returning({ id: riskScores.id });
-            persistenceCounters.riskScoresInserted += 1;
-
-            const [insertedAuditLog] = await db
-                .insert(auditLogs)
-                .values({
-                    organizationId,
-                    actorType: 'SYSTEM',
-                    actorId: patientId,
-                    action: 'INGESTION_COMPLIANCE_EVALUATED',
-                    resourceType: scoreEntityType,
-                    resourceId: scoreEntityId,
-                    changes: {
-                        complianceScore,
-                        riskLevel,
-                        triggeredFlags: flagsToInsert.map((flag) => ({
-                            flagType: flag.flagType,
-                            severity: flag.severity,
-                        })),
-                    },
-                })
-                .returning({ id: auditLogs.id });
-            persistenceCounters.auditLogsInserted += 1;
-
-            return {
-                complianceFlagIds: insertedComplianceFlagIds,
-                riskScoreId: insertedRiskScore.id,
-                auditLogId: insertedAuditLog.id,
-                complianceScore,
-                riskLevel,
-            };
-        } catch (error: unknown) {
-            const errorMessage =
-                error instanceof Error
-                    ? error.message
-                    : 'Unknown compliance evaluation failure';
-            this.logger.warn(
-                `Compliance evaluation skipped for patient ${patientId}: ${errorMessage}`,
-            );
-            return null;
-        }
     }
 
     private deriveCrossStateFlag(

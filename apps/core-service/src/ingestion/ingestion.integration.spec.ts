@@ -644,7 +644,7 @@ describe('Ingestion materialization integration', () => {
         }> = [];
         configureUpdateCapture(updateCalls);
 
-        const worker = new IngestionWorkerService();
+        const worker = new IngestionWorkerService({ evaluateJob: async () => ({ rulesEvaluated: 0, flagsInserted: 0, encounterRulesCompiled: 0, medicationRulesCompiled: 0 }) } as any);
         await worker.processQueuedJob('job-2', 'org-a');
 
         const rowUpdate = updateCalls.find(
@@ -778,7 +778,7 @@ describe('Ingestion materialization integration', () => {
         }> = [];
         configureUpdateCapture(updateCalls);
 
-        const worker = new IngestionWorkerService();
+        const worker = new IngestionWorkerService({ evaluateJob: async () => ({ rulesEvaluated: 0, flagsInserted: 0, encounterRulesCompiled: 0, medicationRulesCompiled: 0 }) } as any);
         await worker.processQueuedJob('job-3', 'org-a');
 
         const errorRowUpdate = updateCalls.find(
@@ -833,7 +833,7 @@ describe('Ingestion materialization integration', () => {
         }> = [];
         configureUpdateCapture(updateCalls);
 
-        const worker = new IngestionWorkerService();
+        const worker = new IngestionWorkerService({ evaluateJob: async () => ({ rulesEvaluated: 0, flagsInserted: 0, encounterRulesCompiled: 0, medicationRulesCompiled: 0 }) } as any);
         await worker.processQueuedJob('job-4', 'org-a');
 
         expect(patientConflictSets).toHaveLength(1);

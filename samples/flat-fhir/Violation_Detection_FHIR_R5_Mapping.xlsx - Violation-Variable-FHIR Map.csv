@@ -1,0 +1,54 @@
+Finding Category,Rule ID,Rule Name,Severity,Trigger Variable,FHIR R5 Resource,FHIR R5 Element Path,FHIR R5 Data Type,CSV File,CSV Column Name,Trigger Condition,Violation Value Pattern
+1. Telehealth,TH-001,Ryan Haight Act Violation,CRITICAL,controlled_substance_prescribed,MedicationRequest,MedicationRequest.extension[controlledSubstancePrescribed],boolean,03_Medications.csv,controlled_substance_prescribed,TRUE,True (substance is controlled)
+,,,,patient_identity_verified,Encounter,Encounter.extension[patientIdentityVerified],boolean,01_Master_Encounters.csv,patient_identity_verified,IS NULL,Empty/NULL = violation
+,,,,telehealth_id,Encounter,Encounter.identifier[telehealth].value,Identifier,01_Master_Encounters.csv,telehealth_id,IS NOT NULL,TH-XXXXXXXX present
+,,,,prescriber_dea,MedicationRequest,MedicationRequest.requester.identifier[us-dea],Identifier,03_Medications.csv,prescriber_dea,Required for compliance,DEA number present
+,,,,state_licensure_verified,Encounter,Encounter.extension[stateLicensureVerified],boolean,01_Master_Encounters.csv,state_licensure_verified,Supporting evidence,True/False/NULL
+1. Telehealth,TH-002,Cross-State Licensure Violation,HIGH,provider_location_state,Encounter,Encounter.extension[providerLocationState],string,01_Master_Encounters.csv,provider_location_state,≠ patient_location_state,"State code (e.g., TX)"
+,,,,patient_location_state,Patient,Patient.address.state,string,01_Master_Encounters.csv,patient_location_state,≠ provider_location_state,"State code (e.g., MA)"
+,,,,cross_state_license,Encounter,Encounter.extension[crossStateLicense],boolean,01_Master_Encounters.csv,cross_state_license,#ERROR!,False = no compact license
+1. Telehealth,TH-003,Inadequate Telehealth Consent,HIGH,consent_obtained,Consent,Consent resource existence,Consent resource,01_Master_Encounters.csv,consent_obtained,FALSE,False = no Consent resource
+,,,,informed_consent_type,Consent,Consent.category,CodeableConcept,01_Master_Encounters.csv,informed_consent_type,IS NULL = violation,Consent category text
+,,,,session_recording_consent,Consent,Consent.provision.extension[sessionRecordingConsent],boolean,01_Master_Encounters.csv,session_recording_consent,IS NULL = violation,True/False/NULL
+,,,,telehealth_id,Encounter,Encounter.identifier[telehealth].value,Identifier,01_Master_Encounters.csv,telehealth_id,IS NOT NULL,Session present
+2. Misprescribing,MP-001,Prescribing Without Indication,HIGH,medication_prescribed,MedicationRequest,MedicationRequest.medicationCodeableConcept,CodeableConcept,03_Medications.csv,medication_prescribed,EXISTS (not NULL),Medication name text
+,,,,primary_diagnosis,Encounter/Condition,Encounter.reasonCode / Condition.code,CodeableConcept,01_Master_Encounters.csv,primary_diagnosis,IS NULL,Empty = no diagnosis
+,,,,clinical_notes_completed,DocumentReference,DocumentReference.status,code,01_Master_Encounters.csv,clinical_notes_completed,Supporting evidence,True/Incomplete
+,,,,encounter.class,Encounter,Encounter.class.coding.code,CodeableConcept,01_Master_Encounters.csv,encounter_class_code,Context,VR/AMB/IMP
+2. Misprescribing,MP-002,Dangerous Overdosing,CRITICAL,substance.instance.quantity,Substance,Substance.quantity.value,Quantity(SimpleQuantity),04_Substances.csv,substance_quantity_value,> FDA_MAX_DOSAGE,>120-150 tablets (by substance)
+,,,,substance.code,Substance,Substance.code.concept,CodeableReference,04_Substances.csv,substance_code_display,Maps to FDA limit table,RxNorm code/display
+,,,,medication_adherence,Observation,Observation[SNOMED:418633004].value,boolean/CodeableConcept,01_Master_Encounters.csv,medication_adherence,Supporting evidence,True/False/Unknown
+,,,,clinical_decision_support,Observation,Observation[LOINC:75482-0].valueString,string,01_Master_Encounters.csv,clinical_decision_support,CDS alert present,Alert text with PDMP results
+2. Misprescribing,MP-003,Inadequate Medical Assessment,MEDIUM,encounter_type,Encounter,Encounter.extension[encounterType],code,01_Master_Encounters.csv,encounter_type,#ERROR!,new / follow-up
+,,,,session_duration,Encounter,Encounter.length.value,Duration(Quantity),01_Master_Encounters.csv,session_duration,< 30 (minutes),Integer minutes
+,,,,mental_health_screening,Observation,Observation[LOINC:73831-0].value,CodeableConcept,01_Master_Encounters.csv,mental_health_screening,IS NULL = red flag,Screening result text
+,,,,chief_complaint,Observation,Observation[LOINC:8661-1].valueString,string,01_Master_Encounters.csv,chief_complaint,< 20 chars = red flag,Free text
+,,,,substance_use_screening,Observation,Observation[LOINC:68524-8].value,CodeableConcept,01_Master_Encounters.csv,substance_use_screening,IS NULL = red flag,SBIRT result text
+3. Controlled Substance,CS-001,Auto-Refill Violation,HIGH,auto_refill_enabled,MedicationRequest,MedicationRequest.extension[autoRefillEnabled],boolean,03_Medications.csv,auto_refill_enabled,TRUE,True = auto-refill on
+,,,,controlled_substance_prescribed,MedicationRequest,MedicationRequest.extension[controlledSubstancePrescribed],boolean,03_Medications.csv,controlled_substance_prescribed,TRUE,True
+,,,,follow_up_scheduled,Appointment,Appointment resource existence,Appointment resource,01_Master_Encounters.csv,follow_up_scheduled,Supporting evidence,True/False
+,,,,care_plan_updated,CarePlan,CarePlan.meta.lastUpdated + extension,dateTime/instant,01_Master_Encounters.csv,care_plan_updated,Supporting evidence,ISO datetime
+3. Controlled Substance,CS-002,Refill Without Medical Oversight,HIGH,refill_count,MedicationRequest,MedicationRequest.dispenseRequest.numberOfRepeatsAllowed,unsignedInt,03_Medications.csv,refill_count,> 2,Integer count
+,,,,follow_up_scheduled,Appointment,Appointment resource existence,Appointment resource,01_Master_Encounters.csv,follow_up_scheduled,FALSE,False = no appointment
+,,,,vital_signs_recorded,Observation,Observation[category:vital-signs],various,01_Master_Encounters.csv,vital_signs_recorded,IS NULL = red flag,Vital signs text
+,,,,coordination_with_pcp,Communication,Communication resource existence,Communication resource,01_Master_Encounters.csv,coordination_with_pcp,#ERROR!,True/False
+3. Controlled Substance,CS-003,Patient Addiction Facilitation,CRITICAL,substance.instance.quantity,Substance,Substance.quantity.value,Quantity(SimpleQuantity),04_Substances.csv,substance_quantity_value,> FDA_MAX_DOSAGE,>120-150 per substance
+,,,,medication_adherence,Observation,Observation[SNOMED:418633004].value,CodeableConcept,01_Master_Encounters.csv,medication_adherence,#ERROR!,Unknown = not assessed
+,,,,cds_alert_count,Observation,Observation[LOINC:75482-0].extension[cdsAlertCount],integer,01_Master_Encounters.csv,cds_alert_count,> 0 (alerts present),Integer alert count
+,,,,override_reason,Observation,Observation[LOINC:75482-0].extension[overrideReason],string,01_Master_Encounters.csv,override_reason,IS NULL = violation,Empty = no justification
+,,,,substance.instance.expiry,Substance,Substance.expiry,dateTime,04_Substances.csv,substance_expiry,Supporting evidence,ISO date
+4. CPOM,CPOM-001,Corporate Clinical Interference,HIGH,clinical_protocol_approved_by,Organization,Organization.extension[clinicalProtocolApprovedBy],string,13_Organizations.csv,clinical_protocol_approved_by,NOT IN licensed_providers,Non-licensed title = violation
+,,,,auto_refill_policy_corporate_mandated,Organization,Organization.extension[autoRefillPolicyCorporateMandated],boolean,13_Organizations.csv,auto_refill_policy_corporate_mandated,TRUE,True = corporate mandate
+,,,,provider_name,Encounter,Encounter.participant.individual.display,string,01_Master_Encounters.csv,provider_name,Context,Practitioner name
+,,,,clinical_decision_maker,Encounter,Encounter.participant (derived),string,01_Master_Encounters.csv,clinical_decision_maker,Should match provider,Practitioner name
+,,,,quality_measure_met,MeasureReport,MeasureReport.extension[qualityMeasureMet],boolean,01_Master_Encounters.csv,quality_measure_met,Supporting evidence,True/False
+4. CPOM,CPOM-002,Inadequate Physician Ownership,HIGH,corporate_structure,Organization,Organization.extension[corporateStructure],CodeableConcept,13_Organizations.csv,corporate_structure,#ERROR!,Organization type text
+,,,,physician_ownership_percentage,Organization,Organization.extension[physicianOwnershipPercentage],decimal,13_Organizations.csv,physician_ownership_percentage,"< state_minimum (e.g., <51%)",Decimal percentage
+5. Documentation,DOC-001,Missing Clinical Documentation,MEDIUM,clinical_notes_completed,DocumentReference,DocumentReference.status,code,01_Master_Encounters.csv,clinical_notes_completed,≠ 'True' (not current),'Incomplete' or empty
+,,,,note_signed_date,DocumentReference,DocumentReference.extension[signedDate] / .date,dateTime,01_Master_Encounters.csv,note_signed_date,IS NULL = unsigned,ISO datetime or empty
+,,,,chief_complaint,Observation,Observation[LOINC:8661-1].valueString,string,01_Master_Encounters.csv,chief_complaint,IS NULL = missing,Free text or empty
+,,,,allergies_reviewed,Observation,Observation[LOINC:52473-6].valueString,string,01_Master_Encounters.csv,allergies_reviewed,IS NULL = missing,Review text or empty
+5. Documentation,DOC-002,Inadequate Screening Documentation,MEDIUM,mental_health_screening,Observation,Observation[LOINC:73831-0].value,CodeableConcept,01_Master_Encounters.csv,mental_health_screening,IS NULL,Empty = not performed
+,,,,substance_use_screening,Observation,Observation[LOINC:68524-8].value,CodeableConcept,01_Master_Encounters.csv,substance_use_screening,IS NULL,Empty = not performed
+,,,,allergies_reviewed,Observation,Observation[LOINC:52473-6].valueString,string,01_Master_Encounters.csv,allergies_reviewed,IS NULL = red flag,Review text or empty
+,,,,technology_assessment,Observation,Observation[LOINC:75281-6].value,CodeableConcept,01_Master_Encounters.csv,technology_assessment,IS NULL = red flag,Assessment text or empty
