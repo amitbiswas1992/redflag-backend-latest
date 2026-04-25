@@ -28,7 +28,10 @@ export const complianceFlags = pgTable(
         violationContext: jsonb('violation_context'),
         resolvedAt: timestamp('resolved_at'),
         createdAt: timestamp('created_at').defaultNow().notNull(),
-        updatedAt: timestamp('updated_at').defaultNow().notNull(),
+        updatedAt: timestamp('updated_at')
+            .defaultNow()
+            .notNull()
+            .$onUpdate(() => new Date()),
     },
     (table) => [
         index('idx_compliance_flags_org').on(table.organizationId),
@@ -45,15 +48,18 @@ export const riskScores = pgTable(
     {
         id: uuid('id').primaryKey().defaultRandom(),
         organizationId: uuid('organization_id')
-            .references(() => organizations.id, { onDelete: 'cascade' })
-            .notNull(),
+        .references(() => organizations.id, { onDelete: 'cascade' })
+        .notNull(),
         entityType: text('entity_type').notNull(),
         entityId: uuid('entity_id').notNull(),
         complianceScore: integer('compliance_score').notNull(),
         riskLevel: text('risk_level').notNull(),
         category: text('category').notNull(),
         createdAt: timestamp('created_at').defaultNow().notNull(),
-        updatedAt: timestamp('updated_at').defaultNow().notNull(),
+        updatedAt: timestamp('updated_at')
+            .defaultNow()
+            .notNull()
+            .$onUpdate(() => new Date()),
     },
     (table) => [
         index('idx_risk_scores_org').on(table.organizationId),

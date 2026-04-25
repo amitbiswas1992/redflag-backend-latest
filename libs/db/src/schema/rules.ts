@@ -22,7 +22,10 @@ export const ruleCategories = pgTable(
         name: text('name').notNull(),
         description: text('description'),
         createdAt: timestamp('created_at').defaultNow().notNull(),
-        updatedAt: timestamp('updated_at').defaultNow().notNull(),
+        updatedAt: timestamp('updated_at')
+            .defaultNow()
+            .notNull()
+            .$onUpdate(() => new Date()),
     },
     (table) => [
         index('idx_rule_categories_org').on(table.organizationId),
@@ -50,7 +53,10 @@ export const riskRules = pgTable(
         severity: text('severity').notNull(), // 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
         isActive: boolean('is_active').default(true).notNull(),
         createdAt: timestamp('created_at').defaultNow().notNull(),
-        updatedAt: timestamp('updated_at').defaultNow().notNull(),
+        updatedAt: timestamp('updated_at')
+            .defaultNow()
+            .notNull()
+            .$onUpdate(() => new Date()),
     },
     (table) => [
         // Hot-path: fetch all active rules per org
@@ -86,9 +92,13 @@ export const ruleConditions = pgTable(
         logicalOperator: text('logical_operator').default('AND').notNull(),
         order: integer('order').notNull(),
         createdAt: timestamp('created_at').defaultNow().notNull(),
-        updatedAt: timestamp('updated_at').defaultNow().notNull(),
+        updatedAt: timestamp('updated_at')
+            .defaultNow()
+            .notNull()
+            .$onUpdate(() => new Date()),
     },
     (table) => [
         index('idx_rule_conditions_rule').on(table.ruleId),
+        index('idx_rule_conditions_org').on(table.organizationId),
     ],
 );

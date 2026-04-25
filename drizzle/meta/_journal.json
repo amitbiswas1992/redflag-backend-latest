@@ -36,6 +36,13 @@
       "when": 1776341812066,
       "tag": "0004_square_vindicator",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1777048561481,
+      "tag": "0005_rule_engine_v2",
+      "breakpoints": true
     }
   ]
 }
