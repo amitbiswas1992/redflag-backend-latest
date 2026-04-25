@@ -43,6 +43,41 @@
       "when": 1777048561481,
       "tag": "0005_rule_engine_v2",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1777123200000,
+      "tag": "0006_rule_engine_analytics_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1777213200000,
+      "tag": "0007_rule_engine_projection_alignment",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1777119072553,
+      "tag": "0008_colossal_the_twelve",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1777122093021,
+      "tag": "0009_illegal_leader",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1777125790647,
+      "tag": "0010_first_reaper",
+      "breakpoints": true
     }
   ]
 }

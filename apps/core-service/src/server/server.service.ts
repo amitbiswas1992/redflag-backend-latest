@@ -179,6 +179,7 @@ export class ServerService {
           ruleCode: riskRules.ruleCode,
         })
         .from(complianceFlags)
+        .innerJoin(encounters, eq(complianceFlags.entityId, encounters.id))
         .leftJoin(
           riskRules,
           and(
@@ -189,6 +190,8 @@ export class ServerService {
         .where(
           and(
             eq(complianceFlags.organizationId, this.orgId),
+            eq(encounters.organizationId, this.orgId),
+            eq(encounters.patientId, patientId),
             eq(complianceFlags.entityType, 'ENCOUNTER'),
           ),
         )
@@ -717,17 +720,20 @@ export class ServerService {
       patientIds.length > 0
         ? await db
           .select({
-            entityId: complianceFlags.entityId,
+            patientId: encounters.patientId,
             issueCount: count(),
           })
           .from(complianceFlags)
+          .innerJoin(encounters, eq(complianceFlags.entityId, encounters.id))
           .where(
             and(
               eq(complianceFlags.organizationId, this.orgId),
-              inArray(complianceFlags.entityId, patientIds),
+              eq(encounters.organizationId, this.orgId),
+              eq(complianceFlags.entityType, 'ENCOUNTER'),
+              inArray(encounters.patientId, patientIds),
             ),
           )
-          .groupBy(complianceFlags.entityId)
+          .groupBy(encounters.patientId)
         : [];
 
     const encounterCountMap = new Map(
@@ -735,7 +741,7 @@ export class ServerService {
     );
 
     const issueCountMap = new Map(
-      issueCounts.map((row) => [row.entityId, Number(row.issueCount)]),
+      issueCounts.map((row) => [row.patientId, Number(row.issueCount)]),
     );
 
     const encountersByPatient = new Map<

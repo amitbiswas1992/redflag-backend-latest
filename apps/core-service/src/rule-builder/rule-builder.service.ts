@@ -1,6 +1,7 @@
 import {
     complianceFlags,
     db,
+    patients,
     riskRules,
     ruleCategories,
     ruleConditions,
@@ -12,10 +13,11 @@ import {
     Logger,
     NotFoundException,
 } from '@nestjs/common';
-import { and, asc, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, count, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm';
 import {
     CreateRiskRuleDto,
     CreateRuleCategoryDto,
+    Severity,
     TargetTable,
     UpdateRiskRuleDto,
     UpdateRuleCategoryDto,
@@ -28,7 +30,7 @@ type RequestContext = { organizationId?: string; tenantId?: string };
 export class RuleBuilderService {
     private readonly logger = new Logger(RuleBuilderService.name);
 
-    constructor(@Inject('REQUEST') private readonly request: RequestContext) {}
+    constructor(@Inject('REQUEST') private readonly request: RequestContext) { }
 
     private get orgId(): string {
         const id = this.request.organizationId ?? this.request.tenantId;
@@ -130,10 +132,18 @@ export class RuleBuilderService {
     }
 
     async listRules(filters: {
+        page?: number;
+        limit?: number;
+        search?: string;
+        severity?: Severity;
         isActive?: boolean;
         categoryId?: string;
         targetTable?: TargetTable;
     }) {
+        const page = Math.max(1, filters.page ?? 1);
+        const limit = Math.min(100, Math.max(1, filters.limit ?? 20));
+        const offset = (page - 1) * limit;
+
         const predicates = [eq(riskRules.organizationId, this.orgId)];
         if (typeof filters.isActive === 'boolean')
             predicates.push(eq(riskRules.isActive, filters.isActive));
@@ -141,14 +151,57 @@ export class RuleBuilderService {
             predicates.push(eq(riskRules.categoryId, filters.categoryId));
         if (filters.targetTable)
             predicates.push(eq(riskRules.targetTable, filters.targetTable));
+        if (filters.severity) predicates.push(eq(riskRules.severity, filters.severity));
+        if (filters.search?.trim()) {
+            const token = `%${filters.search.trim()}%`;
+            predicates.push(
+                or(ilike(riskRules.ruleName, token), ilike(riskRules.ruleCode, token))!,
+            );
+        }
+
+        const [{ total }] = await db
+            .select({ total: count() })
+            .from(riskRules)
+            .where(and(...predicates));
 
         const rules = await db
             .select()
             .from(riskRules)
             .where(and(...predicates))
-            .orderBy(desc(riskRules.createdAt));
+            .orderBy(desc(riskRules.createdAt))
+            .limit(limit)
+            .offset(offset);
 
-        return this.attachConditions(rules);
+        const data = await this.attachConditions(rules);
+
+        // Attach categories for rules that have categoryId
+        const categoryIds = rules
+            .map((r) => r.categoryId)
+            .filter((id): id is string => !!id);
+        if (categoryIds.length) {
+            const categories = await db
+                .select()
+                .from(ruleCategories)
+                .where(
+                    and(
+                        eq(ruleCategories.organizationId, this.orgId),
+                        inArray(ruleCategories.id, categoryIds),
+                    ),
+                );
+            const categoryMap = new Map(categories.map((c) => [c.id, c]));
+            for (const rule of data) {
+                (rule as any).category = rule.categoryId
+                    ? categoryMap.get(rule.categoryId) ?? null
+                    : null;
+            }
+        }
+
+        return {
+            data,
+            total: Number(total ?? 0),
+            page,
+            limit,
+        };
     }
 
     async getRuleById(id: string) {
@@ -173,11 +226,20 @@ export class RuleBuilderService {
     }
 
     async updateRule(id: string, dto: UpdateRiskRuleDto) {
-        if (dto.conditions && dto.targetTable) {
-            this.validateConditionFields(dto.targetTable, dto.conditions);
-        }
-
         return db.transaction(async (tx) => {
+            const [existing] = await tx
+                .select({ targetTable: riskRules.targetTable })
+                .from(riskRules)
+                .where(and(eq(riskRules.id, id), eq(riskRules.organizationId, this.orgId)))
+                .limit(1);
+            if (!existing) throw new NotFoundException('Rule not found');
+
+            const effectiveTargetTable =
+                (dto.targetTable ?? existing.targetTable) as TargetTable;
+            if (dto.conditions !== undefined) {
+                this.validateConditionFields(effectiveTargetTable, dto.conditions);
+            }
+
             const [rule] = await tx
                 .update(riskRules)
                 .set({
@@ -272,6 +334,114 @@ export class RuleBuilderService {
             .where(and(...predicates))
             .orderBy(desc(complianceFlags.createdAt))
             .limit(200);
+    }
+
+    /**
+     * Get findings grouped by rule with aggregated flag counts.
+     * Used by the Findings dashboard to show rule cards with issue counts.
+     */
+    async getFindingsByRule() {
+        const flags = await db
+            .select({
+                ruleId: complianceFlags.ruleId,
+                flagCount: count(),
+                latestFlagAt: sql<string>`MAX(${complianceFlags.createdAt})`,
+            })
+            .from(complianceFlags)
+            .where(eq(complianceFlags.organizationId, this.orgId))
+            .groupBy(complianceFlags.ruleId);
+
+        if (!flags.length) return [];
+
+        const ruleIds = flags.map((f) => f.ruleId).filter((id): id is string => !!id);
+
+        const rules = await db
+            .select()
+            .from(riskRules)
+            .where(
+                and(
+                    eq(riskRules.organizationId, this.orgId),
+                    inArray(riskRules.id, ruleIds),
+                ),
+            );
+
+        const categories = await db
+            .select()
+            .from(ruleCategories)
+            .where(
+                and(
+                    eq(ruleCategories.organizationId, this.orgId),
+                    inArray(
+                        ruleCategories.id,
+                        rules.map((r) => r.categoryId).filter((id): id is string => !!id),
+                    ),
+                ),
+            );
+
+        const conditions = await db
+            .select()
+            .from(ruleConditions)
+            .where(
+                and(
+                    eq(ruleConditions.organizationId, this.orgId),
+                    inArray(ruleConditions.ruleId, ruleIds),
+                ),
+            )
+            .orderBy(asc(ruleConditions.order));
+
+        const categoryMap = new Map(categories.map((c) => [c.id, c]));
+        const flagMap = new Map(flags.map((f) => [f.ruleId, f]));
+        const conditionMap = new Map<string, typeof ruleConditions.$inferSelect[]>();
+        for (const c of conditions) {
+            const list = conditionMap.get(c.ruleId) ?? [];
+            list.push(c);
+            conditionMap.set(c.ruleId, list);
+        }
+
+        return rules.map((rule) => {
+            const flagInfo = flagMap.get(rule.id);
+            return {
+                rule: {
+                    ...rule,
+                    category: rule.categoryId ? categoryMap.get(rule.categoryId) ?? null : null,
+                    conditions: (conditionMap.get(rule.id) ?? []).sort((a, b) => a.order - b.order),
+                },
+                flagCount: Number(flagInfo?.flagCount ?? 0),
+                latestFlagAt: flagInfo?.latestFlagAt ?? null,
+            };
+        });
+    }
+
+    /**
+     * Get individual compliance flags for a specific rule with patient details.
+     */
+    async getFindingsDetail(ruleId: string) {
+        const flags = await db
+            .select({
+                id: complianceFlags.id,
+                entityId: complianceFlags.entityId,
+                entityType: complianceFlags.entityType,
+                flagType: complianceFlags.flagType,
+                severity: complianceFlags.severity,
+                violationContext: complianceFlags.violationContext,
+                resolvedAt: complianceFlags.resolvedAt,
+                createdAt: complianceFlags.createdAt,
+                patientId: patients.id,
+                patientName: patients.name,
+                patientSourceId: patients.sourceId,
+            })
+            .from(complianceFlags)
+            .leftJoin(patients, eq(complianceFlags.patientId, patients.id))
+            .where(
+                and(
+                    eq(complianceFlags.organizationId, this.orgId),
+                    eq(complianceFlags.ruleId, ruleId),
+                ),
+            )
+            .orderBy(desc(complianceFlags.createdAt))
+            .limit(200);
+
+        return flags;
     }
 
     // ── Table metadata (for UI condition builder) ─────────────────────────────

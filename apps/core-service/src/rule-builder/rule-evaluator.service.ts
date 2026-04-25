@@ -144,28 +144,65 @@ export class RuleEvaluatorService {
                 : fragments.reduce((acc, frag) => sql`${acc} UNION ALL ${frag}`);
 
         // INSERT … SELECT from the CTE — one DB roundtrip for all rules
-        const insertResult = await db.execute(sql`
-            WITH violations AS (
-                ${unionSql}
-            )
-            INSERT INTO compliance_flags
-                (organization_id, entity_id, entity_type, rule_id, flag_type, severity, violation_context, updated_at)
-            SELECT
-                ${organizationId}::uuid,
-                entity_id::uuid,
-                entity_type,
-                rule_id,
-                flag_type,
-                severity,
-                violation_context,
-                NOW()
-            FROM violations
-            ON CONFLICT DO NOTHING
-            RETURNING id
-        `);
+        let insertResult: unknown;
+        try {
+            insertResult = await db.execute(sql`
+                WITH violations AS (
+                    ${unionSql}
+                )
+                INSERT INTO compliance_flags
+                    (organization_id, entity_id, entity_type, rule_id, flag_type, severity, violation_context, updated_at)
+                SELECT
+                    ${organizationId}::uuid,
+                    entity_id::uuid,
+                    entity_type,
+                    rule_id,
+                    flag_type,
+                    severity,
+                    violation_context,
+                    NOW()
+                FROM violations
+                ON CONFLICT DO NOTHING
+                RETURNING id
+            `);
+        } catch (err: unknown) {
+            const drizzleError = err as { message?: string; cause?: { message?: string }; query?: string };
+            const pgMessage = drizzleError.cause?.message ?? 'unknown postgres error';
+            this.logger.error(
+                `runBulkEvaluation (${label}) query failed. Postgres cause: ${pgMessage}`,
+            );
+            throw err;
+        }
 
-        const inserted = (insertResult as unknown as unknown[]).length;
+        const inserted = Array.isArray(insertResult)
+            ? insertResult.length
+            : (insertResult as unknown as { rows: unknown[] }).rows?.length ?? 0;
         this.logger.log(`runBulkEvaluation (${label}): ${inserted} flags inserted`);
+
+        // ── Backfill patient_id for encounter flags ─────────────────────────
+        if (inserted > 0 && label === 'encounter') {
+            await db.execute(sql`
+                UPDATE compliance_flags cf
+                SET patient_id = e.patient_id
+                FROM encounters e
+                WHERE cf.entity_id = e.id
+                  AND cf.entity_type = 'ENCOUNTER'
+                  AND cf.patient_id IS NULL
+                  AND cf.organization_id = ${organizationId}::uuid
+            `);
+        }
+        if (inserted > 0 && label === 'medication') {
+            await db.execute(sql`
+                UPDATE compliance_flags cf
+                SET patient_id = m.patient_id
+                FROM medications m
+                WHERE cf.entity_id = m.id
+                  AND cf.entity_type = 'MEDICATION'
+                  AND cf.patient_id IS NULL
+                  AND cf.organization_id = ${organizationId}::uuid
+            `);
+        }
+
         return inserted;
     }
 

@@ -1,7 +1,7 @@
 import 'dotenv/config';
-import { db, riskRules, ruleCategories, ruleConditions, organizations } from '../libs/db/src';
-import { eq, and } from 'drizzle-orm';
-import { TargetTable, ConditionOperator } from '../apps/core-service/src/rule-builder/dto/rule-builder.dto';
+import { and, eq } from 'drizzle-orm';
+import { ConditionOperator, TargetTable } from '../apps/core-service/src/rule-builder/dto/rule-builder.dto';
+import { db, organizations, riskRules, ruleCategories, ruleConditions } from '../libs/db/src';
 
 // ── Explicit Rule Definitions based on Clinical Mapping ──
 const SEED_RULES = [
@@ -14,6 +14,7 @@ const SEED_RULES = [
     targetTable: TargetTable.ENCOUNTER_ANALYTICS,
     conditions: [
       { fieldName: 'is_telehealth', operator: ConditionOperator.EQUALS, value: 'true' },
+      { fieldName: 'controlled_substance_prescribed', operator: ConditionOperator.EQUALS, value: 'true' },
       { fieldName: 'patient_identity_verified', operator: ConditionOperator.IS_NULL, value: null },
       { fieldName: 'telehealth_id', operator: ConditionOperator.IS_NOT_NULL, value: null },
     ]
@@ -27,7 +28,7 @@ const SEED_RULES = [
     conditions: [
       { fieldName: 'is_telehealth', operator: ConditionOperator.EQUALS, value: 'true' },
       { fieldName: 'cross_state_flag', operator: ConditionOperator.EQUALS, value: 'true' },
-      { fieldName: 'state_licensure_verified', operator: ConditionOperator.EQUALS, value: 'false' },
+      { fieldName: 'cross_state_license', operator: ConditionOperator.EQUALS, value: 'false' },
     ]
   },
   {
@@ -39,6 +40,7 @@ const SEED_RULES = [
     conditions: [
       { fieldName: 'is_telehealth', operator: ConditionOperator.EQUALS, value: 'true' },
       { fieldName: 'consent_obtained', operator: ConditionOperator.EQUALS, value: 'false' },
+      { fieldName: 'informed_consent_type', operator: ConditionOperator.IS_NULL, value: null },
       { fieldName: 'session_recording_consent', operator: ConditionOperator.IS_NULL, value: null },
     ]
   },
@@ -51,6 +53,7 @@ const SEED_RULES = [
     severity: 'HIGH',
     targetTable: TargetTable.ENCOUNTER_ANALYTICS,
     conditions: [
+      { fieldName: 'medication_prescribed', operator: ConditionOperator.IS_NOT_NULL, value: null },
       { fieldName: 'primary_diagnosis', operator: ConditionOperator.IS_NULL, value: null },
       { fieldName: 'clinical_notes_completed', operator: ConditionOperator.EQUALS, value: 'false' },
     ]
@@ -63,7 +66,7 @@ const SEED_RULES = [
     targetTable: TargetTable.MEDICATION_ANALYTICS,
     conditions: [
       { fieldName: 'controlled_substance', operator: ConditionOperator.EQUALS, value: 'true' },
-      { fieldName: 'substance.instance.quantity', operator: ConditionOperator.GREATER_THAN, value: '120' },
+      { fieldName: 'substance_quantity', operator: ConditionOperator.GREATER_THAN, value: '120' },
     ]
   },
   {
@@ -99,7 +102,8 @@ const SEED_RULES = [
     targetTable: TargetTable.MEDICATION_ANALYTICS,
     conditions: [
       { fieldName: 'refill_count', operator: ConditionOperator.GREATER_THAN, value: '2' },
-      { fieldName: 'prescriber_dea', operator: ConditionOperator.IS_NULL, value: null },
+      { fieldName: 'follow_up_scheduled', operator: ConditionOperator.EQUALS, value: 'false' },
+      { fieldName: 'vital_signs_recorded', operator: ConditionOperator.IS_NULL, value: null },
     ]
   },
   {
@@ -110,7 +114,9 @@ const SEED_RULES = [
     targetTable: TargetTable.MEDICATION_ANALYTICS,
     conditions: [
       { fieldName: 'controlled_substance', operator: ConditionOperator.EQUALS, value: 'true' },
-      { fieldName: 'substance.instance.quantity', operator: ConditionOperator.GREATER_THAN, value: '90' },
+      { fieldName: 'substance_quantity', operator: ConditionOperator.GREATER_THAN, value: '90' },
+      { fieldName: 'cds_alert_count', operator: ConditionOperator.GREATER_THAN, value: '0' },
+      { fieldName: 'override_reason', operator: ConditionOperator.IS_NULL, value: null },
       { fieldName: 'medication_adherence', operator: ConditionOperator.EQUALS, value: 'Unknown' },
     ]
   },
@@ -123,8 +129,8 @@ const SEED_RULES = [
     severity: 'HIGH',
     targetTable: TargetTable.ENCOUNTER_ANALYTICS,
     conditions: [
-      { fieldName: 'clinical_decision_maker', operator: ConditionOperator.EQUALS, value: 'Corporate' },
-      { fieldName: 'override_reason', operator: ConditionOperator.IS_NULL, value: null },
+      { fieldName: 'clinical_protocol_approved_by', operator: ConditionOperator.NOT_IN, value: 'MD,DO,NP,PA,Physician,Licensed Physician,Nurse Practitioner,Physician Assistant' },
+      { fieldName: 'auto_refill_policy_corporate_mandated', operator: ConditionOperator.EQUALS, value: 'true' },
     ]
   },
   {
@@ -150,6 +156,7 @@ const SEED_RULES = [
       { fieldName: 'clinical_notes_completed', operator: ConditionOperator.EQUALS, value: 'false' },
       { fieldName: 'note_signed_date', operator: ConditionOperator.IS_NULL, value: null },
       { fieldName: 'chief_complaint', operator: ConditionOperator.IS_NULL, value: null },
+      { fieldName: 'allergies_reviewed', operator: ConditionOperator.IS_NULL, value: null },
     ]
   },
   {
@@ -160,6 +167,7 @@ const SEED_RULES = [
     targetTable: TargetTable.ENCOUNTER_ANALYTICS,
     conditions: [
       { fieldName: 'mental_health_screening', operator: ConditionOperator.IS_NULL, value: null },
+      { fieldName: 'substance_use_screening', operator: ConditionOperator.IS_NULL, value: null },
       { fieldName: 'allergies_reviewed', operator: ConditionOperator.IS_NULL, value: null },
       { fieldName: 'technology_assessment', operator: ConditionOperator.IS_NULL, value: null },
     ]
@@ -174,7 +182,7 @@ async function seed() {
     console.error('❌ No organizations found in database. Please register an organization first.');
     process.exit(1);
   }
-  
+
   console.log(`🏢 Found ${orgs.length} organizations to seed.`);
 
   for (const org of orgs) {
@@ -202,7 +210,7 @@ async function seed() {
             )
           )
           .limit(1);
-        
+
         if (existingCat) {
           categoryCache.set(ruleDef.category, existingCat.id);
         } else {
@@ -236,12 +244,13 @@ async function seed() {
           fieldName: cond.fieldName,
           operator: cond.operator,
           value: cond.value,
+          logicalOperator: 'AND',
           order: conditionOrder++,
         });
         conditionsCount++;
       }
     }
-    
+
     console.log(`✅ Seeded ${rulesCount} rules and ${conditionsCount} conditions for ${org.name}`);
   }
 

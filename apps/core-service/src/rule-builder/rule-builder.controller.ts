@@ -24,6 +24,7 @@ import {
 import {
     CreateRiskRuleDto,
     CreateRuleCategoryDto,
+    Severity,
     TargetTable,
     UpdateRiskRuleDto,
     UpdateRuleCategoryDto,
@@ -35,7 +36,7 @@ import { RuleBuilderService } from './rule-builder.service';
 export class RuleBuilderController {
     private readonly logger = new Logger(RuleBuilderController.name);
 
-    constructor(private readonly service: RuleBuilderService) {}
+    constructor(private readonly service: RuleBuilderService) { }
 
     // ── Table metadata (UI condition builder) ─────────────────────────────────
 
@@ -90,17 +91,32 @@ export class RuleBuilderController {
     // ── Rules ─────────────────────────────────────────────────────────────────
 
     @ApiOperation({ summary: 'List all rules' })
+    @ApiQuery({ name: 'page', required: false, type: Number })
+    @ApiQuery({ name: 'limit', required: false, type: Number })
+    @ApiQuery({ name: 'search', required: false, type: String })
+    @ApiQuery({ name: 'severity', required: false, enum: Severity })
     @ApiQuery({ name: 'isActive', required: false, type: Boolean })
     @ApiQuery({ name: 'categoryId', required: false, type: String })
     @ApiQuery({ name: 'targetTable', required: false, enum: TargetTable })
     @ApiOkResponse({ description: 'List of rules with embedded conditions' })
     @Get('rules')
     listRules(
+        @Query('page') page?: string,
+        @Query('limit') limit?: string,
+        @Query('search') search?: string,
+        @Query('severity') severity?: Severity,
         @Query('isActive') isActive?: string,
         @Query('categoryId') categoryId?: string,
         @Query('targetTable') targetTable?: TargetTable,
     ) {
+        const parsedPage = page ? Number.parseInt(page, 10) : undefined;
+        const parsedLimit = limit ? Number.parseInt(limit, 10) : undefined;
+
         return this.service.listRules({
+            page: Number.isFinite(parsedPage) ? parsedPage : undefined,
+            limit: Number.isFinite(parsedLimit) ? parsedLimit : undefined,
+            search,
+            severity,
             isActive: isActive !== undefined ? isActive === 'true' : undefined,
             categoryId,
             targetTable,
@@ -168,5 +184,20 @@ export class RuleBuilderController {
         @Query('severity') severity?: string,
     ) {
         return this.service.listFlags({ entityId, ruleId, severity });
+    }
+
+    @ApiOperation({ summary: 'Get findings grouped by rule with flag counts' })
+    @ApiOkResponse({ description: 'Rules with aggregated flag counts and latest detection dates' })
+    @Get('findings')
+    getFindingsByRule() {
+        return this.service.getFindingsByRule();
+    }
+
+    @ApiOperation({ summary: 'Get individual flags for a rule with patient details' })
+    @ApiParam({ name: 'ruleId', description: 'Rule UUID' })
+    @ApiOkResponse({ description: 'List of compliance flags with patient data' })
+    @Get('findings/:ruleId')
+    getFindingsDetail(@Param('ruleId') ruleId: string) {
+        return this.service.getFindingsDetail(ruleId);
     }
 }

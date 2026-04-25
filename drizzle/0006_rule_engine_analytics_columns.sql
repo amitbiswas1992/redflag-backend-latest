@@ -1,0 +1,34 @@
+ALTER TABLE "encounter_analytics" ADD COLUMN IF NOT EXISTS "encounter_type" text;--> statement-breakpoint
+ALTER TABLE "encounter_analytics" ADD COLUMN IF NOT EXISTS "session_duration" integer;--> statement-breakpoint
+ALTER TABLE "encounter_analytics" ADD COLUMN IF NOT EXISTS "chief_complaint" text;--> statement-breakpoint
+ALTER TABLE "encounter_analytics" ADD COLUMN IF NOT EXISTS "primary_diagnosis" text;--> statement-breakpoint
+ALTER TABLE "encounter_analytics" ADD COLUMN IF NOT EXISTS "vital_signs_recorded" boolean;--> statement-breakpoint
+ALTER TABLE "encounter_analytics" ADD COLUMN IF NOT EXISTS "cross_state_license" boolean;--> statement-breakpoint
+ALTER TABLE "encounter_analytics" ADD COLUMN IF NOT EXISTS "consent_obtained" boolean;--> statement-breakpoint
+ALTER TABLE "encounter_analytics" ADD COLUMN IF NOT EXISTS "informed_consent_type" text;--> statement-breakpoint
+ALTER TABLE "encounter_analytics" ADD COLUMN IF NOT EXISTS "clinical_notes_completed" boolean;--> statement-breakpoint
+ALTER TABLE "encounter_analytics" ADD COLUMN IF NOT EXISTS "note_signed_date" text;--> statement-breakpoint
+ALTER TABLE "encounter_analytics" ADD COLUMN IF NOT EXISTS "mental_health_screening" boolean;--> statement-breakpoint
+ALTER TABLE "encounter_analytics" ADD COLUMN IF NOT EXISTS "substance_use_screening" boolean;--> statement-breakpoint
+ALTER TABLE "encounter_analytics" ADD COLUMN IF NOT EXISTS "allergies_reviewed" boolean;--> statement-breakpoint
+ALTER TABLE "encounter_analytics" ADD COLUMN IF NOT EXISTS "coordination_with_pcp" boolean;--> statement-breakpoint
+ALTER TABLE "encounter_analytics" ADD COLUMN IF NOT EXISTS "follow_up_scheduled" boolean;--> statement-breakpoint
+ALTER TABLE "encounter_analytics" ADD COLUMN IF NOT EXISTS "care_plan_updated" boolean;--> statement-breakpoint
+ALTER TABLE "encounter_analytics" ADD COLUMN IF NOT EXISTS "clinical_protocol_approved_by" text;--> statement-breakpoint
+ALTER TABLE "encounter_analytics" ADD COLUMN IF NOT EXISTS "corporate_structure" text;--> statement-breakpoint
+ALTER TABLE "encounter_analytics" ADD COLUMN IF NOT EXISTS "physician_ownership_percentage" integer;--> statement-breakpoint
+ALTER TABLE "encounter_analytics" ADD COLUMN IF NOT EXISTS "clinical_decision_maker" text;--> statement-breakpoint
+ALTER TABLE "encounter_analytics" ADD COLUMN IF NOT EXISTS "clinical_decision_support" boolean;--> statement-breakpoint
+ALTER TABLE "encounter_analytics" ADD COLUMN IF NOT EXISTS "cds_alert_count" integer;--> statement-breakpoint
+ALTER TABLE "encounter_analytics" ADD COLUMN IF NOT EXISTS "technology_assessment" boolean;--> statement-breakpoint
+ALTER TABLE "encounter_analytics" ADD COLUMN IF NOT EXISTS "telehealth_id" text;--> statement-breakpoint
+ALTER TABLE "encounter_analytics" ADD COLUMN IF NOT EXISTS "provider_name" text;--> statement-breakpoint
+ALTER TABLE "encounter_analytics" ADD COLUMN IF NOT EXISTS "quality_measure_met" boolean;--> statement-breakpoint
+ALTER TABLE "encounter_analytics" ADD COLUMN IF NOT EXISTS "override_reason" text;--> statement-breakpoint
+
+ALTER TABLE "medication_analytics" ADD COLUMN IF NOT EXISTS "controlled_substance_prescribed" boolean;--> statement-breakpoint
+ALTER TABLE "medication_analytics" ADD COLUMN IF NOT EXISTS "auto_refill_policy_corporate_mandated" boolean;--> statement-breakpoint
+ALTER TABLE "medication_analytics" ADD COLUMN IF NOT EXISTS "medication_prescribed" text;--> statement-breakpoint
+ALTER TABLE "medication_analytics" ADD COLUMN IF NOT EXISTS "substance_code" text;--> statement-breakpoint
+ALTER TABLE "medication_analytics" ADD COLUMN IF NOT EXISTS "substance_quantity" integer;--> statement-breakpoint
+ALTER TABLE "medication_analytics" ADD COLUMN IF NOT EXISTS "substance_expiry" text;

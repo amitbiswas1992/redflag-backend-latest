@@ -1,4 +1,4 @@
-import { index, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { organizations } from './identity';
 import { riskRules } from './rules';
 
@@ -16,6 +16,8 @@ export const complianceFlags = pgTable(
             .notNull(),
         entityType: text('entity_type').notNull(), // 'ENCOUNTER' | 'MEDICATION'
         entityId: uuid('entity_id').notNull(),
+        patientId: uuid('patient_id'),
+        providerName: text('provider_name'),
         // The rule that generated this flag (nullable for future system-generated flags)
         ruleId: uuid('rule_id').references(() => riskRules.id, {
             onDelete: 'set null',
@@ -39,6 +41,12 @@ export const complianceFlags = pgTable(
         index('idx_compliance_flags_rule').on(table.organizationId, table.ruleId),
         // Fast lookup: all flags for a specific entity (encounter/medication)
         index('idx_compliance_flags_entity').on(table.organizationId, table.entityId),
+        // Prevent duplicate flags for the same entity + rule on re-ingestion
+        uniqueIndex('unq_compliance_flags_org_entity_rule').on(
+            table.organizationId,
+            table.entityId,
+            table.ruleId,
+        ),
     ],
 );
 

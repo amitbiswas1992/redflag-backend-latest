@@ -18,6 +18,7 @@ import {
     substances,
 } from '@app/db';
 import { Injectable, Logger } from '@nestjs/common';
+import { createHash } from 'crypto';
 import { and, asc, count, eq, inArray } from 'drizzle-orm';
 import { RuleEvaluatorService } from '../rule-builder/rule-evaluator.service';
 
@@ -52,7 +53,7 @@ type PersistenceCounters = {
 export class IngestionWorkerService {
     private readonly logger = new Logger(IngestionWorkerService.name);
 
-    constructor(private readonly ruleEvaluatorService: RuleEvaluatorService) {}
+    constructor(private readonly ruleEvaluatorService: RuleEvaluatorService) { }
 
     private readonly progressMap = new Map<
         string,
@@ -580,10 +581,7 @@ export class IngestionWorkerService {
         };
         const entityActions: Array<'INSERTED' | 'UPDATED'> = [patientAction];
 
-        const practitionerSourceId = this.pickSourceId(normalized, [
-            'practitioner_epic_id',
-            'practitioner_id',
-        ]);
+        const practitionerSourceId = this.buildPractitionerSourceId(normalized);
 
         if (practitionerSourceId) {
             const [existingPractitioner] = await db
@@ -604,12 +602,14 @@ export class IngestionWorkerService {
             const practitionerBirthDate = this.parseDate(
                 this.pickFirst(normalized, ['practitioner_birth_date']),
             );
+            const practitionerIdentifier = this.buildPractitionerIdentifier(normalized);
 
             const practitionerUpdateSet: {
                 updatedAt: Date;
                 name?: unknown;
                 gender?: string;
                 birthDate?: Date;
+                identifier?: unknown;
             } = {
                 updatedAt: new Date(),
             };
@@ -623,12 +623,16 @@ export class IngestionWorkerService {
             if (practitionerBirthDate !== null) {
                 practitionerUpdateSet.birthDate = practitionerBirthDate;
             }
+            if (practitionerIdentifier !== null) {
+                practitionerUpdateSet.identifier = practitionerIdentifier;
+            }
 
             const [upsertedPractitioner] = await db
                 .insert(practitioners)
                 .values({
                     organizationId,
                     sourceId: practitionerSourceId,
+                    identifier: practitionerIdentifier,
                     name: practitionerName,
                     gender: practitionerGender,
                     birthDate: practitionerBirthDate,
@@ -1138,83 +1142,144 @@ export class IngestionWorkerService {
             const patientLocationState = this.pickFirst(normalized, [
                 'patient_location_state',
             ]);
+            const sessionDuration = this.parseInteger(
+                this.pickFirst(normalized, [
+                    'session_duration',
+                    'session_duration_min',
+                ]),
+            );
+            const crossStateLicense = this.parseBoolean(
+                this.pickFirst(normalized, ['cross_state_license']),
+            );
+            const clinicalNotesCompleted = this.parseBoolean(
+                this.pickFirst(normalized, ['clinical_notes_completed']),
+            );
+            const encounterProjectionValues = {
+                isTelehealth: this.parseBoolean(
+                    this.pickFirst(normalized, ['is_telehealth']),
+                ),
+                encounterType: this.pickFirst(normalized, [
+                    'encounter_type',
+                    'encounter_class',
+                ]),
+                sessionDuration,
+                chiefComplaint: this.pickFirst(normalized, ['chief_complaint']),
+                primaryDiagnosis: this.pickFirst(normalized, ['primary_diagnosis']),
+                vitalSignsRecorded: this.parseBoolean(
+                    this.pickFirst(normalized, ['vital_signs_recorded']),
+                ),
+                crossStateFlag:
+                    crossStateLicense ??
+                    (providerLocationState && patientLocationState
+                        ? providerLocationState !== patientLocationState
+                        : null),
+                crossStateLicense,
+                hipaaPlatformValidated: this.parseBoolean(
+                    this.pickFirst(normalized, [
+                        'hipaa_compliant_platform',
+                        'hipaa_platform_validated',
+                    ]),
+                ),
+                consentObtained: this.parseBoolean(
+                    this.pickFirst(normalized, ['consent_obtained']),
+                ),
+                informedConsentType: this.pickFirst(normalized, [
+                    'informed_consent_type',
+                ]),
+                durationMinutes: sessionDuration,
+                clinicalNotesCompleted,
+                noteSignedDate: this.pickFirst(normalized, ['note_signed_date']),
+                documentationComplete:
+                    this.parseBoolean(
+                        this.pickFirst(normalized, ['documentation_complete']),
+                    ) ?? clinicalNotesCompleted,
+                mentalHealthScreening: this.parseBoolean(
+                    this.pickFirst(normalized, ['mental_health_screening']),
+                ),
+                substanceUseScreening: this.parseBoolean(
+                    this.pickFirst(normalized, ['substance_use_screening']),
+                ),
+                allergiesReviewed: this.parseBoolean(
+                    this.pickFirst(normalized, ['allergies_reviewed']),
+                ),
+                coordinationWithPcp: this.parseBoolean(
+                    this.pickFirst(normalized, ['coordination_with_pcp']),
+                ),
+                followUpScheduled: this.parseBoolean(
+                    this.pickFirst(normalized, ['follow_up_scheduled']),
+                ),
+                carePlanUpdated: this.parseBoolean(
+                    this.pickFirst(normalized, ['care_plan_updated']),
+                ),
+                clinicalProtocolApprovedBy: this.pickFirst(normalized, [
+                    'clinical_protocol_approved_by',
+                ]),
+                corporateStructure: this.pickFirst(normalized, [
+                    'corporate_structure',
+                ]),
+                physicianOwnershipPercentage: this.parseInteger(
+                    this.pickFirst(normalized, ['physician_ownership_percentage']),
+                ),
+                clinicalDecisionMaker: this.pickFirst(normalized, [
+                    'clinical_decision_maker',
+                ]),
+                clinicalDecisionSupport: this.parseBoolean(
+                    this.pickFirst(normalized, ['clinical_decision_support']),
+                ),
+                cdsAlertCount: this.parseInteger(
+                    this.pickFirst(normalized, ['cds_alert_count']),
+                ),
+                technologyAssessment: this.parseBoolean(
+                    this.pickFirst(normalized, ['technology_assessment']),
+                ),
+                patientIdentityVerified: this.parseBoolean(
+                    this.pickFirst(normalized, ['patient_identity_verified']),
+                ),
+                sessionRecordingConsent: this.parseBoolean(
+                    this.pickFirst(normalized, ['session_recording_consent']),
+                ),
+                telehealthId: this.pickFirst(normalized, ['telehealth_id']),
+                providerName: this.pickFirst(normalized, [
+                    'provider_name',
+                    'practitioner_name',
+                    'prescriber_name',
+                ]),
+                qualityMeasureMet: this.parseBoolean(
+                    this.pickFirst(normalized, ['quality_measure_met']),
+                ),
+                overrideReason: this.pickFirst(normalized, ['override_reason']),
+                controlledSubstancePrescribed: this.parseBoolean(
+                    this.pickFirst(normalized, ['controlled_substance_prescribed']),
+                ),
+                medicationPrescribed: this.pickFirst(normalized, [
+                    'medication_prescribed',
+                ]),
+                prescriberDea: this.pickFirst(normalized, ['prescriber_dea']),
+                autoRefillPolicyCorporateMandated: this.parseBoolean(
+                    this.pickFirst(normalized, [
+                        'auto_refill_policy_corporate_mandated',
+                        'org_auto_refill_policy_corporate_mandated',
+                    ]),
+                ),
+                providerLocationState,
+                patientLocationState,
+                stateLicensureVerified: this.parseBoolean(
+                    this.pickFirst(normalized, ['state_licensure_verified']),
+                ),
+            };
 
             const [upsertedEncounterProjection] = await db
                 .insert(encounterAnalytics)
                 .values({
                     organizationId,
                     encounterId,
-                    isTelehealth: this.parseBoolean(
-                        this.pickFirst(normalized, ['is_telehealth']),
-                    ),
-                    crossStateFlag:
-                        this.parseBoolean(
-                            this.pickFirst(normalized, ['cross_state_license']),
-                        ) ??
-                        (providerLocationState && patientLocationState
-                            ? providerLocationState !== patientLocationState
-                            : null),
-                    hipaaPlatformValidated: this.parseBoolean(
-                        this.pickFirst(normalized, ['hipaa_compliant_platform']),
-                    ),
-                    durationMinutes: this.parseInteger(
-                        this.pickFirst(normalized, [
-                            'session_duration',
-                            'session_duration_min',
-                        ]),
-                    ),
-                    documentationComplete: this.parseBoolean(
-                        this.pickFirst(normalized, ['clinical_notes_completed']),
-                    ),
-                    patientIdentityVerified: this.parseBoolean(
-                        this.pickFirst(normalized, ['patient_identity_verified']),
-                    ),
-                    sessionRecordingConsent: this.parseBoolean(
-                        this.pickFirst(normalized, ['session_recording_consent']),
-                    ),
-                    providerLocationState,
-                    patientLocationState,
-                    stateLicensureVerified: this.parseBoolean(
-                        this.pickFirst(normalized, ['state_licensure_verified']),
-                    ),
+                    ...encounterProjectionValues,
                     updatedAt: new Date(),
                 })
                 .onConflictDoUpdate({
                     target: [encounterAnalytics.encounterId],
                     set: {
-                        isTelehealth: this.parseBoolean(
-                            this.pickFirst(normalized, ['is_telehealth']),
-                        ),
-                        crossStateFlag:
-                            this.parseBoolean(
-                                this.pickFirst(normalized, ['cross_state_license']),
-                            ) ??
-                            (providerLocationState && patientLocationState
-                                ? providerLocationState !== patientLocationState
-                                : null),
-                        hipaaPlatformValidated: this.parseBoolean(
-                            this.pickFirst(normalized, ['hipaa_compliant_platform']),
-                        ),
-                        durationMinutes: this.parseInteger(
-                            this.pickFirst(normalized, [
-                                'session_duration',
-                                'session_duration_min',
-                            ]),
-                        ),
-                        documentationComplete: this.parseBoolean(
-                            this.pickFirst(normalized, ['clinical_notes_completed']),
-                        ),
-                        patientIdentityVerified: this.parseBoolean(
-                            this.pickFirst(normalized, ['patient_identity_verified']),
-                        ),
-                        sessionRecordingConsent: this.parseBoolean(
-                            this.pickFirst(normalized, ['session_recording_consent']),
-                        ),
-                        providerLocationState,
-                        patientLocationState,
-                        stateLicensureVerified: this.parseBoolean(
-                            this.pickFirst(normalized, ['state_licensure_verified']),
-                        ),
+                        ...encounterProjectionValues,
                         updatedAt: new Date(),
                     },
                 })
@@ -1254,7 +1319,16 @@ export class IngestionWorkerService {
                 .values({
                     organizationId,
                     medicationId,
-                    controlledSubstance: this.parseBoolean(
+                    controlledSubstance:
+                        this.parseBoolean(
+                            this.pickFirst(normalized, ['controlled_substance']),
+                        ) ??
+                        this.parseBoolean(
+                            this.pickFirst(normalized, [
+                                'controlled_substance_prescribed',
+                            ]),
+                        ),
+                    controlledSubstancePrescribed: this.parseBoolean(
                         this.pickFirst(normalized, [
                             'controlled_substance_prescribed',
                         ]),
@@ -1266,16 +1340,72 @@ export class IngestionWorkerService {
                     autoRefillEnabled: this.parseBoolean(
                         this.pickFirst(normalized, ['auto_refill_enabled']),
                     ),
+                    autoRefillPolicyCorporateMandated: this.parseBoolean(
+                        this.pickFirst(normalized, [
+                            'auto_refill_policy_corporate_mandated',
+                        ]),
+                    ),
+                    medicationPrescribed: this.pickFirst(normalized, [
+                        'medication_prescribed',
+                    ]),
                     medicationAdherence: this.pickFirst(normalized, [
                         'medication_adherence',
                     ]),
                     prescriberDea: this.pickFirst(normalized, ['prescriber_dea']),
+                    followUpScheduled: this.parseBoolean(
+                        this.pickFirst(normalized, ['follow_up_scheduled']),
+                    ),
+                    carePlanUpdated: this.parseBoolean(
+                        this.pickFirst(normalized, ['care_plan_updated']),
+                    ),
+                    vitalSignsRecorded: this.parseBoolean(
+                        this.pickFirst(normalized, ['vital_signs_recorded']),
+                    ),
+                    coordinationWithPcp: this.parseBoolean(
+                        this.pickFirst(normalized, ['coordination_with_pcp']),
+                    ),
+                    clinicalDecisionSupport: this.parseBoolean(
+                        this.pickFirst(normalized, ['clinical_decision_support']),
+                    ),
+                    cdsAlertCount: this.parseInteger(
+                        this.pickFirst(normalized, ['cds_alert_count']),
+                    ),
+                    overrideReason: this.pickFirst(normalized, ['override_reason']),
+                    substanceCode: this.pickFirst(normalized, [
+                        'substance_code',
+                        'substance_code_display',
+                        'substance_instance_code',
+                        'substance.code',
+                        'substance_epic_id',
+                    ]),
+                    substanceQuantity: this.parseInteger(
+                        this.pickFirst(normalized, [
+                            'substance_quantity',
+                            'substance_quantity_value',
+                            'substance_instance_quantity',
+                            'substance.instance.quantity',
+                        ]),
+                    ),
+                    substanceExpiry: this.pickFirst(normalized, [
+                        'substance_expiry',
+                        'substance_instance_expiry',
+                        'substance.instance.expiry',
+                    ]),
                     updatedAt: new Date(),
                 })
                 .onConflictDoUpdate({
                     target: [medicationAnalytics.medicationId],
                     set: {
-                        controlledSubstance: this.parseBoolean(
+                        controlledSubstance:
+                            this.parseBoolean(
+                                this.pickFirst(normalized, ['controlled_substance']),
+                            ) ??
+                            this.parseBoolean(
+                                this.pickFirst(normalized, [
+                                    'controlled_substance_prescribed',
+                                ]),
+                            ),
+                        controlledSubstancePrescribed: this.parseBoolean(
                             this.pickFirst(normalized, [
                                 'controlled_substance_prescribed',
                             ]),
@@ -1287,11 +1417,58 @@ export class IngestionWorkerService {
                         autoRefillEnabled: this.parseBoolean(
                             this.pickFirst(normalized, ['auto_refill_enabled']),
                         ),
+                        autoRefillPolicyCorporateMandated: this.parseBoolean(
+                            this.pickFirst(normalized, [
+                                'auto_refill_policy_corporate_mandated',
+                            ]),
+                        ),
+                        medicationPrescribed: this.pickFirst(normalized, [
+                            'medication_prescribed',
+                        ]),
                         medicationAdherence: this.pickFirst(normalized, [
                             'medication_adherence',
                         ]),
                         prescriberDea: this.pickFirst(normalized, [
                             'prescriber_dea',
+                        ]),
+                        followUpScheduled: this.parseBoolean(
+                            this.pickFirst(normalized, ['follow_up_scheduled']),
+                        ),
+                        carePlanUpdated: this.parseBoolean(
+                            this.pickFirst(normalized, ['care_plan_updated']),
+                        ),
+                        vitalSignsRecorded: this.parseBoolean(
+                            this.pickFirst(normalized, ['vital_signs_recorded']),
+                        ),
+                        coordinationWithPcp: this.parseBoolean(
+                            this.pickFirst(normalized, ['coordination_with_pcp']),
+                        ),
+                        clinicalDecisionSupport: this.parseBoolean(
+                            this.pickFirst(normalized, ['clinical_decision_support']),
+                        ),
+                        cdsAlertCount: this.parseInteger(
+                            this.pickFirst(normalized, ['cds_alert_count']),
+                        ),
+                        overrideReason: this.pickFirst(normalized, ['override_reason']),
+                        substanceCode: this.pickFirst(normalized, [
+                            'substance_code',
+                            'substance_code_display',
+                            'substance_instance_code',
+                            'substance.code',
+                            'substance_epic_id',
+                        ]),
+                        substanceQuantity: this.parseInteger(
+                            this.pickFirst(normalized, [
+                                'substance_quantity',
+                                'substance_quantity_value',
+                                'substance_instance_quantity',
+                                'substance.instance.quantity',
+                            ]),
+                        ),
+                        substanceExpiry: this.pickFirst(normalized, [
+                            'substance_expiry',
+                            'substance_instance_expiry',
+                            'substance.instance.expiry',
                         ]),
                         updatedAt: new Date(),
                     },
@@ -1685,6 +1862,47 @@ export class IngestionWorkerService {
             }
         }
         return null;
+    }
+
+    private buildPractitionerSourceId(
+        row: Record<string, string | null>,
+    ): string | null {
+        const explicitId = this.pickSourceId(row, [
+            'practitioner_epic_id',
+            'practitioner_id',
+        ]);
+        if (explicitId) return explicitId;
+
+        const dea = this.pickFirst(row, ['prescriber_dea']);
+        if (dea) {
+            return `dea:${dea}`;
+        }
+
+        const displayName = this.pickFirst(row, [
+            'practitioner_name',
+            'provider_name',
+            'prescriber_name',
+        ]);
+        if (!displayName) return null;
+
+        const state = this.pickFirst(row, ['provider_location_state']) ?? '';
+        const canonical = `${displayName.trim().toLowerCase()}|${state.trim().toLowerCase()}`;
+        const digest = createHash('sha256').update(canonical).digest('hex').slice(0, 20);
+        return `derived-practitioner:${digest}`;
+    }
+
+    private buildPractitionerIdentifier(
+        row: Record<string, string | null>,
+    ): unknown {
+        const dea = this.pickFirst(row, ['prescriber_dea']);
+        if (!dea) return null;
+
+        return [
+            {
+                system: 'urn:us:dea',
+                value: dea,
+            },
+        ];
     }
 
     private pickFirst(

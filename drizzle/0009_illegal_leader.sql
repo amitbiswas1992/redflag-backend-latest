@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "unq_compliance_flags_org_entity_rule" ON "compliance_flags" USING btree ("organization_id","entity_id","rule_id");
