@@ -1,0 +1,1 @@
+ALTER TABLE "risk_management_plans" ADD COLUMN "title" text NOT NULL;

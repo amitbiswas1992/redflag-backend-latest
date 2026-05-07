@@ -1,0 +1,61 @@
+import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+import {
+    IsArray,
+    IsDateString,
+    IsEnum,
+    IsNotEmpty,
+    IsOptional,
+    IsString,
+    IsUUID,
+} from 'class-validator';
+
+export enum RootCauseType {
+    WORKFLOW_GAP = 'workflow-gap',
+    TRAINING_ISSUE = 'training-issue',
+    SYSTEM_LIMITATION = 'system-limitation',
+    RESOURCE_CONSTRAINT = 'resource-constraint',
+}
+
+export class CreateRiskManagementPlanDto {
+    @ApiProperty({ example: 'Telehealth Prescribing Compliance Plan' })
+    @IsString()
+    @IsNotEmpty()
+    title: string;
+
+    @ApiProperty({ example: '2026-06-01T00:00:00.000Z' })
+    @IsDateString()
+    dueDate: string;
+
+    @ApiProperty({ enum: RootCauseType })
+    @IsEnum(RootCauseType)
+    rootCauseType: RootCauseType;
+
+    @ApiProperty({ example: 'Patients are being prescribed controlled substances without in-person evaluation.' })
+    @IsString()
+    @IsNotEmpty()
+    impactAnalysis: string;
+
+    @ApiProperty({ example: 'Implementing mandatory in-person visit requirement before telehealth prescriptions.' })
+    @IsString()
+    @IsNotEmpty()
+    justification: string;
+
+    @ApiPropertyOptional({ type: [String], description: 'UUIDs of compliance flags to link' })
+    @IsOptional()
+    @IsArray()
+    @IsUUID('4', { each: true })
+    complianceFlagIds?: string[];
+
+    @ApiPropertyOptional({ description: 'UUID of the risk rule this plan addresses (nullable)' })
+    @IsOptional()
+    @IsUUID()
+    riskRuleId?: string;
+
+    @ApiPropertyOptional({ type: [String], description: 'UUIDs of users assigned to this plan' })
+    @IsOptional()
+    @IsArray()
+    @IsUUID('4', { each: true })
+    assigneeIds?: string[];
+}
+
+export class UpdateRiskManagementPlanDto extends PartialType(CreateRiskManagementPlanDto) {}

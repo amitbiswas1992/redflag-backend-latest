@@ -78,6 +78,20 @@
       "when": 1777125790647,
       "tag": "0010_first_reaper",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1778176526605,
+      "tag": "0011_married_wrecking_crew",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1778179383282,
+      "tag": "0012_glamorous_jack_murdock",
+      "breakpoints": true
     }
   ]
 }

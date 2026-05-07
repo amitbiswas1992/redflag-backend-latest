@@ -6,6 +6,7 @@ import * as complianceSchema from './schema/compliance';
 import * as identitySchema from './schema/identity';
 import * as ingestionSchema from './schema/ingestion';
 import * as rulesSchema from './schema/rules';
+import * as riskManagementSchema from './schema/risk_management';
 
 const rawDatabaseUrl = process.env.DATABASE_URL?.trim();
 const databaseUrl = rawDatabaseUrl?.replace(/^"|"$/g, '');
@@ -27,6 +28,7 @@ export const dbSchema = {
     ...rulesSchema,
     ...analyticsSchema,
     ...complianceSchema,
+    ...riskManagementSchema,
 };
 
 export const db = drizzle(pool, { schema: dbSchema });
@@ -37,4 +39,5 @@ export * from './schema/compliance';
 export * from './schema/identity';
 export * from './schema/ingestion';
 export * from './schema/rules';
+export * from './schema/risk_management';
 

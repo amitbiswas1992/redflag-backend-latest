@@ -9,6 +9,7 @@ import { ClinicalModule } from './clinical/clinical.module';
 import { ConfigModule } from './config/config.module';
 import { FhirModule } from './fhir/fhir.module';
 import { IngestionModule } from './ingestion/ingestion.module';
+import { RiskManagementModule } from './risk-management/risk-management.module';
 import { RuleBuilderModule } from './rule-builder/rule-builder.module';
 import { ServerModule } from './server/server.module';
 import { TokenModule } from './token/token.module';
@@ -26,6 +27,7 @@ import { TokenModule } from './token/token.module';
     ClinicalModule,
     ServerModule,
     RuleBuilderModule,
+    RiskManagementModule,
     IngestionModule,
   ],
   controllers: [AppController],
