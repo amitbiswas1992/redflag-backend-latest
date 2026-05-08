@@ -1,9 +1,10 @@
-FROM node:22.14-slim
+FROM node:20-slim
 
 WORKDIR /app
 
-# Enable PNPM
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# Enable PNPM pinned to a version compatible with Node 20
+# pnpm v8 is widely compatible with Node 20; pin to a stable v8 release
+RUN corepack enable && corepack prepare pnpm@8.6.0 --activate
 
 # Copy package lockfiles first for Docker layer caching
 COPY package.json pnpm-lock.yaml ./
