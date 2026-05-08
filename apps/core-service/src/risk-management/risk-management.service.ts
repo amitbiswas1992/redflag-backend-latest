@@ -7,10 +7,9 @@ import {
     users,
 } from '@app/db';
 import {
-    BadRequestException,
     Injectable,
     Logger,
-    NotFoundException,
+    NotFoundException
 } from '@nestjs/common';
 import { and, count, desc, eq, inArray } from 'drizzle-orm';
 import {
@@ -33,7 +32,7 @@ export class RiskManagementService {
                     riskRuleId: dto.riskRuleId ?? null,
                     title: dto.title,
                     dueDate: new Date(dto.dueDate),
-                    rootCauseType: dto.rootCauseType as RootCauseType,
+                    rootCauseType: dto.rootCauseType,
                     impactAnalysis: dto.impactAnalysis,
                     justification: dto.justification,
                     updatedAt: new Date(),
@@ -72,7 +71,7 @@ export class RiskManagementService {
         const limit = Math.min(100, Math.max(1, filters.limit ?? 20));
         const offset = (page - 1) * limit;
 
-        const predicates = [];
+        const predicates: any[] = [];
         if (filters.riskRuleId)
             predicates.push(eq(riskManagementPlans.riskRuleId, filters.riskRuleId));
         if (filters.rootCauseType)
@@ -124,7 +123,7 @@ export class RiskManagementService {
             if (dto.title !== undefined) updateFields.title = dto.title;
             if (dto.dueDate !== undefined) updateFields.dueDate = new Date(dto.dueDate);
             if (dto.rootCauseType !== undefined)
-                updateFields.rootCauseType = dto.rootCauseType as RootCauseType;
+                updateFields.rootCauseType = dto.rootCauseType;
             if (dto.impactAnalysis !== undefined) updateFields.impactAnalysis = dto.impactAnalysis;
             if (dto.justification !== undefined) updateFields.justification = dto.justification;
             if ('riskRuleId' in dto) updateFields.riskRuleId = dto.riskRuleId ?? null;
@@ -180,7 +179,7 @@ export class RiskManagementService {
 
     private async attachRelations(
         plan: typeof riskManagementPlans.$inferSelect,
-        tx = db as typeof db,
+        tx: any = db,
     ) {
         const [flagLinks, assigneeLinks] = await Promise.all([
             tx
@@ -199,27 +198,27 @@ export class RiskManagementService {
         const [flags, assignees] = await Promise.all([
             flagIds.length
                 ? tx
-                      .select({
-                          id: complianceFlags.id,
-                          flagType: complianceFlags.flagType,
-                          severity: complianceFlags.severity,
-                          entityType: complianceFlags.entityType,
-                          entityId: complianceFlags.entityId,
-                          createdAt: complianceFlags.createdAt,
-                      })
-                      .from(complianceFlags)
-                      .where(inArray(complianceFlags.id, flagIds))
+                    .select({
+                        id: complianceFlags.id,
+                        flagType: complianceFlags.flagType,
+                        severity: complianceFlags.severity,
+                        entityType: complianceFlags.entityType,
+                        entityId: complianceFlags.entityId,
+                        createdAt: complianceFlags.createdAt,
+                    })
+                    .from(complianceFlags)
+                    .where(inArray(complianceFlags.id, flagIds))
                 : Promise.resolve([]),
             userIds.length
                 ? tx
-                      .select({
-                          id: users.id,
-                          email: users.email,
-                          firstName: users.firstName,
-                          lastName: users.lastName,
-                      })
-                      .from(users)
-                      .where(inArray(users.id, userIds))
+                    .select({
+                        id: users.id,
+                        email: users.email,
+                        firstName: users.firstName,
+                        lastName: users.lastName,
+                    })
+                    .from(users)
+                    .where(inArray(users.id, userIds))
                 : Promise.resolve([]),
         ]);
 
