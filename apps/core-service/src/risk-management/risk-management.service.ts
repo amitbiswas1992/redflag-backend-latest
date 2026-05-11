@@ -14,6 +14,7 @@ import {
 import { and, count, desc, eq, inArray } from 'drizzle-orm';
 import {
     CreateRiskManagementPlanDto,
+    RiskManagementPlanType,
     RootCauseType,
     UpdateRiskManagementPlanDto,
 } from './dto/risk-management.dto';
@@ -32,6 +33,7 @@ export class RiskManagementService {
                     riskRuleId: dto.riskRuleId ?? null,
                     title: dto.title,
                     dueDate: new Date(dto.dueDate),
+                    type: dto.type ?? RiskManagementPlanType.MITIGATE,
                     rootCauseType: dto.rootCauseType,
                     impactAnalysis: dto.impactAnalysis,
                     justification: dto.justification,
@@ -66,6 +68,7 @@ export class RiskManagementService {
         limit?: number;
         riskRuleId?: string;
         rootCauseType?: string;
+        type?: string;
     }) {
         const page = Math.max(1, filters.page ?? 1);
         const limit = Math.min(100, Math.max(1, filters.limit ?? 20));
@@ -77,6 +80,10 @@ export class RiskManagementService {
         if (filters.rootCauseType)
             predicates.push(
                 eq(riskManagementPlans.rootCauseType, filters.rootCauseType as RootCauseType),
+            );
+        if (filters.type)
+            predicates.push(
+                eq(riskManagementPlans.type, filters.type as RiskManagementPlanType),
             );
 
         const where = predicates.length ? and(...predicates) : undefined;
@@ -122,6 +129,7 @@ export class RiskManagementService {
             };
             if (dto.title !== undefined) updateFields.title = dto.title;
             if (dto.dueDate !== undefined) updateFields.dueDate = new Date(dto.dueDate);
+            if (dto.type !== undefined) updateFields.type = dto.type;
             if (dto.rootCauseType !== undefined)
                 updateFields.rootCauseType = dto.rootCauseType;
             if (dto.impactAnalysis !== undefined) updateFields.impactAnalysis = dto.impactAnalysis;

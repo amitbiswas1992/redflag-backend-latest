@@ -10,6 +10,12 @@ export const rootCauseTypeEnum = pgEnum('root_cause_type', [
     'resource-constraint',
 ]);
 
+export const riskManagementPlanTypeEnum = pgEnum('risk_management_plan_type', [
+    'mitigate',
+    'accept',
+    'risk-transfer',
+]);
+
 // ── Risk Management Plans ────────────────────────────────────────────────────
 export const riskManagementPlans = pgTable(
     'risk_management_plans',
@@ -20,6 +26,7 @@ export const riskManagementPlans = pgTable(
         }),
         title: text('title').notNull(),
         dueDate: timestamp('due_date').notNull(),
+        type: riskManagementPlanTypeEnum('type').notNull().default('mitigate'),
         rootCauseType: rootCauseTypeEnum('root_cause_type').notNull(),
         impactAnalysis: text('impact_analysis').notNull(),
         justification: text('justification').notNull(),

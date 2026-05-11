@@ -22,6 +22,7 @@ import {
 } from '@nestjs/swagger';
 import {
     CreateRiskManagementPlanDto,
+    RiskManagementPlanType,
     RootCauseType,
     UpdateRiskManagementPlanDto,
 } from './dto/risk-management.dto';
@@ -39,6 +40,7 @@ export class RiskManagementController {
     @ApiQuery({ name: 'limit', required: false, type: Number })
     @ApiQuery({ name: 'riskRuleId', required: false, type: String })
     @ApiQuery({ name: 'rootCauseType', required: false, enum: RootCauseType })
+    @ApiQuery({ name: 'type', required: false, enum: RiskManagementPlanType })
     @ApiOkResponse({ description: 'Paginated list of risk management plans' })
     @Get('plans')
     listPlans(
@@ -46,12 +48,14 @@ export class RiskManagementController {
         @Query('limit') limit?: string,
         @Query('riskRuleId') riskRuleId?: string,
         @Query('rootCauseType') rootCauseType?: RootCauseType,
+        @Query('type') type?: RiskManagementPlanType,
     ) {
         return this.service.listPlans({
             page: page ? Number.parseInt(page, 10) : undefined,
             limit: limit ? Number.parseInt(limit, 10) : undefined,
             riskRuleId,
             rootCauseType,
+            type,
         });
     }
 

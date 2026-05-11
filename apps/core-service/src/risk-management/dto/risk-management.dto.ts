@@ -16,6 +16,12 @@ export enum RootCauseType {
     RESOURCE_CONSTRAINT = 'resource-constraint',
 }
 
+export enum RiskManagementPlanType {
+    MITIGATE = 'mitigate',
+    ACCEPT = 'accept',
+    RISK_TRANSFER = 'risk-transfer',
+}
+
 export class CreateRiskManagementPlanDto {
     @ApiProperty({ example: 'Telehealth Prescribing Compliance Plan' })
     @IsString()
@@ -25,6 +31,11 @@ export class CreateRiskManagementPlanDto {
     @ApiProperty({ example: '2026-06-01T00:00:00.000Z' })
     @IsDateString()
     dueDate: string;
+
+    @ApiProperty({ enum: RiskManagementPlanType, default: RiskManagementPlanType.MITIGATE })
+    @IsOptional()
+    @IsEnum(RiskManagementPlanType)
+    type?: RiskManagementPlanType;
 
     @ApiProperty({ enum: RootCauseType })
     @IsEnum(RootCauseType)
