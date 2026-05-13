@@ -11,6 +11,8 @@ import { InviteController } from './invite/invite.controller';
 import { InviteService } from './invite/invite.service';
 import { MembershipController } from './membership/membership.controller';
 import { MembershipService } from './membership/membership.service';
+import { OrganizationController } from './organization/organization.controller';
+import { OrganizationService } from './organization/organization.service';
 
 @Module({
     imports: [
@@ -21,9 +23,9 @@ import { MembershipService } from './membership/membership.service';
             { name: 'invite', ttl: 3600000, limit: 20 },
         ]}),
     ],
-    controllers: [IdentityController, AuthController, InviteController, MembershipController],
+    controllers: [IdentityController, AuthController, InviteController, MembershipController, OrganizationController],
     providers: [
-        IdentityService, AuthService, InviteService, MembershipService, AuditService, LoggerService,
+        IdentityService, AuthService, InviteService, MembershipService, OrganizationService, AuditService, LoggerService,
         { provide: APP_GUARD, useClass: ThrottlerGuard },
     ],
 })
