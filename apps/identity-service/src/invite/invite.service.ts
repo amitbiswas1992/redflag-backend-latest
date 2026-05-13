@@ -20,15 +20,19 @@ export class InviteService {
             .where(and(eq(organizationInvites.organizationId, invitedBy.organizationId), eq(organizationInvites.email, dto.email), isNull(organizationInvites.acceptedAt), isNull(organizationInvites.revokedAt)))
             .then(r => r[0]);
         if (existing) throw new BadRequestException('INVITE_ALREADY_PENDING');
-        const existingMember = await db.select().from(organizationMemberships)
-            .where(and(eq(organizationMemberships.organizationId, invitedBy.organizationId), eq(organizationMemberships.userId, invitedBy.userId)))
-            .then(r => r[0]);
-        if (existingMember) throw new BadRequestException('USER_ALREADY_MEMBER');
+        // Check if a user with the target email is already a member of this organization
+        const targetUser = await db.select().from(users).where(eq(users.email, dto.email.toLowerCase())).then(r => r[0]);
+        if (targetUser) {
+            const existingMembership = await db.select().from(organizationMemberships)
+                .where(and(eq(organizationMemberships.organizationId, invitedBy.organizationId), eq(organizationMemberships.userId, targetUser.id)))
+                .then(r => r[0]);
+            if (existingMembership) throw new BadRequestException('USER_ALREADY_MEMBER');
+        }
         const jti = randomUUID();
         const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
         const inviteToken = await this.jwtService.signAsync(
             { type: 'invite', orgId: invitedBy.organizationId, email: dto.email, platformRole: dto.platformRole, functionalRoleId: dto.functionalRoleId, jti },
-            { expiresIn: '7d', jwtid: jti },
+            { expiresIn: '7d' },
         );
         await db.insert(organizationInvites).values({
             organizationId: invitedBy.organizationId, email: dto.email, platformRole: dto.platformRole,
