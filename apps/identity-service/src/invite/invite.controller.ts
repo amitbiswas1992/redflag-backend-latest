@@ -36,6 +36,21 @@ export class InviteController {
         return { success: true, invites };
     }
 
+    @Post(':id/resend')
+    @Throttle({ invite: { limit: 20, ttl: 3600000 } })
+    @Roles('OWNER', 'ADMIN')
+    async resendInvite(@Req() req: any, @Param('id') inviteId: string) {
+        const result = await this.inviteService.resendInvite(inviteId, req.user.activeTenant, req.user.id);
+        return result;
+    }
+
+    @Post(':id/token')
+    @Roles('OWNER', 'ADMIN')
+    async getInviteToken(@Req() req: any, @Param('id') inviteId: string) {
+        const result = await this.inviteService.getInviteToken(inviteId, req.user.activeTenant);
+        return { success: true, ...result };
+    }
+
     @Delete(':id')
     @Roles('OWNER', 'ADMIN')
     async revokeInvite(@Req() req: any, @Param('id') inviteId: string) {

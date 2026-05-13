@@ -1,9 +1,11 @@
-import { db, organizationInvites, organizationMemberships, users } from '@app/db';
 import { AuditService } from '@app/common';
+import { db, organizationInvites, organizationMemberships, organizations, users } from '@app/db';
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { and, eq, isNull } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
+import { and, eq, isNull } from 'drizzle-orm';
+import FormData from 'form-data';
+import Mailgun from 'mailgun.js';
 
 export interface CreateInviteDto {
     email: string;
@@ -13,14 +15,31 @@ export interface CreateInviteDto {
 
 @Injectable()
 export class InviteService {
-    constructor(private readonly jwtService: JwtService, private readonly auditService: AuditService) {}
+    private readonly mailgunClient: ReturnType<Mailgun['client']> | null = null;
+    private readonly mailgunDomain: string;
+    private readonly mailgunFrom: string;
+    private readonly frontendUrl: string;
+
+    constructor(
+        private readonly jwtService: JwtService,
+        private readonly auditService: AuditService,
+    ) {
+        const apiKey = process.env.MAILGUN_API_KEY;
+        this.mailgunDomain = process.env.MAILGUN_DOMAIN ?? '';
+        this.mailgunFrom = process.env.MAILGUN_FROM ?? 'chat@mg.inovetix.com';
+        this.frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3002';
+
+        if (apiKey && this.mailgunDomain) {
+            const mailgun = new Mailgun(FormData);
+            this.mailgunClient = mailgun.client({ username: 'api', key: apiKey });
+        }
+    }
 
     async createInvite(dto: CreateInviteDto, invitedBy: { userId: string; organizationId: string }) {
         const existing = await db.select().from(organizationInvites)
             .where(and(eq(organizationInvites.organizationId, invitedBy.organizationId), eq(organizationInvites.email, dto.email), isNull(organizationInvites.acceptedAt), isNull(organizationInvites.revokedAt)))
             .then(r => r[0]);
         if (existing) throw new BadRequestException('INVITE_ALREADY_PENDING');
-        // Check if a user with the target email is already a member of this organization
         const targetUser = await db.select().from(users).where(eq(users.email, dto.email.toLowerCase())).then(r => r[0]);
         if (targetUser) {
             const existingMembership = await db.select().from(organizationMemberships)
@@ -28,6 +47,7 @@ export class InviteService {
                 .then(r => r[0]);
             if (existingMembership) throw new BadRequestException('USER_ALREADY_MEMBER');
         }
+        const org = await db.select().from(organizations).where(eq(organizations.id, invitedBy.organizationId)).then(r => r[0]);
         const jti = randomUUID();
         const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
         const inviteToken = await this.jwtService.signAsync(
@@ -39,7 +59,30 @@ export class InviteService {
             functionalRoleId: dto.functionalRoleId, invitedByUserId: invitedBy.userId, tokenJti: jti, expiresAt,
         });
         await this.auditService.log({ eventType: 'INVITE_SENT', userId: invitedBy.userId, organizationId: invitedBy.organizationId, metadata: { invitedEmail: dto.email, platformRole: dto.platformRole } });
+        await this.sendInviteEmail(dto.email, org?.name ?? 'Organization', inviteToken, dto.platformRole, expiresAt);
         return { inviteToken, expiresAt };
+    }
+
+    async resendInvite(inviteId: string, organizationId: string, invitedByUserId: string) {
+        const invite = await db.select().from(organizationInvites)
+            .where(and(eq(organizationInvites.id, inviteId), eq(organizationInvites.organizationId, organizationId)))
+            .then(r => r[0]);
+        if (!invite) throw new NotFoundException('INVITE_NOT_FOUND');
+        if (invite.revokedAt) throw new BadRequestException('INVITE_ALREADY_REVOKED');
+        if (invite.acceptedAt) throw new BadRequestException('INVITE_ALREADY_ACCEPTED');
+        const org = await db.select().from(organizations).where(eq(organizations.id, organizationId)).then(r => r[0]);
+        const jti = randomUUID();
+        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+        const inviteToken = await this.jwtService.signAsync(
+            { type: 'invite', orgId: organizationId, email: invite.email, platformRole: invite.platformRole, functionalRoleId: invite.functionalRoleId, jti },
+            { expiresIn: '7d' },
+        );
+        await db.update(organizationInvites)
+            .set({ tokenJti: jti, expiresAt })
+            .where(eq(organizationInvites.id, inviteId));
+        await this.auditService.log({ eventType: 'INVITE_RESENT', userId: invitedByUserId, organizationId, metadata: { invitedEmail: invite.email, platformRole: invite.platformRole } });
+        await this.sendInviteEmail(invite.email, org?.name ?? 'Organization', inviteToken, invite.platformRole, expiresAt);
+        return { success: true };
     }
 
     async acceptInvite(token: string, keycloakUser: { sub: string; email: string }) {
@@ -72,6 +115,61 @@ export class InviteService {
         await db.update(organizationInvites).set({ revokedAt: new Date() }).where(eq(organizationInvites.id, inviteId));
         await this.auditService.log({ eventType: 'INVITE_REVOKED', userId: revokedByUserId, organizationId, metadata: { revokedInviteId: inviteId } });
         return { success: true };
+    }
+
+    async getInviteToken(inviteId: string, organizationId: string) {
+        const invite = await db.select().from(organizationInvites)
+            .where(and(eq(organizationInvites.id, inviteId), eq(organizationInvites.organizationId, organizationId)))
+            .then(r => r[0]);
+        if (!invite) throw new NotFoundException('INVITE_NOT_FOUND');
+        if (invite.revokedAt) throw new BadRequestException('INVITE_ALREADY_REVOKED');
+        if (invite.acceptedAt) throw new BadRequestException('INVITE_ALREADY_ACCEPTED');
+        const jti = randomUUID();
+        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+        const inviteToken = await this.jwtService.signAsync(
+            { type: 'invite', orgId: organizationId, email: invite.email, platformRole: invite.platformRole, functionalRoleId: invite.functionalRoleId, jti },
+            { expiresIn: '7d' },
+        );
+        await db.update(organizationInvites)
+            .set({ tokenJti: jti, expiresAt })
+            .where(eq(organizationInvites.id, inviteId));
+        return { inviteToken, expiresAt };
+    }
+
+    private async sendInviteEmail(to: string, orgName: string, token: string, role: string, expiresAt: Date) {
+        if (!this.mailgunClient || !this.mailgunDomain) {
+            console.warn('[InviteService] Mailgun not configured. MAILGUN_API_KEY or MAILGUN_DOMAIN missing. Invite email not sent.');
+            console.warn('[InviteService] To debug: check your .env has MAILGUN_API_KEY and MAILGUN_DOMAIN set.');
+            return;
+        }
+        const acceptUrl = `${this.frontendUrl}/auth/accept-invite?token=${encodeURIComponent(token)}`;
+        const expiresFormatted = expiresAt.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+        console.log(`[InviteService] Sending email via Mailgun to ${to} from domain ${this.mailgunDomain}`);
+        try {
+            const response = await this.mailgunClient.messages.create(this.mailgunDomain, {
+                from: `Redflag <${this.mailgunFrom}>`,
+                to: [to],
+                subject: `You've been invited to join ${orgName} on Redflag`,
+                html: `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
+                        <h2 style="color: #1a1a1a;">You're Invited!</h2>
+                        <p>You've been invited to join <strong>${orgName}</strong> on Redflag as a <strong>${role}</strong>.</p>
+                        <p>Click the button below to accept your invitation. This link will expire on <strong>${expiresFormatted}</strong>.</p>
+                        <div style="margin: 32px 0;">
+                            <a href="${acceptUrl}" style="background: #4a9b8e; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: 600;">Accept Invitation</a>
+                        </div>
+                        <p style="color: #666; font-size: 14px;">If you didn't expect this invitation, you can safely ignore this email.</p>
+                        <p style="color: #666; font-size: 12px; margin-top: 24px;">Or copy and paste this link: ${acceptUrl}</p>
+                    </div>
+                `,
+                text: `You've been invited to join ${orgName} on Redflag as a ${role}. Accept your invitation here: ${acceptUrl}. This link expires on ${expiresFormatted}.`,
+            });
+            console.log(`[InviteService] Email sent successfully. Mailgun response:`, JSON.stringify(response));
+        } catch (err: any) {
+            console.error('[InviteService] FAILED to send invite email.');
+            console.error('[InviteService] Error message:', err?.message ?? 'Unknown error');
+            console.error('[InviteService] Error details:', JSON.stringify(err?.response?.body ?? err?.details ?? err, null, 2));
+        }
     }
 
     private async findOrCreateUser(keycloakUser: { sub: string; email: string }) {
