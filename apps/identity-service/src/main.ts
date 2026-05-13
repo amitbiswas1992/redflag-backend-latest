@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { GlobalExceptionFilter, LoggerService, LoggingInterceptor } from '@app/common';
 import { NestFactory } from '@nestjs/core';
+import { json } from 'express';
 import { IdentityModule } from './identity.module';
 
 async function bootstrap() {
@@ -12,6 +13,8 @@ async function bootstrap() {
     process.on('unhandledRejection', (reason) => { logger.error('Unhandled Promise Rejection', { reason: String(reason) }); });
     process.on('uncaughtException', (error: Error) => { logger.error('Uncaught Exception', { error: error.message, stack: error.stack }); process.exit(1); });
     app.enableCors({ origin: ['http://localhost:3000', 'http://localhost:3002'], credentials: true });
+    // Allow large JSON payloads for base64 image uploads (5MB)
+    app.use(json({ limit: '5mb' }));
     await app.listen(process.env.IDENTITY_PORT ?? 3001);
     logger.log(`Identity Service listening on port ${process.env.IDENTITY_PORT ?? 3001}`);
 }
