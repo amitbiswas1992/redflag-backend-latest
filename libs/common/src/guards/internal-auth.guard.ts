@@ -24,15 +24,21 @@ export class InternalAuthGuard implements CanActivate {
 
     async canActivate(context: ExecutionContext): Promise<boolean> {
         const isPublic = this.reflector.getAllAndOverride<boolean>(AUTH_PUBLIC_ROUTE_KEY, [context.getHandler(), context.getClass()]);
-        if (isPublic) return true;
         const request = context.switchToHttp().getRequest<Request>();
         const token = this.extractToken(request);
+        if (token) {
+            try {
+                const payload = await this.jwtService.verifyAsync<InternalJwtPayload>(token, { secret: process.env.JWT_SECRET ?? 'change-me-in-production' });
+                request['user'] = { id: payload.sub, email: payload.email, keycloakId: payload.keycloakId, tenantIds: payload.tenantIds, activeTenant: payload.activeTenant, role: payload.role, functionalRole: payload.functionalRole, permissions: payload.permissions };
+            } catch {
+                // Invalid token on a public route: ignore so unauthenticated users can still access
+                if (!isPublic) throw new UnauthorizedException('AUTH_INVALID_TOKEN');
+            }
+        }
+        if (isPublic) return true;
         if (!token) throw new UnauthorizedException('AUTH_MISSING_TOKEN');
-        try {
-            const payload = await this.jwtService.verifyAsync<InternalJwtPayload>(token, { secret: process.env.JWT_SECRET ?? 'change-me-in-production' });
-            request['user'] = { id: payload.sub, email: payload.email, keycloakId: payload.keycloakId, tenantIds: payload.tenantIds, activeTenant: payload.activeTenant, role: payload.role, functionalRole: payload.functionalRole, permissions: payload.permissions };
-            return true;
-        } catch { throw new UnauthorizedException('AUTH_INVALID_TOKEN'); }
+        if (!request['user']) throw new UnauthorizedException('AUTH_INVALID_TOKEN');
+        return true;
     }
 
     private extractToken(request: Request): string | undefined {

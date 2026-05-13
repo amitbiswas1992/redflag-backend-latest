@@ -24,7 +24,14 @@ export class InviteController {
 
     @Public()
     @Post('accept')
-    async acceptInvite(@Body() body: { token: string }, @Query('keycloak_sub') keycloakSub?: string, @Query('email') email?: string) {
+    async acceptInvite(@Body() body: { token: string }, @Req() req: any, @Query('keycloak_sub') keycloakSub?: string, @Query('email') email?: string) {
+        // Prefer internal JWT user if available (authenticated frontend request)
+        const user = req?.user;
+        if (user?.keycloakId && user?.email) {
+            const result = await this.inviteService.acceptInvite(body.token, { sub: user.keycloakId, email: user.email });
+            return result;
+        }
+        // Fall back to query params (direct API call)
         const result = await this.inviteService.acceptInvite(body.token, { sub: keycloakSub ?? 'pending', email: email ?? 'pending' });
         return result;
     }
