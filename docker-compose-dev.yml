@@ -1,0 +1,145 @@
+x-node-service: &node-service
+  image: node:current
+  working_dir: /app
+  env_file:
+    - .env
+  restart: unless-stopped
+  networks:
+    - redflag-network
+  volumes:
+    - ./:/app
+    - node-modules:/app/node_modules
+    - ${DOCKER_PNPM_STORE}:/pnpm/store
+    - ${DOCKER_COREPACK}:/corepack
+    - npm-global:/npm-global
+    - container-home:/root
+  depends_on:
+    - redis
+    - postgres
+    - keycloak
+
+x-node-env: &node-env
+  COREPACK_HOME: /corepack
+  NPM_CONFIG_PREFIX: /npm-global
+  npm_config_store_dir: /pnpm/store
+  PATH: /npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+services:
+  keycloak-db:
+    image: postgres:16-alpine
+    container_name: redflag-keycloak-db
+    environment:
+      - POSTGRES_DB=keycloak
+      - POSTGRES_USER=keycloak
+      - POSTGRES_PASSWORD=keycloak
+    volumes:
+      - keycloak-db-data:/var/lib/postgresql/data
+    networks:
+      - redflag-network
+    restart: unless-stopped
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.1
+    container_name: redflag-keycloak
+    command:
+      - start-dev
+      - --db=postgres
+      - --spi-theme-cache-themes=false
+      - --spi-theme-cache-templates=false
+      - --spi-theme-static-max-age=-1
+    environment:
+      - KEYCLOAK_ADMIN=admin
+      - KEYCLOAK_ADMIN_PASSWORD=admin
+      - KC_DB=postgres
+      - KC_DB_URL=jdbc:postgresql://keycloak-db:5432/keycloak
+      - KC_DB_USERNAME=keycloak
+      - KC_DB_PASSWORD=keycloak
+      - KC_HEALTH_ENABLED=true
+      - KC_METRICS_ENABLED=true
+    depends_on:
+      - keycloak-db
+    volumes:
+      - ./keycloak/themes:/opt/keycloak/themes
+    ports:
+      - "8080:8080"
+    networks:
+      - redflag-network
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: redflag-redis
+    networks:
+      - redflag-network
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: redflag-postgres
+    environment:
+      POSTGRES_USER: '${DB_USERNAME}'
+      POSTGRES_PASSWORD: '${DB_PASSWORD}'
+      POSTGRES_DB: '${DB_NAME}'
+    volumes:
+      - ./postgres-data:/var/lib/postgresql/data
+    networks:
+      - redflag-network
+
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - "${ADMINER_PORT}:8080"
+    environment:
+      - ADMINER_DESIGN=filamentish
+      - ADMINER_DEFAULT_SERVER=postgres
+    networks:
+      - redflag-network
+
+  redflag-core:
+    <<: *node-service
+    container_name: redflag-core
+    command: pnpm run start:dev core-service
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      <<: *node-env
+      # Epic Configuration
+      EPIC_CLIENT_ID: ${EPIC_CLIENT_ID}
+      EPIC_USE_SANDBOX: ${EPIC_USE_SANDBOX:-true}
+      EPIC_FHIR_BASE_URL: ${EPIC_FHIR_BASE_URL}
+      EPIC_TOKEN_URL: ${EPIC_TOKEN_URL}
+      EPIC_SCOPE: ${EPIC_SCOPE:-system/Patient.read system/Observation.read system/Condition.read system/AllergyIntolerance.read system/MedicationStatement.read system/Procedure.read system/Encounter.read system/DiagnosticReport.read system/Practitioner.read}
+      # JWT Backend Service Configuration
+      EPIC_JWT_KEY_ID: ${EPIC_JWT_KEY_ID}
+      EPIC_JWT_ISSUER: ${EPIC_JWT_ISSUER}
+      EPIC_JWT_SUBJECT: ${EPIC_JWT_SUBJECT}
+      EPIC_JWT_AUDIENCE: ${EPIC_JWT_AUDIENCE}
+      # JWT Private Key (can be file path or inline)
+      EPIC_JWT_PRIVATE_KEY_PATH: ${EPIC_JWT_PRIVATE_KEY_PATH}
+      EPIC_JWT_PRIVATE_KEY: ${EPIC_JWT_PRIVATE_KEY}
+      # Application Configuration
+      PORT: ${PORT:-3000}
+      NODE_ENV: development
+      REDIS_URL: redis://redis:6379
+
+  redflag-identity:
+    <<: *node-service
+    container_name: redflag-identity
+    command: pnpm run start:dev identity-service
+    ports:
+      - "${IDENTITY_PORT:-3001}:3000"
+    environment:
+      <<: *node-env
+      PORT: 3000
+      NODE_ENV: development
+
+networks:
+  redflag-network:
+    driver: bridge
+
+volumes:
+  keycloak-db-data:
+  node-modules:
+  npm-global:
+  container-home:
