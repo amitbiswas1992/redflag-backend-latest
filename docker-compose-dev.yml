@@ -23,6 +23,8 @@ x-node-env: &node-env
   NPM_CONFIG_PREFIX: /npm-global
   npm_config_store_dir: /pnpm/store
   PATH: /npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+  NODE_ENV: development
+  KEYCLOAK_URL: 'http://keycloak:8080'
 
 services:
   keycloak-db:
@@ -104,6 +106,7 @@ services:
       - "${PORT:-3000}:3000"
     environment:
       <<: *node-env
+      PORT: 3000
       # Epic Configuration
       EPIC_CLIENT_ID: ${EPIC_CLIENT_ID}
       EPIC_USE_SANDBOX: ${EPIC_USE_SANDBOX:-true}
@@ -119,8 +122,6 @@ services:
       EPIC_JWT_PRIVATE_KEY_PATH: ${EPIC_JWT_PRIVATE_KEY_PATH}
       EPIC_JWT_PRIVATE_KEY: ${EPIC_JWT_PRIVATE_KEY}
       # Application Configuration
-      PORT: ${PORT:-3000}
-      NODE_ENV: development
       REDIS_URL: redis://redis:6379
 
   redflag-identity:
@@ -128,11 +129,10 @@ services:
     container_name: redflag-identity
     command: pnpm run start:dev identity-service
     ports:
-      - "${IDENTITY_PORT:-3001}:3000"
+      - "${IDENTITY_PORT:-3001}:3001"
     environment:
       <<: *node-env
-      PORT: 3000
-      NODE_ENV: development
+      PORT: 3001
 
 networks:
   redflag-network:
