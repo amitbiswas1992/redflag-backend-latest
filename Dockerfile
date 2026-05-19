@@ -1,4 +1,4 @@
-FROM node:20-slim
+FROM node:lts-slim
 
 WORKDIR /app
 
@@ -7,7 +7,7 @@ WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@10.12.1 --activate
 
 # Copy package lockfiles first for Docker layer caching
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
 # Install dependencies using strict lockfile
 RUN pnpm install --frozen-lockfile

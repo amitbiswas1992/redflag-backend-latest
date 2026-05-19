@@ -11,7 +11,6 @@ else
   echo "Dev setup already done. Delete $MARKER to re-run."
 fi
 
-pnpm approve-builds --yes
 pnpm install --yes
 pnpm drizzle-kit push
 
