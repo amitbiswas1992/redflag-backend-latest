@@ -1,6 +1,7 @@
 import { AuditService, InternalAuthGuard, Roles, RolesGuard } from '@app/common';
 import { Body, Controller, Get, Param, Patch, Req, UseGuards } from '@nestjs/common';
 import { OrganizationService } from './organization.service';
+import { UpdateScoreTuningDto } from './dto/organization.dto';
 
 @Controller('organizations')
 @UseGuards(InternalAuthGuard, RolesGuard)
@@ -42,6 +43,21 @@ export class OrganizationController {
         const org = await this.organizationService.updateOrganizationLogo(
             organizationId,
             logoUrl,
+            req.user.id,
+        );
+        return { success: true, organization: org };
+    }
+
+    @Patch(':id/score-tuning')
+    @Roles('OWNER', 'ADMIN')
+    async updateScoreTuning(
+        @Req() req: any,
+        @Param('id') organizationId: string,
+        @Body() body: UpdateScoreTuningDto,
+    ) {
+        const org = await this.organizationService.updateOrganizationScoreTuning(
+            organizationId,
+            body.scoreTuning,
             req.user.id,
         );
         return { success: true, organization: org };

@@ -54,6 +54,6 @@ export const findingArchetypes = pgTable(
         index('idx_finding_archetypes_org').on(table.organizationId),
         index('idx_finding_archetypes_rule').on(table.organizationId, table.ruleId),
         index('idx_finding_archetypes_parent').on(table.parentId),
-        uniqueIndex('unq_finding_archetypes_catalog_id').on(table.catalogId),
+        uniqueIndex('unq_finding_archetypes_catalog_id').on(table.organizationId, table.catalogId),
     ],
 );

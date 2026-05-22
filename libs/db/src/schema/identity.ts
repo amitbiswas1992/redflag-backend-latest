@@ -1,4 +1,4 @@
-import { index, pgTable, text, timestamp, uuid, uniqueIndex } from 'drizzle-orm/pg-core';
+import { index, jsonb, pgTable, text, timestamp, uuid, uniqueIndex } from 'drizzle-orm/pg-core';
 import { functionalRoles } from './rbac';
 
 export const organizations = pgTable('organizations', {
@@ -6,6 +6,8 @@ export const organizations = pgTable('organizations', {
     name: text('name').notNull(),
     slug: text('slug').notNull().unique(),
     logoUrl: text('logo_url'),
+    // Tuning multipliers per score factor (0-2 floats). Same shape as scoreFactors.
+    scoreTuning: jsonb('score_tuning'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 

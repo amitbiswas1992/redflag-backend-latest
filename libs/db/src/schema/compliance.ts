@@ -1,4 +1,4 @@
-import { index, integer, jsonb, pgTable, text, timestamp, unique, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { organizations } from './identity';
 import { riskRules } from './rules';
 
@@ -49,7 +49,7 @@ export const complianceFlags = pgTable(
             table.entityId,
             table.ruleId,
         ),
-        unique('unq_compliance_flags_instance_id').on(table.instanceId),
+        uniqueIndex('unq_compliance_flags_instance_id').on(table.organizationId, table.instanceId),
     ],
 );
 

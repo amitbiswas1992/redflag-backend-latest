@@ -67,7 +67,7 @@ export const riskRules = pgTable(
         // Category filter for UI listing
         index('idx_risk_rules_category').on(table.organizationId, table.categoryId),
         // Serial number unique within a category
-        uniqueIndex('unq_risk_rules_category_serial').on(table.categoryId, table.serial),
+        uniqueIndex('unq_risk_rules_category_serial').on(table.organizationId, table.categoryId, table.serial),
     ],
 );
 

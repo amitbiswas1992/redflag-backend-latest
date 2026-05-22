@@ -2,6 +2,7 @@ import { db, organizations } from '@app/db';
 import { AuditService } from '@app/common';
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
+import { ScoreTuningDto } from './dto/organization.dto';
 
 @Injectable()
 export class OrganizationService {
@@ -44,6 +45,22 @@ export class OrganizationService {
             userId: actorUserId,
             organizationId,
             metadata: { field: 'logoUrl' },
+        });
+
+        return updated;
+    }
+
+    async updateOrganizationScoreTuning(organizationId: string, scoreTuning: ScoreTuningDto, actorUserId: string) {
+        const [updated] = await db.update(organizations)
+            .set({ scoreTuning })
+            .where(eq(organizations.id, organizationId))
+            .returning();
+
+        await this.auditService.log({
+            eventType: 'ORGANIZATION_UPDATED',
+            userId: actorUserId,
+            organizationId,
+            metadata: { field: 'scoreTuning' },
         });
 
         return updated;
