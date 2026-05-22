@@ -17,7 +17,7 @@ import { riskRules } from './rules';
 // { law_ref: string; relevant_sentence: string; explanation: string }
 
 // ── Score Factors ─────────────────────────────────────────────────────────────
-// ScoreValidator = Record<'S' | 'E' | 'F' | 'B' | 'H' | 'T', 0-10>
+// ScoreValidator = Record<'Scope' | 'Encounter' | 'FinancialCost' | 'BlastRadius' | 'PatientHarm' | 'TemporalExposure', 0-10>
 // Stored as jsonb in finding_archetypes.score_factors
 
 // ── Finding Archetypes ────────────────────────────────────────────────────────

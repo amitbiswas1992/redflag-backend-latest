@@ -17,12 +17,12 @@ import { Type } from 'class-transformer';
 // ── Score Factors ─────────────────────────────────────────────────────────────
 
 export class ScoreFactorsDto {
-    @ApiProperty({ example: 5, minimum: 0, maximum: 10 }) @IsNumber() @Min(0) @Max(10) S: number;
-    @ApiProperty({ example: 5, minimum: 0, maximum: 10 }) @IsNumber() @Min(0) @Max(10) E: number;
-    @ApiProperty({ example: 5, minimum: 0, maximum: 10 }) @IsNumber() @Min(0) @Max(10) F: number;
-    @ApiProperty({ example: 5, minimum: 0, maximum: 10 }) @IsNumber() @Min(0) @Max(10) B: number;
-    @ApiProperty({ example: 5, minimum: 0, maximum: 10 }) @IsNumber() @Min(0) @Max(10) H: number;
-    @ApiProperty({ example: 5, minimum: 0, maximum: 10 }) @IsNumber() @Min(0) @Max(10) T: number;
+    @ApiProperty({ example: 5, minimum: 0, maximum: 10 }) @IsNumber() @Min(0) @Max(10) Scope: number;
+    @ApiProperty({ example: 5, minimum: 0, maximum: 10 }) @IsNumber() @Min(0) @Max(10) Encounter: number;
+    @ApiProperty({ example: 5, minimum: 0, maximum: 10 }) @IsNumber() @Min(0) @Max(10) FinancialCost: number;
+    @ApiProperty({ example: 5, minimum: 0, maximum: 10 }) @IsNumber() @Min(0) @Max(10) BlastRadius: number;
+    @ApiProperty({ example: 5, minimum: 0, maximum: 10 }) @IsNumber() @Min(0) @Max(10) PatientHarm: number;
+    @ApiProperty({ example: 5, minimum: 0, maximum: 10 }) @IsNumber() @Min(0) @Max(10) TemporalExposure: number;
 }
 
 // ── Applicable Theory ─────────────────────────────────────────────────────────
