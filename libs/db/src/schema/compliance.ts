@@ -1,4 +1,4 @@
-import { index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { index, integer, jsonb, pgTable, text, timestamp, unique, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { organizations } from './identity';
 import { riskRules } from './rules';
 
@@ -28,6 +28,8 @@ export const complianceFlags = pgTable(
         // Snapshot of exact field values that caused the violation
         // e.g. [{ "field": "is_telehealth", "actual_value": true, "condition": "= true" }]
         violationContext: jsonb('violation_context'),
+        serial: integer('serial'),
+        instanceId: text('instance_id'),
         resolvedAt: timestamp('resolved_at'),
         createdAt: timestamp('created_at').defaultNow().notNull(),
         updatedAt: timestamp('updated_at')
@@ -47,6 +49,7 @@ export const complianceFlags = pgTable(
             table.entityId,
             table.ruleId,
         ),
+        unique('unq_compliance_flags_instance_id').on(table.instanceId),
     ],
 );
 

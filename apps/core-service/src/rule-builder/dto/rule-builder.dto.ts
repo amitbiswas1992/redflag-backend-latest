@@ -139,6 +139,12 @@ export class CreateRiskRuleDto {
     @IsBoolean()
     isActive?: boolean;
 
+    @ApiPropertyOptional({ description: 'Override auto-generated serial within the category', example: 1 })
+    @IsOptional()
+    @IsInt()
+    @Min(1)
+    serial?: number;
+
     @ApiProperty({
         type: [CreateRuleConditionDto],
         description: 'At least one condition is required',

@@ -174,10 +174,54 @@ export class RuleEvaluatorService {
             throw err;
         }
 
-        const inserted = Array.isArray(insertResult)
-            ? insertResult.length
-            : (insertResult as unknown as { rows: unknown[] }).rows?.length ?? 0;
+        const insertedRows: { id: string }[] = Array.isArray(insertResult)
+            ? (insertResult as any[])
+            : ((insertResult as any).rows ?? []);
+        const newIds = insertedRows.map((r) => r.id).filter(Boolean);
+        const inserted = newIds.length;
         this.logger.log(`runBulkEvaluation (${label}): ${inserted} flags inserted`);
+
+        // ── Assign serial + instance_id to newly inserted flags ────────────
+        if (newIds.length > 0) {
+            // Build a safe PostgreSQL array literal (UUIDs are hex+hyphens only)
+            const uuidArrayLiteral = `{${newIds.join(',')}}`;
+            await db.execute(sql`
+                WITH pre_max AS (
+                    SELECT rule_id,
+                           DATE(created_at) AS flag_date,
+                           MAX(serial)      AS max_serial
+                    FROM   compliance_flags
+                    WHERE  organization_id = ${organizationId}::uuid
+                      AND  serial IS NOT NULL
+                    GROUP  BY rule_id, DATE(created_at)
+                ),
+                ranked AS (
+                    SELECT cf.id,
+                           ( COALESCE(pm.max_serial, 0) +
+                             ROW_NUMBER() OVER (
+                                 PARTITION BY cf.rule_id, DATE(cf.created_at)
+                                 ORDER BY cf.created_at, cf.id
+                             )
+                           )::integer AS new_serial
+                    FROM   compliance_flags cf
+                    LEFT   JOIN pre_max pm
+                           ON pm.rule_id   = cf.rule_id
+                          AND pm.flag_date = DATE(cf.created_at)
+                    WHERE  cf.id = ANY(${uuidArrayLiteral}::uuid[])
+                      AND  cf.serial IS NULL
+                )
+                UPDATE compliance_flags cf
+                SET    serial      = ranked.new_serial,
+                       instance_id = TO_CHAR(cf.created_at, 'YYYY-MM-DD') || '-' ||
+                                     COALESCE(cat.prefix, 'UNK') ||
+                                     LPAD(COALESCE(rr.serial, 0)::text, 3, '0') || '-' ||
+                                     LPAD(ranked.new_serial::text, 3, '0')
+                FROM   ranked
+                JOIN   risk_rules       rr  ON rr.id  = cf.rule_id
+                LEFT   JOIN rule_categories cat ON cat.id = rr.category_id
+                WHERE  cf.id = ranked.id
+            `);
+        }
 
         // ── Backfill patient_id for encounter flags ─────────────────────────
         if (inserted > 0 && label === 'encounter') {

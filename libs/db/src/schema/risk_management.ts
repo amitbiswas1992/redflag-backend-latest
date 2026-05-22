@@ -1,4 +1,4 @@
-import { index, pgEnum, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { index, pgEnum, pgTable, primaryKey, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
 import { users } from './identity';
 import { complianceFlags } from './compliance';
 import { riskRules } from './rules';
@@ -54,6 +54,7 @@ export const riskManagementPlanComplianceFlags = pgTable(
     },
     (table) => [
         primaryKey({ columns: [table.riskManagementPlanId, table.complianceFlagId] }),
+        unique('unq_rmp_compliance_flags_flag').on(table.complianceFlagId),
         index('idx_rmp_compliance_flags_plan').on(table.riskManagementPlanId),
         index('idx_rmp_compliance_flags_flag').on(table.complianceFlagId),
     ],

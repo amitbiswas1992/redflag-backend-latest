@@ -3,6 +3,7 @@ import { Pool } from 'pg';
 import * as analyticsSchema from './schema/analytics';
 import * as clinicalSchema from './schema/clinical';
 import * as complianceSchema from './schema/compliance';
+import * as findingArchetypeSchema from './schema/finding_archetype';
 import * as identitySchema from './schema/identity';
 import * as ingestionSchema from './schema/ingestion';
 import * as rbacSchema from './schema/rbac';
@@ -12,6 +13,7 @@ import * as riskManagementSchema from './schema/risk_management';
 export const dbSchema = {
     ...identitySchema, ...clinicalSchema, ...ingestionSchema, ...rulesSchema,
     ...analyticsSchema, ...complianceSchema, ...riskManagementSchema, ...rbacSchema,
+    ...findingArchetypeSchema,
 };
 
 let _db: NodePgDatabase<typeof dbSchema> | null = null;
@@ -41,6 +43,7 @@ export const db = new Proxy({} as NodePgDatabase<typeof dbSchema>, {
 export * from './schema/analytics';
 export * from './schema/clinical';
 export * from './schema/compliance';
+export * from './schema/finding_archetype';
 export * from './schema/identity';
 export * from './schema/ingestion';
 export * from './schema/rbac';

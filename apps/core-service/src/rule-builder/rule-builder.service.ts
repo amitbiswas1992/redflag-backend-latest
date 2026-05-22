@@ -2,6 +2,7 @@ import {
     complianceFlags,
     db,
     patients,
+    riskManagementPlanComplianceFlags,
     riskRules,
     ruleCategories,
     ruleConditions,
@@ -97,6 +98,16 @@ export class RuleBuilderService {
         this.validateConditionFields(dto.targetTable, dto.conditions ?? []);
 
         return db.transaction(async (tx) => {
+            // Auto-assign serial within the category unless caller supplies one
+            let serial = dto.serial;
+            if (serial === undefined && dto.categoryId) {
+                const [{ maxSerial }] = await tx
+                    .select({ maxSerial: sql<number>`COALESCE(MAX(${riskRules.serial}), 0)` })
+                    .from(riskRules)
+                    .where(and(eq(riskRules.categoryId, dto.categoryId), eq(riskRules.organizationId, this.orgId)));
+                serial = (maxSerial ?? 0) + 1;
+            }
+
             const [rule] = await tx
                 .insert(riskRules)
                 .values({
@@ -106,6 +117,7 @@ export class RuleBuilderService {
                     ruleCode: dto.ruleCode ?? null,
                     targetTable: dto.targetTable,
                     severity: dto.severity,
+                    serial: serial ?? null,
                     isActive: dto.isActive ?? true,
                     updatedAt: new Date(),
                 })
@@ -228,7 +240,7 @@ export class RuleBuilderService {
     async updateRule(id: string, dto: UpdateRiskRuleDto) {
         return db.transaction(async (tx) => {
             const [existing] = await tx
-                .select({ targetTable: riskRules.targetTable })
+                .select({ targetTable: riskRules.targetTable, categoryId: riskRules.categoryId, serial: riskRules.serial })
                 .from(riskRules)
                 .where(and(eq(riskRules.id, id), eq(riskRules.organizationId, this.orgId)))
                 .limit(1);
@@ -240,6 +252,17 @@ export class RuleBuilderService {
                 this.validateConditionFields(effectiveTargetTable, dto.conditions);
             }
 
+            // Recompute serial when moving to a different category (unless overridden)
+            let serial = dto.serial;
+            const newCategoryId = dto.categoryId !== undefined ? dto.categoryId : existing.categoryId;
+            if (serial === undefined && newCategoryId && newCategoryId !== existing.categoryId) {
+                const [{ maxSerial }] = await tx
+                    .select({ maxSerial: sql<number>`COALESCE(MAX(${riskRules.serial}), 0)` })
+                    .from(riskRules)
+                    .where(and(eq(riskRules.categoryId, newCategoryId), eq(riskRules.organizationId, this.orgId)));
+                serial = (maxSerial ?? 0) + 1;
+            }
+
             const [rule] = await tx
                 .update(riskRules)
                 .set({
@@ -249,6 +272,7 @@ export class RuleBuilderService {
                     targetTable: dto.targetTable,
                     severity: dto.severity,
                     isActive: dto.isActive,
+                    ...(serial !== undefined ? { serial } : {}),
                     updatedAt: new Date(),
                 })
                 .where(and(eq(riskRules.id, id), eq(riskRules.organizationId, this.orgId)))
@@ -429,9 +453,14 @@ export class RuleBuilderService {
                 patientId: patients.id,
                 patientName: patients.name,
                 patientSourceId: patients.sourceId,
+                riskManagementPlanId: riskManagementPlanComplianceFlags.riskManagementPlanId,
             })
             .from(complianceFlags)
             .leftJoin(patients, eq(complianceFlags.patientId, patients.id))
+            .leftJoin(
+                riskManagementPlanComplianceFlags,
+                eq(complianceFlags.id, riskManagementPlanComplianceFlags.complianceFlagId),
+            )
             .where(
                 and(
                     eq(complianceFlags.organizationId, this.orgId),

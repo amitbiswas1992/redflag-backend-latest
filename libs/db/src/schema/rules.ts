@@ -5,6 +5,7 @@ import {
     pgTable,
     text,
     timestamp,
+    uniqueIndex,
     uuid,
 } from 'drizzle-orm/pg-core';
 import { organizations } from './identity';
@@ -20,6 +21,7 @@ export const ruleCategories = pgTable(
             .references(() => organizations.id, { onDelete: 'cascade' })
             .notNull(),
         name: text('name').notNull(),
+        prefix: text('prefix').notNull(),
         description: text('description'),
         createdAt: timestamp('created_at').defaultNow().notNull(),
         updatedAt: timestamp('updated_at')
@@ -51,6 +53,7 @@ export const riskRules = pgTable(
         // Which Layer-3 analytics projection this rule queries
         targetTable: text('target_table').notNull(), // 'encounter_analytics' | 'medication_analytics'
         severity: text('severity').notNull(), // 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
+        serial: integer('serial'),
         isActive: boolean('is_active').default(true).notNull(),
         createdAt: timestamp('created_at').defaultNow().notNull(),
         updatedAt: timestamp('updated_at')
@@ -63,6 +66,8 @@ export const riskRules = pgTable(
         index('idx_risk_rules_org_active').on(table.organizationId, table.isActive),
         // Category filter for UI listing
         index('idx_risk_rules_category').on(table.organizationId, table.categoryId),
+        // Serial number unique within a category
+        uniqueIndex('unq_risk_rules_category_serial').on(table.categoryId, table.serial),
     ],
 );
 

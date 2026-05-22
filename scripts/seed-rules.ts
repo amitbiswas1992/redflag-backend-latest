@@ -3,6 +3,52 @@ import { and, eq } from 'drizzle-orm';
 import { ConditionOperator, TargetTable } from '../apps/core-service/src/rule-builder/dto/rule-builder.dto';
 import { db, organizations, riskRules, ruleCategories, ruleConditions } from '../libs/db/src';
 
+// ── Category Definitions ──────────────────────────────────────────────────────
+// All canonical rule families with their prefix identifiers.
+// INTER is an alias family pointing to the same cross-state rules as TH.
+const SEED_CATEGORIES: { name: string; prefix: string; description: string }[] = [
+  {
+    name: 'Telehealth',
+    prefix: 'TH',
+    description: 'Things that go wrong specifically because the visit was virtual: prescribing without an in-person exam, providers practicing across state lines without the right license, weak consent for the video visit.',
+  },
+  {
+    name: 'Misprescribing',
+    prefix: 'MP',
+    description: 'Prescribing without a documented medical reason, or prescribing doses that are dangerously high.',
+  },
+  {
+    name: 'Controlled Substance',
+    prefix: 'CS',
+    description: "Problems specific to drugs the DEA controls: automatic refills, refills with no doctor involvement, prescribing that supports addiction rather than treating it.",
+  },
+  {
+    name: 'CPOM',
+    prefix: 'CPOM',
+    description: 'Cases where a company (rather than a licensed doctor) is effectively making clinical decisions, owns more of the practice than the law allows, or is splitting fees in ways that compromise care.',
+  },
+  {
+    name: 'Documentation',
+    prefix: 'DOC',
+    description: 'Cases where the medical record itself is incomplete — missing notes, missing screenings.',
+  },
+  {
+    name: 'Supervision',
+    prefix: 'SUP',
+    description: 'Nurse practitioners or physician assistants working outside the supervision rules of their state.',
+  },
+  {
+    name: 'Interstate',
+    prefix: 'INTER',
+    description: 'Older name for the cross-state licensure problem; kept as an alias so existing reports do not break.',
+  },
+  {
+    name: 'Multi-family Composite',
+    prefix: 'F',
+    description: 'A pattern that touches more than one family at once.',
+  },
+];
+
 // ── Explicit Rule Definitions based on Clinical Mapping ──
 const SEED_RULES = [
   // 1. Telehealth
@@ -198,8 +244,19 @@ async function seed() {
     let rulesCount = 0;
     let conditionsCount = 0;
 
+    // 0. Seed all canonical categories (incl. SUP, INTER, F with no rules yet)
+    for (const catDef of SEED_CATEGORIES) {
+      const [newCat] = await db.insert(ruleCategories).values({
+        organizationId: orgId,
+        name: catDef.name,
+        prefix: catDef.prefix,
+        description: catDef.description,
+      }).returning();
+      categoryCache.set(catDef.name, newCat.id);
+    }
+
     for (const ruleDef of SEED_RULES) {
-      // 1. Category
+      // 1. Category (already seeded above; look up from cache or fall back to insert)
       if (!categoryCache.has(ruleDef.category)) {
         const [existingCat] = await db.select()
           .from(ruleCategories)
@@ -214,9 +271,11 @@ async function seed() {
         if (existingCat) {
           categoryCache.set(ruleDef.category, existingCat.id);
         } else {
+          const prefix = SEED_CATEGORIES.find(c => c.name === ruleDef.category)?.prefix ?? ruleDef.category.toUpperCase();
           const [newCat] = await db.insert(ruleCategories).values({
             organizationId: orgId,
             name: ruleDef.category,
+            prefix,
           }).returning();
           categoryCache.set(ruleDef.category, newCat.id);
         }
