@@ -54,7 +54,12 @@ export class CreateRuleCategoryDto {
     @ApiProperty({ example: 'Telehealth' })
     @IsString()
     @IsNotEmpty()
-    name: string;
+    name!: string;
+
+    @ApiProperty({ example: 'TH' })
+    @IsString()
+    @IsNotEmpty()
+    prefix!: string;
 
     @ApiPropertyOptional({ example: 'Rules related to telehealth encounters' })
     @IsOptional()

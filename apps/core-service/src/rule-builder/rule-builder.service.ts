@@ -47,6 +47,7 @@ export class RuleBuilderService {
             .values({
                 organizationId: this.orgId,
                 name: dto.name,
+                prefix: dto.prefix,
                 description: dto.description,
                 updatedAt: new Date(),
             })
