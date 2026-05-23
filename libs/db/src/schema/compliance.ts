@@ -28,6 +28,9 @@ export const complianceFlags = pgTable(
         // Snapshot of exact field values that caused the violation
         // e.g. [{ "field": "is_telehealth", "actual_value": true, "condition": "= true" }]
         violationContext: jsonb('violation_context'),
+        // Per-flag overrides of archetype scoreFactors. null value for a key means "use archetype value".
+        // Shape: Partial<Record<'Scope'|'Encounter'|'FinancialCost'|'BlastRadius'|'PatientHarm'|'TemporalExposure', number | null>>
+        scoreFactorsOverride: jsonb('score_factors_override'),
         serial: integer('serial'),
         instanceId: text('instance_id'),
         resolvedAt: timestamp('resolved_at'),

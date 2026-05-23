@@ -161,3 +161,16 @@ export class CreateRiskRuleDto {
 }
 
 export class UpdateRiskRuleDto extends PartialType(CreateRiskRuleDto) {}
+
+// ── Flag DTOs ─────────────────────────────────────────────────────────────────
+
+export class UpdateFlagDto {
+    @ApiPropertyOptional({
+        description:
+            'Per-factor score overrides. A null value for a key means "use archetype value". ' +
+            'Keys: Scope | Encounter | FinancialCost | BlastRadius | PatientHarm | TemporalExposure',
+        example: { Scope: 8, Encounter: null, FinancialCost: 7 },
+    })
+    @IsOptional()
+    scoreFactorsOverride?: Record<string, number | null> | null;
+}

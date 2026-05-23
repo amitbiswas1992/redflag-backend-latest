@@ -10,6 +10,8 @@ import {
     Post,
     Put,
     Query,
+    HttpCode,
+    HttpStatus,
 } from '@nestjs/common';
 import {
     ApiBadRequestResponse,
@@ -26,6 +28,7 @@ import {
     CreateRuleCategoryDto,
     Severity,
     TargetTable,
+    UpdateFlagDto,
     UpdateRiskRuleDto,
     UpdateRuleCategoryDto,
 } from './dto/rule-builder.dto';
@@ -172,18 +175,40 @@ export class RuleBuilderController {
 
     // ── Compliance Flags ──────────────────────────────────────────────────────
 
-    @ApiOperation({ summary: 'List compliance flags' })
+    @ApiOperation({ summary: 'List compliance flags (paginated, with rule / archetype / plan)' })
+    @ApiQuery({ name: 'page', required: false, type: Number })
+    @ApiQuery({ name: 'limit', required: false, type: Number })
     @ApiQuery({ name: 'entityId', required: false, type: String })
     @ApiQuery({ name: 'ruleId', required: false, type: String })
     @ApiQuery({ name: 'severity', required: false, type: String })
-    @ApiOkResponse({ description: 'List of compliance flags with violation context' })
+    @ApiOkResponse({ description: 'Paginated compliance flags with embedded rule, finding_archetype, and risk_management_plan' })
     @Get('flags')
     listFlags(
+        @Query('page') page?: string,
+        @Query('limit') limit?: string,
         @Query('entityId') entityId?: string,
         @Query('ruleId') ruleId?: string,
         @Query('severity') severity?: string,
     ) {
-        return this.service.listFlags({ entityId, ruleId, severity });
+        const parsedPage = page ? Number.parseInt(page, 10) : undefined;
+        const parsedLimit = limit ? Number.parseInt(limit, 10) : undefined;
+        return this.service.listFlags({
+            page: Number.isFinite(parsedPage) ? parsedPage : undefined,
+            limit: Number.isFinite(parsedLimit) ? parsedLimit : undefined,
+            entityId,
+            ruleId,
+            severity,
+        });
+    }
+
+    @ApiOperation({ summary: 'Update a compliance flag (scoreFactorsOverride)' })
+    @ApiParam({ name: 'id', description: 'Flag UUID' })
+    @ApiOkResponse({ description: 'Updated compliance flag' })
+    @ApiNotFoundResponse({ description: 'Flag not found' })
+    @HttpCode(HttpStatus.OK)
+    @Patch('flags/:id')
+    updateFlag(@Param('id') id: string, @Body() dto: UpdateFlagDto) {
+        return this.service.updateFlag(id, dto);
     }
 
     @ApiOperation({ summary: 'Get findings grouped by rule with flag counts' })

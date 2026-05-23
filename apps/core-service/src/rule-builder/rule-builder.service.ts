@@ -1,8 +1,10 @@
 import {
     complianceFlags,
     db,
+    findingArchetypes,
     patients,
     riskManagementPlanComplianceFlags,
+    riskManagementPlans,
     riskRules,
     ruleCategories,
     ruleConditions,
@@ -14,12 +16,13 @@ import {
     Logger,
     NotFoundException,
 } from '@nestjs/common';
-import { and, asc, count, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, ilike, inArray, InferSelectModel, or, sql } from 'drizzle-orm';
 import {
     CreateRiskRuleDto,
     CreateRuleCategoryDto,
     Severity,
     TargetTable,
+    UpdateFlagDto,
     UpdateRiskRuleDto,
     UpdateRuleCategoryDto,
 } from './dto/rule-builder.dto';
@@ -347,18 +350,94 @@ export class RuleBuilderService {
 
     // ── Flags ─────────────────────────────────────────────────────────────────
 
-    async listFlags(filters: { entityId?: string; ruleId?: string; severity?: string }) {
+    async listFlags(filters: {
+        entityId?: string;
+        ruleId?: string;
+        severity?: string;
+        page?: number;
+        limit?: number;
+    }) {
+        const page = Math.max(1, filters.page ?? 1);
+        const limit = Math.min(100, Math.max(1, filters.limit ?? 20));
+        const offset = (page - 1) * limit;
+
         const predicates = [eq(complianceFlags.organizationId, this.orgId)];
         if (filters.entityId) predicates.push(eq(complianceFlags.entityId, filters.entityId));
         if (filters.ruleId) predicates.push(eq(complianceFlags.ruleId, filters.ruleId));
         if (filters.severity) predicates.push(eq(complianceFlags.severity, filters.severity));
 
-        return db
+        const [{ total }] = await db
+            .select({ total: count() })
+            .from(complianceFlags)
+            .where(and(...predicates));
+
+        const flags = await db
             .select()
             .from(complianceFlags)
             .where(and(...predicates))
             .orderBy(desc(complianceFlags.createdAt))
-            .limit(200);
+            .limit(limit)
+            .offset(offset);
+
+        if (!flags.length) return { data: [], total: Number(total ?? 0), page, limit };
+
+        const ruleIds = [...new Set(flags.map(f => f.ruleId).filter((id): id is string => !!id))];
+        const flagIds = flags.map(f => f.id);
+
+        const [rules, archetypes, planLinks] = await Promise.all([
+            ruleIds.length
+                ? db.select().from(riskRules).where(inArray(riskRules.id, ruleIds))
+                : Promise.resolve([] as InferSelectModel<typeof riskRules>[]),
+            ruleIds.length
+                ? db.select().from(findingArchetypes).where(
+                    and(
+                        eq(findingArchetypes.organizationId, this.orgId),
+                        inArray(findingArchetypes.ruleId, ruleIds),
+                    ),
+                )
+                : Promise.resolve([] as InferSelectModel<typeof findingArchetypes>[]),
+            db
+                .select({
+                    complianceFlagId: riskManagementPlanComplianceFlags.complianceFlagId,
+                    plan: riskManagementPlans,
+                })
+                .from(riskManagementPlanComplianceFlags)
+                .innerJoin(
+                    riskManagementPlans,
+                    eq(riskManagementPlanComplianceFlags.riskManagementPlanId, riskManagementPlans.id),
+                )
+                .where(inArray(riskManagementPlanComplianceFlags.complianceFlagId, flagIds)),
+        ]);
+
+        const ruleMap = new Map(rules.map(r => [r.id, r]));
+        // One archetype per ruleId — take the first if multiple exist
+        const archetypeByRule = new Map<string, typeof archetypes[number]>();
+        for (const a of archetypes) {
+            if (a.ruleId && !archetypeByRule.has(a.ruleId)) archetypeByRule.set(a.ruleId, a);
+        }
+        const planByFlag = new Map(planLinks.map(p => [p.complianceFlagId, p.plan]));
+
+        const data = flags.map(f => ({
+            ...f,
+            rule: f.ruleId ? (ruleMap.get(f.ruleId) ?? null) : null,
+            findingArchetype: f.ruleId ? (archetypeByRule.get(f.ruleId) ?? null) : null,
+            riskManagementPlan: planByFlag.get(f.id) ?? null,
+        }));
+
+        return { data, total: Number(total ?? 0), page, limit };
+    }
+
+    async updateFlag(id: string, dto: UpdateFlagDto) {
+        const [updated] = await db
+            .update(complianceFlags)
+            .set({
+                scoreFactorsOverride: dto.scoreFactorsOverride ?? null,
+                updatedAt: new Date(),
+            })
+            .where(and(eq(complianceFlags.id, id), eq(complianceFlags.organizationId, this.orgId)))
+            .returning();
+        if (!updated) throw new NotFoundException('Flag not found');
+        return updated;
     }
 
     /**

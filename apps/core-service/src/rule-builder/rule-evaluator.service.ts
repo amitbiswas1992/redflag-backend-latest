@@ -197,6 +197,8 @@ export class RuleEvaluatorService {
                 ),
                 ranked AS (
                     SELECT cf.id,
+                           cf.rule_id,
+                           cf.created_at,
                            ( COALESCE(pm.max_serial, 0) +
                              ROW_NUMBER() OVER (
                                  PARTITION BY cf.rule_id, DATE(cf.created_at)
@@ -217,7 +219,7 @@ export class RuleEvaluatorService {
                                      LPAD(COALESCE(rr.serial, 0)::text, 3, '0') || '-' ||
                                      LPAD(ranked.new_serial::text, 3, '0')
                 FROM   ranked
-                JOIN   risk_rules       rr  ON rr.id  = cf.rule_id
+                JOIN   risk_rules       rr  ON rr.id  = ranked.rule_id
                 LEFT   JOIN rule_categories cat ON cat.id = rr.category_id
                 WHERE  cf.id = ranked.id
             `);

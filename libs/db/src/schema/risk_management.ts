@@ -16,6 +16,12 @@ export const riskManagementPlanTypeEnum = pgEnum('risk_management_plan_type', [
     'risk-transfer',
 ]);
 
+export const planStatusEnum = pgEnum('plan_status', [
+    'in_progress',
+    'pending_validation',
+    'completed',
+]);
+
 // ── Risk Management Plans ────────────────────────────────────────────────────
 export const riskManagementPlans = pgTable(
     'risk_management_plans',
@@ -27,6 +33,7 @@ export const riskManagementPlans = pgTable(
         title: text('title').notNull(),
         dueDate: timestamp('due_date').notNull(),
         type: riskManagementPlanTypeEnum('type').notNull().default('mitigate'),
+        status: planStatusEnum('status').notNull().default('in_progress'),
         rootCauseType: rootCauseTypeEnum('root_cause_type').notNull(),
         impactAnalysis: text('impact_analysis').notNull(),
         justification: text('justification').notNull(),
