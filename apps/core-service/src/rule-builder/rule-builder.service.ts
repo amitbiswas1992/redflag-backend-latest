@@ -915,6 +915,63 @@ export class RuleBuilderService {
         };
     }
 
+    // ── Dashboard ─────────────────────────────────────────────────────────────
+
+    async getDashboardStats() {
+        const orgId = this.orgId;
+
+        const [avgRow] = await db
+            .select({ avgScore: sql<number>`AVG(${complianceFlags.riskScore})` })
+            .from(complianceFlags)
+            .where(eq(complianceFlags.organizationId, orgId));
+
+        const [topFlag] = await db
+            .select()
+            .from(complianceFlags)
+            .where(eq(complianceFlags.organizationId, orgId))
+            .orderBy(desc(complianceFlags.riskScore))
+            .limit(1);
+
+        let topFlagResult: ((typeof complianceFlags.$inferSelect) & { scoreFactors: Record<string, number> }) | null = null;
+        if (topFlag) {
+            const archetypeRows = topFlag.ruleId
+                ? await db
+                    .select({ scoreFactors: findingArchetypes.scoreFactors })
+                    .from(findingArchetypes)
+                    .where(and(
+                        eq(findingArchetypes.organizationId, orgId),
+                        eq(findingArchetypes.ruleId, topFlag.ruleId),
+                    ))
+                    .limit(1)
+                : [];
+            const archFactors = (archetypeRows[0]?.scoreFactors ?? {}) as ScoreFactors;
+            const override = (topFlag.scoreFactorsOverride ?? {}) as ScoreFactors;
+            const scoreFactors: Record<string, number> = {};
+            for (const f of SCORE_FACTORS_META) {
+                const ov = override[f.key];
+                const base = ov != null ? ov : archFactors[f.key];
+                if (base != null) scoreFactors[f.key] = base;
+            }
+            topFlagResult = { ...topFlag, scoreFactors };
+        }
+
+        const trendFlags = await db
+            .select({
+                instanceId: complianceFlags.instanceId,
+                severity: complianceFlags.severity,
+                createdAt: complianceFlags.createdAt,
+            })
+            .from(complianceFlags)
+            .where(eq(complianceFlags.organizationId, orgId))
+            .orderBy(asc(complianceFlags.createdAt));
+
+        return {
+            avgRiskScore: Number(avgRow?.avgScore ?? 0),
+            topFlag: topFlagResult,
+            trendFlags,
+        };
+    }
+
     // ── Table metadata (for UI condition builder) ─────────────────────────────
 
     getTableCatalog() {

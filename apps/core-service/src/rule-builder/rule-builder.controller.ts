@@ -173,6 +173,15 @@ export class RuleBuilderController {
         return this.service.deleteRule(id);
     }
 
+    // ── Dashboard ─────────────────────────────────────────────────────────────
+
+    @ApiOperation({ summary: 'Dashboard stats — avg risk score, top flag with score factors, and trend flag list' })
+    @ApiOkResponse({ description: 'Aggregated dashboard data for the overview page' })
+    @Get('dashboard')
+    getDashboardStats() {
+        return this.service.getDashboardStats();
+    }
+
     // ── Compliance Flags ──────────────────────────────────────────────────────
 
     @ApiOperation({ summary: 'Flag statistics — counts by severity, status, and SLA breaches' })
