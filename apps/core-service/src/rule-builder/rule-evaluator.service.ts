@@ -3,6 +3,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { TargetTable } from './dto/rule-builder.dto';
 import { RuleCompilerService, RuleWithConditions } from './rule-compiler.service';
+import { syncRiskForFlags } from './rule-builder.service';
 
 export interface EvaluationResult {
     rulesEvaluated: number;
@@ -247,6 +248,10 @@ export class RuleEvaluatorService {
                   AND cf.patient_id IS NULL
                   AND cf.organization_id = ${organizationId}::uuid
             `);
+        }
+
+        if (newIds.length > 0) {
+            await syncRiskForFlags(newIds);
         }
 
         return inserted;

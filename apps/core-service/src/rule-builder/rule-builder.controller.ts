@@ -175,12 +175,22 @@ export class RuleBuilderController {
 
     // ── Compliance Flags ──────────────────────────────────────────────────────
 
+    @ApiOperation({ summary: 'Flag statistics — counts by severity, status, and SLA breaches' })
+    @ApiOkResponse({ description: 'Aggregated flag counts for the dashboard stats row' })
+    @Get('flags/stats')
+    getFlagStats() {
+        return this.service.getFlagStats();
+    }
+
     @ApiOperation({ summary: 'List compliance flags (paginated, with rule / archetype / plan)' })
     @ApiQuery({ name: 'page', required: false, type: Number })
     @ApiQuery({ name: 'limit', required: false, type: Number })
     @ApiQuery({ name: 'entityId', required: false, type: String })
     @ApiQuery({ name: 'ruleId', required: false, type: String })
     @ApiQuery({ name: 'severity', required: false, type: String })
+    @ApiQuery({ name: 'status', required: false, type: String, description: 'open | in_progress | pending_validation | completed' })
+    @ApiQuery({ name: 'search', required: false, type: String, description: 'Search by instance ID or rule name/code' })
+    @ApiQuery({ name: 'sort', required: false, type: String, description: 'risk_desc | risk_asc | created_desc | created_asc' })
     @ApiOkResponse({ description: 'Paginated compliance flags with embedded rule, finding_archetype, and risk_management_plan' })
     @Get('flags')
     listFlags(
@@ -189,6 +199,9 @@ export class RuleBuilderController {
         @Query('entityId') entityId?: string,
         @Query('ruleId') ruleId?: string,
         @Query('severity') severity?: string,
+        @Query('status') status?: string,
+        @Query('search') search?: string,
+        @Query('sort') sort?: string,
     ) {
         const parsedPage = page ? Number.parseInt(page, 10) : undefined;
         const parsedLimit = limit ? Number.parseInt(limit, 10) : undefined;
@@ -198,7 +211,19 @@ export class RuleBuilderController {
             entityId,
             ruleId,
             severity,
+            status,
+            search,
+            sort,
         });
+    }
+
+    @ApiOperation({ summary: 'Get a compliance flag by instance ID (e.g. FND-001)' })
+    @ApiParam({ name: 'instanceId', description: 'Flag instance ID string' })
+    @ApiOkResponse({ description: 'Flag with rule, archetype, plan, patient, and org tuning' })
+    @ApiNotFoundResponse({ description: 'Flag not found' })
+    @Get('flags/:instanceId')
+    getFlagByInstanceId(@Param('instanceId') instanceId: string) {
+        return this.service.getFlagByInstanceId(instanceId);
     }
 
     @ApiOperation({ summary: 'Update a compliance flag (scoreFactorsOverride)' })

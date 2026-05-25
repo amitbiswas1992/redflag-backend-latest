@@ -1,4 +1,4 @@
-import { index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { index, integer, jsonb, pgTable, real, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { organizations } from './identity';
 import { riskRules } from './rules';
 
@@ -31,6 +31,7 @@ export const complianceFlags = pgTable(
         // Per-flag overrides of archetype scoreFactors. null value for a key means "use archetype value".
         // Shape: Partial<Record<'Scope'|'Encounter'|'FinancialCost'|'BlastRadius'|'PatientHarm'|'TemporalExposure', number | null>>
         scoreFactorsOverride: jsonb('score_factors_override'),
+        riskScore: real('risk_score').default(5).notNull(),
         serial: integer('serial'),
         instanceId: text('instance_id'),
         resolvedAt: timestamp('resolved_at'),

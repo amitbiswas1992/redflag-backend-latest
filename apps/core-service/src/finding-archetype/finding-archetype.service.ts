@@ -1,4 +1,5 @@
 import { db, findingArchetypes, riskRules, ruleCategories } from '@app/db';
+import { syncRiskForArchetype } from '../rule-builder/rule-builder.service';
 import {
     BadRequestException,
     Inject,
@@ -200,6 +201,7 @@ export class FindingArchetypeService {
             })
             .where(and(eq(findingArchetypes.id, id), eq(findingArchetypes.organizationId, this.orgId)))
             .returning();
+        await syncRiskForArchetype(id);
         return updated;
     }
 

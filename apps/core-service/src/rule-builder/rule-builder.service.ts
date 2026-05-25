@@ -2,6 +2,7 @@ import {
     complianceFlags,
     db,
     findingArchetypes,
+    organizations,
     patients,
     riskManagementPlanComplianceFlags,
     riskManagementPlans,
@@ -16,7 +17,7 @@ import {
     Logger,
     NotFoundException,
 } from '@nestjs/common';
-import { and, asc, count, desc, eq, ilike, inArray, InferSelectModel, or, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, ilike, inArray, InferSelectModel, lt, notInArray, or, sql } from 'drizzle-orm';
 import {
     CreateRiskRuleDto,
     CreateRuleCategoryDto,
@@ -27,6 +28,142 @@ import {
     UpdateRuleCategoryDto,
 } from './dto/rule-builder.dto';
 import { COLUMN_REGISTRY } from './rule-compiler.service';
+
+// ── Score calculation (mirrors frontend finding-archetypes/constants.ts) ──────
+
+const SCORE_FACTORS_META = [
+    { key: 'Scope' as const,            weight: 1,   fungible: true  },
+    { key: 'Encounter' as const,        weight: 1.5, fungible: false },
+    { key: 'FinancialCost' as const,    weight: 2,   fungible: true  },
+    { key: 'BlastRadius' as const,      weight: 1.5, fungible: true  },
+    { key: 'PatientHarm' as const,      weight: 2,   fungible: false },
+    { key: 'TemporalExposure' as const, weight: 1,   fungible: true  },
+] as const;
+
+type ScoreKey = 'Scope' | 'Encounter' | 'FinancialCost' | 'BlastRadius' | 'PatientHarm' | 'TemporalExposure';
+type ScoreFactors = Partial<Record<ScoreKey, number | null>>;
+type ScoreTuning  = Partial<Record<ScoreKey, number>>;
+
+function calcRiskScore(
+    scoreFactors: ScoreFactors | null,
+    tuning: ScoreTuning,
+    override?: ScoreFactors | null,
+): number | null {
+    if (!scoreFactors) return null;
+    let sum = 0;
+    let wSum = 0;
+    for (const f of SCORE_FACTORS_META) {
+        const overrideVal = override?.[f.key];
+        const base = overrideVal != null ? overrideVal : scoreFactors[f.key];
+        if (base == null) continue;
+        const multiplier = f.fungible ? ((tuning as Record<string, number>)[f.key] ?? 1.0) : 1.0;
+        sum  += base * f.weight * multiplier;
+        wSum += f.weight * multiplier;
+    }
+    return wSum > 0 ? sum / wSum : null;
+}
+
+function severityFromScore(score: number): string {
+    if (score >= 7.5) return 'CRITICAL';
+    if (score >= 5.0) return 'HIGH';
+    if (score >= 2.5) return 'MEDIUM';
+    return 'LOW';
+}
+
+// ── Sync helpers (exported so rule-evaluator and finding-archetype can call) ──
+
+export async function syncRiskForFlags(ids: string[]): Promise<void> {
+    if (!ids.length) return;
+
+    const flags = await db
+        .select({
+            id:                  complianceFlags.id,
+            organizationId:      complianceFlags.organizationId,
+            ruleId:              complianceFlags.ruleId,
+            scoreFactorsOverride: complianceFlags.scoreFactorsOverride,
+        })
+        .from(complianceFlags)
+        .where(inArray(complianceFlags.id, ids));
+
+    if (!flags.length) return;
+
+    const orgIds  = [...new Set(flags.map(f => f.organizationId))];
+    const ruleIds = [...new Set(flags.map(f => f.ruleId).filter((id): id is string => !!id))];
+
+    const [orgs, archetypes] = await Promise.all([
+        db.select({ id: organizations.id, scoreTuning: organizations.scoreTuning })
+          .from(organizations)
+          .where(inArray(organizations.id, orgIds)),
+        ruleIds.length
+            ? db.select({ ruleId: findingArchetypes.ruleId, scoreFactors: findingArchetypes.scoreFactors })
+                .from(findingArchetypes)
+                .where(inArray(findingArchetypes.ruleId, ruleIds))
+            : Promise.resolve([] as { ruleId: string | null; scoreFactors: unknown }[]),
+    ]);
+
+    const orgTuningMap = new Map(orgs.map(o => [o.id, (o.scoreTuning ?? {}) as ScoreTuning]));
+    const archetypeByRule = new Map<string, ScoreFactors | null>();
+    for (const a of archetypes) {
+        if (a.ruleId && !archetypeByRule.has(a.ruleId))
+            archetypeByRule.set(a.ruleId, a.scoreFactors as ScoreFactors | null);
+    }
+
+    await Promise.all(flags.map(f => {
+        const tuning       = orgTuningMap.get(f.organizationId) ?? {};
+        const scoreFactors = f.ruleId ? (archetypeByRule.get(f.ruleId) ?? null) : null;
+        const score        = calcRiskScore(scoreFactors, tuning, f.scoreFactorsOverride as ScoreFactors | null);
+        const riskScore    = score ?? 5;
+        const severity     = severityFromScore(riskScore);
+        return db.update(complianceFlags)
+            .set({ riskScore, severity, updatedAt: new Date() })
+            .where(eq(complianceFlags.id, f.id));
+    }));
+}
+
+export async function syncRiskForArchetype(archetypeId: string): Promise<void> {
+    const [archetype] = await db
+        .select({
+            ruleId:       findingArchetypes.ruleId,
+            scoreFactors: findingArchetypes.scoreFactors,
+        })
+        .from(findingArchetypes)
+        .where(eq(findingArchetypes.id, archetypeId))
+        .limit(1);
+
+    if (!archetype?.ruleId || !archetype.scoreFactors) return;
+
+    const flags = await db
+        .select({
+            id:                  complianceFlags.id,
+            organizationId:      complianceFlags.organizationId,
+            scoreFactorsOverride: complianceFlags.scoreFactorsOverride,
+        })
+        .from(complianceFlags)
+        .where(eq(complianceFlags.ruleId, archetype.ruleId));
+
+    if (!flags.length) return;
+
+    const orgIds = [...new Set(flags.map(f => f.organizationId))];
+    const orgs   = await db
+        .select({ id: organizations.id, scoreTuning: organizations.scoreTuning })
+        .from(organizations)
+        .where(inArray(organizations.id, orgIds));
+    const orgTuningMap = new Map(orgs.map(o => [o.id, (o.scoreTuning ?? {}) as ScoreTuning]));
+
+    await Promise.all(flags.map(f => {
+        const tuning    = orgTuningMap.get(f.organizationId) ?? {};
+        const score     = calcRiskScore(
+            archetype.scoreFactors as ScoreFactors | null,
+            tuning,
+            f.scoreFactorsOverride as ScoreFactors | null,
+        );
+        const riskScore = score ?? 5;
+        const severity  = severityFromScore(riskScore);
+        return db.update(complianceFlags)
+            .set({ riskScore, severity, updatedAt: new Date() })
+            .where(eq(complianceFlags.id, f.id));
+    }));
+}
 
 type RequestContext = { organizationId?: string; tenantId?: string };
 
@@ -354,6 +491,9 @@ export class RuleBuilderService {
         entityId?: string;
         ruleId?: string;
         severity?: string;
+        status?: string;
+        search?: string;
+        sort?: string;
         page?: number;
         limit?: number;
     }) {
@@ -366,6 +506,45 @@ export class RuleBuilderService {
         if (filters.ruleId) predicates.push(eq(complianceFlags.ruleId, filters.ruleId));
         if (filters.severity) predicates.push(eq(complianceFlags.severity, filters.severity));
 
+        if (filters.status === 'open') {
+            const planFlagIds = db
+                .select({ id: riskManagementPlanComplianceFlags.complianceFlagId })
+                .from(riskManagementPlanComplianceFlags);
+            predicates.push(notInArray(complianceFlags.id, planFlagIds));
+        } else if (filters.status) {
+            const matchingFlagIds = db
+                .select({ id: riskManagementPlanComplianceFlags.complianceFlagId })
+                .from(riskManagementPlanComplianceFlags)
+                .innerJoin(
+                    riskManagementPlans,
+                    eq(riskManagementPlanComplianceFlags.riskManagementPlanId, riskManagementPlans.id),
+                )
+                .where(eq(riskManagementPlans.status, filters.status as any));
+            predicates.push(inArray(complianceFlags.id, matchingFlagIds));
+        }
+
+        if (filters.search?.trim()) {
+            const term = `%${filters.search.trim()}%`;
+            const matchingRuleIds = db
+                .select({ id: riskRules.id })
+                .from(riskRules)
+                .where(and(
+                    eq(riskRules.organizationId, this.orgId),
+                    or(ilike(riskRules.ruleName, term), ilike(riskRules.ruleCode, term))!,
+                ));
+            predicates.push(
+                or(
+                    ilike(complianceFlags.instanceId, term),
+                    inArray(complianceFlags.ruleId, matchingRuleIds),
+                )!,
+            );
+        }
+
+        const orderBy =
+            filters.sort === 'risk_desc'    ? desc(complianceFlags.riskScore)
+            : filters.sort === 'instance_id' ? asc(complianceFlags.instanceId)
+            : desc(complianceFlags.createdAt);
+
         const [{ total }] = await db
             .select({ total: count() })
             .from(complianceFlags)
@@ -375,7 +554,7 @@ export class RuleBuilderService {
             .select()
             .from(complianceFlags)
             .where(and(...predicates))
-            .orderBy(desc(complianceFlags.createdAt))
+            .orderBy(orderBy)
             .limit(limit)
             .offset(offset);
 
@@ -428,16 +607,120 @@ export class RuleBuilderService {
     }
 
     async updateFlag(id: string, dto: UpdateFlagDto) {
+        // Read ruleId so we can look up the archetype scoreFactors
+        const [existing] = await db
+            .select({ ruleId: complianceFlags.ruleId })
+            .from(complianceFlags)
+            .where(and(eq(complianceFlags.id, id), eq(complianceFlags.organizationId, this.orgId)))
+            .limit(1);
+        if (!existing) throw new NotFoundException('Flag not found');
+
+        const [archetypeRows, orgRows] = await Promise.all([
+            existing.ruleId
+                ? db.select({ scoreFactors: findingArchetypes.scoreFactors })
+                    .from(findingArchetypes)
+                    .where(and(
+                        eq(findingArchetypes.organizationId, this.orgId),
+                        eq(findingArchetypes.ruleId, existing.ruleId),
+                    ))
+                    .limit(1)
+                : Promise.resolve([] as { scoreFactors: unknown }[]),
+            db.select({ scoreTuning: organizations.scoreTuning })
+                .from(organizations)
+                .where(eq(organizations.id, this.orgId))
+                .limit(1),
+        ]);
+
+        const scoreFactors = (archetypeRows[0]?.scoreFactors ?? null) as ScoreFactors | null;
+        const tuning       = ((orgRows[0]?.scoreTuning ?? {}) as ScoreTuning);
+        const newOverride  = (dto.scoreFactorsOverride ?? null) as ScoreFactors | null;
+        const score        = calcRiskScore(scoreFactors, tuning, newOverride);
+        const riskScore    = score ?? 5;
+        const severity     = severityFromScore(riskScore);
+
         const [updated] = await db
             .update(complianceFlags)
             .set({
                 scoreFactorsOverride: dto.scoreFactorsOverride ?? null,
+                riskScore,
+                severity,
                 updatedAt: new Date(),
             })
             .where(and(eq(complianceFlags.id, id), eq(complianceFlags.organizationId, this.orgId)))
             .returning();
         if (!updated) throw new NotFoundException('Flag not found');
         return updated;
+    }
+
+    async getFlagStats() {
+        const orgId = this.orgId;
+
+        const bySeverity = await db
+            .select({ severity: complianceFlags.severity, n: count() })
+            .from(complianceFlags)
+            .where(eq(complianceFlags.organizationId, orgId))
+            .groupBy(complianceFlags.severity);
+
+        const withPlanStatus = await db
+            .select({ status: riskManagementPlans.status, n: count() })
+            .from(riskManagementPlanComplianceFlags)
+            .innerJoin(
+                riskManagementPlans,
+                eq(riskManagementPlanComplianceFlags.riskManagementPlanId, riskManagementPlans.id),
+            )
+            .innerJoin(
+                complianceFlags,
+                and(
+                    eq(riskManagementPlanComplianceFlags.complianceFlagId, complianceFlags.id),
+                    eq(complianceFlags.organizationId, orgId),
+                ),
+            )
+            .groupBy(riskManagementPlans.status);
+
+        const [{ slaBreaches }] = await db
+            .select({ slaBreaches: count() })
+            .from(riskManagementPlanComplianceFlags)
+            .innerJoin(
+                riskManagementPlans,
+                eq(riskManagementPlanComplianceFlags.riskManagementPlanId, riskManagementPlans.id),
+            )
+            .innerJoin(
+                complianceFlags,
+                and(
+                    eq(riskManagementPlanComplianceFlags.complianceFlagId, complianceFlags.id),
+                    eq(complianceFlags.organizationId, orgId),
+                ),
+            )
+            .where(
+                and(
+                    lt(riskManagementPlans.dueDate, new Date()),
+                    sql`${riskManagementPlans.status} != 'completed'`,
+                ),
+            );
+
+        const total = bySeverity.reduce((s, r) => s + Number(r.n), 0);
+        const totalWithPlan = withPlanStatus.reduce((s, r) => s + Number(r.n), 0);
+        const sevMap: Record<string, number> = {};
+        for (const row of bySeverity) sevMap[row.severity] = Number(row.n);
+        const statusMap: Record<string, number> = {};
+        for (const row of withPlanStatus) statusMap[row.status] = Number(row.n);
+
+        return {
+            total,
+            slaBreaches: Number(slaBreaches ?? 0),
+            bySeverity: {
+                CRITICAL: sevMap['CRITICAL'] ?? 0,
+                HIGH: sevMap['HIGH'] ?? 0,
+                MEDIUM: sevMap['MEDIUM'] ?? 0,
+                LOW: sevMap['LOW'] ?? 0,
+            },
+            byStatus: {
+                open: total - totalWithPlan,
+                in_progress: statusMap['in_progress'] ?? 0,
+                pending_validation: statusMap['pending_validation'] ?? 0,
+                completed: statusMap['completed'] ?? 0,
+            },
+        };
     }
 
     /**
@@ -551,6 +834,85 @@ export class RuleBuilderService {
             .limit(200);
 
         return flags;
+    }
+
+    async getFlagByInstanceId(instanceId: string) {
+        const [flag] = await db
+            .select()
+            .from(complianceFlags)
+            .where(and(
+                eq(complianceFlags.organizationId, this.orgId),
+                eq(complianceFlags.instanceId, instanceId),
+            ))
+            .limit(1);
+
+        if (!flag) throw new NotFoundException(`Flag not found: ${instanceId}`);
+
+        const [ruleRows, archetypeRows, planLinks, patientRows, orgRows] = await Promise.all([
+            flag.ruleId
+                ? db.select().from(riskRules).where(eq(riskRules.id, flag.ruleId)).limit(1)
+                : Promise.resolve([] as (typeof riskRules.$inferSelect)[]),
+            flag.ruleId
+                ? db.select().from(findingArchetypes).where(and(
+                    eq(findingArchetypes.organizationId, this.orgId),
+                    eq(findingArchetypes.ruleId, flag.ruleId),
+                  )).limit(1)
+                : Promise.resolve([] as (typeof findingArchetypes.$inferSelect)[]),
+            db
+                .select({ plan: riskManagementPlans })
+                .from(riskManagementPlanComplianceFlags)
+                .innerJoin(
+                    riskManagementPlans,
+                    eq(riskManagementPlanComplianceFlags.riskManagementPlanId, riskManagementPlans.id),
+                )
+                .where(eq(riskManagementPlanComplianceFlags.complianceFlagId, flag.id))
+                .limit(1),
+            flag.patientId
+                ? db.select().from(patients).where(eq(patients.id, flag.patientId)).limit(1)
+                : Promise.resolve([] as (typeof patients.$inferSelect)[]),
+            db.select({ scoreTuning: organizations.scoreTuning })
+                .from(organizations)
+                .where(eq(organizations.id, this.orgId))
+                .limit(1),
+        ]);
+
+        const rule        = ruleRows[0]      ?? null;
+        const archetype   = archetypeRows[0] ?? null;
+        const plan        = planLinks[0]?.plan ?? null;
+        const patient     = patientRows[0]   ?? null;
+        const scoreTuning = (orgRows[0]?.scoreTuning ?? {}) as ScoreTuning;
+
+        let conditions: (typeof ruleConditions.$inferSelect)[] = [];
+        let category:   (typeof ruleCategories.$inferSelect) | null = null;
+
+        if (rule) {
+            conditions = await db
+                .select()
+                .from(ruleConditions)
+                .where(and(
+                    eq(ruleConditions.ruleId, rule.id),
+                    eq(ruleConditions.organizationId, this.orgId),
+                ))
+                .orderBy(asc(ruleConditions.order));
+
+            if (rule.categoryId) {
+                const [cat] = await db
+                    .select()
+                    .from(ruleCategories)
+                    .where(eq(ruleCategories.id, rule.categoryId))
+                    .limit(1);
+                category = cat ?? null;
+            }
+        }
+
+        return {
+            ...flag,
+            patient,
+            scoreTuning,
+            rule: rule ? { ...rule, conditions, category } : null,
+            findingArchetype: archetype,
+            riskManagementPlan: plan,
+        };
     }
 
     // ── Table metadata (for UI condition builder) ─────────────────────────────
