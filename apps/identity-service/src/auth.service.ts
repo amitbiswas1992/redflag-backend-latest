@@ -59,7 +59,8 @@ export class AuthService {
         const tenantIds = memberships.map(m => m.organizationId);
         const tenants = memberships.map(m => ({ id: m.org.id, name: m.org.name, slug: m.org.slug, role: m.role }));
         const validPreferred = preferredTenantId && tenantIds.includes(preferredTenantId);
-        const activeTenant = validPreferred ? preferredTenantId : (tenantIds[0] ?? null);
+        // const activeTenant = validPreferred ? preferredTenantId : (tenantIds[0] ?? null);
+        const activeTenant = (tenants.find(x => x.role === "MEMBER")?.id || tenantIds[0]) ?? null;
         const activeMembership = memberships.find(m => m.organizationId === activeTenant);
         const functionalRoleSlug = activeMembership?.functionalRole?.slug ?? 'compliance_officer';
         const perms = await this.getPermissionsForFunctionalRole(activeMembership?.functionalRoleId ?? '');
