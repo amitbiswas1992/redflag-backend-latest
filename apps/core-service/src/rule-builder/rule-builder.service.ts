@@ -816,6 +816,7 @@ export class RuleBuilderService {
                 patientId: patients.id,
                 patientName: patients.name,
                 patientSourceId: patients.sourceId,
+                providerName: complianceFlags.providerName,
                 riskManagementPlanId: riskManagementPlanComplianceFlags.riskManagementPlanId,
             })
             .from(complianceFlags)
