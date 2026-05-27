@@ -79,7 +79,6 @@ export class AuthService {
         const user = await db.select().from(users).where(eq(users.id, userId)).then(r => r[0] ?? null);
         if (!user) throw new UnauthorizedException('User not found');
         const org = await this.createOrganizationForUser(user.id, organizationName);
-        await seedOrgRules(org);
         const memberships = await this.getMembershipsForUser(user.id);
         const tenantIds = memberships.map(m => m.organizationId);
         const tenants = memberships.map(m => ({ id: m.org.id, name: m.org.name, slug: m.org.slug, role: m.role }));
@@ -175,6 +174,7 @@ export class AuthService {
         const slug = nanoid();
         const [organization] = await db.insert(organizations).values({ name: trimmed, slug }).returning();
         await db.insert(organizationMemberships).values({ userId, organizationId: organization.id, role: 'OWNER', functionalRoleId: '00000000-0000-0000-0000-000000000001' }).onConflictDoNothing();
+        await seedOrgRules(organization);
         return organization;
     }
 

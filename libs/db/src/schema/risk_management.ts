@@ -1,5 +1,5 @@
 import { index, pgEnum, pgTable, primaryKey, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
-import { users } from './identity';
+import { organizations, users } from './identity';
 import { complianceFlags } from './compliance';
 import { riskRules } from './rules';
 
@@ -27,6 +27,9 @@ export const riskManagementPlans = pgTable(
     'risk_management_plans',
     {
         id: uuid('id').primaryKey().defaultRandom(),
+        organizationId: uuid('organization_id')
+            .references(() => organizations.id, { onDelete: 'cascade' })
+            .notNull(),
         riskRuleId: uuid('risk_rule_id').references(() => riskRules.id, {
             onDelete: 'set null',
         }),
@@ -44,6 +47,7 @@ export const riskManagementPlans = pgTable(
             .$onUpdate(() => new Date()),
     },
     (table) => [
+        index('idx_risk_management_plans_org').on(table.organizationId),
         index('idx_risk_management_plans_rule').on(table.riskRuleId),
     ],
 );

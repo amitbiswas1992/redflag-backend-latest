@@ -7,9 +7,11 @@ import {
     users,
 } from '@app/db';
 import {
+    BadRequestException,
+    Inject,
     Injectable,
     Logger,
-    NotFoundException
+    NotFoundException,
 } from '@nestjs/common';
 import { and, count, desc, eq, inArray } from 'drizzle-orm';
 import {
@@ -19,9 +21,19 @@ import {
     UpdateRiskManagementPlanDto,
 } from './dto/risk-management.dto';
 
+type RequestContext = { organizationId?: string; tenantId?: string };
+
 @Injectable()
 export class RiskManagementService {
     private readonly logger = new Logger(RiskManagementService.name);
+
+    constructor(@Inject('REQUEST') private readonly request: RequestContext) {}
+
+    private get orgId(): string {
+        const id = this.request.organizationId ?? this.request.tenantId;
+        if (!id) throw new BadRequestException('Missing organizationId');
+        return id;
+    }
 
     // ── Plans ─────────────────────────────────────────────────────────────────
 
@@ -30,6 +42,7 @@ export class RiskManagementService {
             const [plan] = await tx
                 .insert(riskManagementPlans)
                 .values({
+                    organizationId: this.orgId,
                     riskRuleId: dto.riskRuleId ?? null,
                     title: dto.title,
                     dueDate: new Date(dto.dueDate),
@@ -74,7 +87,7 @@ export class RiskManagementService {
         const limit = Math.min(100, Math.max(1, filters.limit ?? 20));
         const offset = (page - 1) * limit;
 
-        const predicates: any[] = [];
+        const predicates: any[] = [eq(riskManagementPlans.organizationId, this.orgId)];
         if (filters.riskRuleId)
             predicates.push(eq(riskManagementPlans.riskRuleId, filters.riskRuleId));
         if (filters.rootCauseType)
@@ -86,7 +99,7 @@ export class RiskManagementService {
                 eq(riskManagementPlans.type, filters.type as RiskManagementPlanType),
             );
 
-        const where = predicates.length ? and(...predicates) : undefined;
+        const where = and(...predicates);
 
         const [{ total }] = await db
             .select({ total: count() })
@@ -110,7 +123,7 @@ export class RiskManagementService {
         const [plan] = await db
             .select()
             .from(riskManagementPlans)
-            .where(eq(riskManagementPlans.id, id));
+            .where(and(eq(riskManagementPlans.id, id), eq(riskManagementPlans.organizationId, this.orgId)));
         if (!plan) throw new NotFoundException('Risk management plan not found');
         return this.attachRelations(plan);
     }
@@ -120,7 +133,7 @@ export class RiskManagementService {
             const [existing] = await tx
                 .select({ id: riskManagementPlans.id })
                 .from(riskManagementPlans)
-                .where(eq(riskManagementPlans.id, id))
+                .where(and(eq(riskManagementPlans.id, id), eq(riskManagementPlans.organizationId, this.orgId)))
                 .limit(1);
             if (!existing) throw new NotFoundException('Risk management plan not found');
 
@@ -139,7 +152,7 @@ export class RiskManagementService {
             const [plan] = await tx
                 .update(riskManagementPlans)
                 .set(updateFields)
-                .where(eq(riskManagementPlans.id, id))
+                .where(and(eq(riskManagementPlans.id, id), eq(riskManagementPlans.organizationId, this.orgId)))
                 .returning();
 
             if (dto.complianceFlagIds !== undefined) {
@@ -177,7 +190,7 @@ export class RiskManagementService {
     async deletePlan(id: string) {
         const [deleted] = await db
             .delete(riskManagementPlans)
-            .where(eq(riskManagementPlans.id, id))
+            .where(and(eq(riskManagementPlans.id, id), eq(riskManagementPlans.organizationId, this.orgId)))
             .returning({ id: riskManagementPlans.id });
         if (!deleted) throw new NotFoundException('Risk management plan not found');
         return { message: 'Risk management plan deleted' };

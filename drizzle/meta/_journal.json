@@ -120,6 +120,13 @@
       "when": 1779658900951,
       "tag": "0016_yummy_puck",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1779868778397,
+      "tag": "0017_slimy_eddie_brock",
+      "breakpoints": true
     }
   ]
 }

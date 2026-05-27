@@ -1,0 +1,3 @@
+ALTER TABLE "risk_management_plans" ADD COLUMN "organization_id" uuid NOT NULL;--> statement-breakpoint
+ALTER TABLE "risk_management_plans" ADD CONSTRAINT "risk_management_plans_organization_id_organizations_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "idx_risk_management_plans_org" ON "risk_management_plans" USING btree ("organization_id");
