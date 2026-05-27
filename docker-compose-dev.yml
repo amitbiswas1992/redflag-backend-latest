@@ -123,6 +123,7 @@ services:
       EPIC_JWT_PRIVATE_KEY: ${EPIC_JWT_PRIVATE_KEY}
       # Application Configuration
       REDIS_URL: redis://redis:6379
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:3002}
 
   redflag-identity:
     <<: *node-service
@@ -133,6 +134,7 @@ services:
     environment:
       <<: *node-env
       PORT: 3001
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:3002}
 
 networks:
   redflag-network:

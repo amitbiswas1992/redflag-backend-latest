@@ -28,7 +28,8 @@ async function bootstrap() {
   app.useGlobalInterceptors(new LoggingInterceptor(logger));
   process.on('unhandledRejection', (reason) => { logger.error('Unhandled Promise Rejection', { reason: String(reason) }); });
   process.on('uncaughtException', (error) => { logger.error('Uncaught Exception', { error: error.message, stack: error.stack }); process.exit(1); });
-  app.enableCors({ origin: true, credentials: true, methods: ['GET','POST','PUT','DELETE','PATCH','OPTIONS'], allowedHeaders: ['Content-Type','Authorization','Accept','x-tenant-id','x-organization-id','x-correlation-id'] });
+  const frontendOrigin = process.env.FRONTEND_ORIGIN ?? 'http://localhost:3002';
+  app.enableCors({ origin: frontendOrigin, credentials: true, methods: ['GET','POST','PUT','DELETE','PATCH','OPTIONS'], allowedHeaders: ['Content-Type','Authorization','Accept','x-tenant-id','x-organization-id','x-correlation-id'] });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
   const config = new DocumentBuilder().setTitle('Redflag Epic Integration API').setDescription('NestJS microservice for Epic EHR integration via SMART on FHIR (R4).').setVersion('1.0').addTag('auth').addTag('clinical').addTag('health').build();
   const document = SwaggerModule.createDocument(app, config);

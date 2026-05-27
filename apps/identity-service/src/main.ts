@@ -12,7 +12,8 @@ async function bootstrap() {
     app.useGlobalInterceptors(new LoggingInterceptor(logger));
     process.on('unhandledRejection', (reason) => { logger.error('Unhandled Promise Rejection', { reason: String(reason) }); });
     process.on('uncaughtException', (error: Error) => { logger.error('Uncaught Exception', { error: error.message, stack: error.stack }); process.exit(1); });
-    app.enableCors({ origin: ['http://localhost:3000', 'http://localhost:3002'], credentials: true });
+    const frontendOrigin = process.env.FRONTEND_ORIGIN ?? 'http://localhost:3002';
+    app.enableCors({ origin: frontendOrigin, credentials: true });
     // Allow large JSON payloads for base64 image uploads (5MB)
     app.use(json({ limit: '5mb' }));
     await app.listen(process.env.IDENTITY_PORT ?? 3001);
