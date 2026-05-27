@@ -1,4 +1,5 @@
 import { db, organizationMemberships, organizations, users, functionalRoles, permissions, functionalRolePermissions } from '@app/db';
+import { seedOrgRules } from '@app/db/seeders/rule-seeder';
 import { InternalJwtPayload } from '@app/common';
 import { BadRequestException, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -59,8 +60,8 @@ export class AuthService {
         const tenantIds = memberships.map(m => m.organizationId);
         const tenants = memberships.map(m => ({ id: m.org.id, name: m.org.name, slug: m.org.slug, role: m.role }));
         const validPreferred = preferredTenantId && tenantIds.includes(preferredTenantId);
-        // const activeTenant = validPreferred ? preferredTenantId : (tenantIds[0] ?? null);
-        const activeTenant = (tenants.find(x => x.role === "MEMBER")?.id || tenantIds[0]) ?? null;
+        const activeTenant = validPreferred ? preferredTenantId : (tenantIds[0] ?? null);
+        // const activeTenant = (tenants.find(x => x.role === "MEMBER")?.id || tenantIds[0]) ?? null;
         const activeMembership = memberships.find(m => m.organizationId === activeTenant);
         const functionalRoleSlug = activeMembership?.functionalRole?.slug ?? 'compliance_officer';
         const perms = await this.getPermissionsForFunctionalRole(activeMembership?.functionalRoleId ?? '');
@@ -69,7 +70,7 @@ export class AuthService {
             activeTenant: activeTenant ?? '', role: activeMembership?.role ?? 'MEMBER',
             functionalRole: functionalRoleSlug, permissions: perms, tokenVersion: 1,
         };
-        const access_token = await this.jwtService.signAsync(jwtPayload);
+        const access_token = await this.jwtService.signAsync(jwtPayload, { expiresIn: "1d" });
         const needsOrganizationSetup = tenantIds.length === 0;
         return { access_token, user: { id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName, activeTenant, role: jwtPayload.role }, tenants, needsOrganizationSetup };
     }
@@ -78,6 +79,7 @@ export class AuthService {
         const user = await db.select().from(users).where(eq(users.id, userId)).then(r => r[0] ?? null);
         if (!user) throw new UnauthorizedException('User not found');
         const org = await this.createOrganizationForUser(user.id, organizationName);
+        await seedOrgRules(org);
         const memberships = await this.getMembershipsForUser(user.id);
         const tenantIds = memberships.map(m => m.organizationId);
         const tenants = memberships.map(m => ({ id: m.org.id, name: m.org.name, slug: m.org.slug, role: m.role }));
@@ -85,7 +87,7 @@ export class AuthService {
         const access_token = await this.jwtService.signAsync({
             sub: user.id, email: user.email, keycloakId: user.keycloakId, tenantIds,
             activeTenant: org.id, role: 'OWNER', functionalRole: 'risk_owner', permissions: perms, tokenVersion: 1,
-        } satisfies InternalJwtPayload);
+        } satisfies InternalJwtPayload, { expiresIn: "1d" });
         return { access_token, activeTenant: org.id, organization: { id: org.id, name: org.name, slug: org.slug, role: 'OWNER' }, tenants, needsOrganizationSetup: false };
     }
 
@@ -103,11 +105,11 @@ export class AuthService {
             functionalRole: functionalRole?.slug ?? 'compliance_officer',
             permissions: perms, tokenVersion: 1,
         };
-        const access_token = await this.jwtService.signAsync(jwtPayload);
+        const access_token = await this.jwtService.signAsync(jwtPayload, { expiresIn: "1d" });
         return { access_token };
     }
 
-    async getMe(userId: string): Promise<any> {
+    async getMe(userId: string) {
         const user = await db.select().from(users).where(eq(users.id, userId)).then(r => r[0]);
         if (!user) throw new UnauthorizedException('User not found');
         const memberships = await db.select({ organizationId: organizationMemberships.organizationId, role: organizationMemberships.role, functionalRoleId: organizationMemberships.functionalRoleId, org: organizations, functionalRole: functionalRoles })
