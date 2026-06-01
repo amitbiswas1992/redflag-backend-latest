@@ -70,3 +70,10 @@ export class CreateRiskManagementPlanDto {
 }
 
 export class UpdateRiskManagementPlanDto extends PartialType(CreateRiskManagementPlanDto) {}
+
+export class CreateRiskManagementPlanMessageDto {
+    @ApiProperty({ example: 'Can you clarify the impact on outpatient encounters?' })
+    @IsString()
+    @IsNotEmpty()
+    text: string;
+}

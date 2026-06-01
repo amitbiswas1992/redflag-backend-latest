@@ -20,6 +20,8 @@ export const planStatusEnum = pgEnum('plan_status', [
     'in_progress',
     'pending_validation',
     'completed',
+    'need_more_info',
+    'query_answered',
 ]);
 
 // ── Risk Management Plans ────────────────────────────────────────────────────
@@ -33,6 +35,7 @@ export const riskManagementPlans = pgTable(
         riskRuleId: uuid('risk_rule_id').references(() => riskRules.id, {
             onDelete: 'set null',
         }),
+        createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
         title: text('title').notNull(),
         dueDate: timestamp('due_date').notNull(),
         type: riskManagementPlanTypeEnum('type').notNull().default('mitigate'),
@@ -49,6 +52,7 @@ export const riskManagementPlans = pgTable(
     (table) => [
         index('idx_risk_management_plans_org').on(table.organizationId),
         index('idx_risk_management_plans_rule').on(table.riskRuleId),
+        index('idx_risk_management_plans_creator').on(table.createdBy),
     ],
 );
 
@@ -86,5 +90,24 @@ export const riskManagementPlanAssignees = pgTable(
         primaryKey({ columns: [table.riskManagementPlanId, table.userId] }),
         index('idx_rmp_assignees_plan').on(table.riskManagementPlanId),
         index('idx_rmp_assignees_user').on(table.userId),
+    ],
+);
+
+// ── Risk Management Plan Messages ─────────────────────────────────────────────
+export const riskManagementPlanMessages = pgTable(
+    'risk_management_plan_messages',
+    {
+        id: uuid('id').primaryKey().defaultRandom(),
+        riskManagementPlanId: uuid('risk_management_plan_id')
+            .references(() => riskManagementPlans.id, { onDelete: 'cascade' })
+            .notNull(),
+        createdBy: uuid('created_by')
+            .references(() => users.id, { onDelete: 'set null' }),
+        text: text('text').notNull(),
+        createdAt: timestamp('created_at').defaultNow().notNull(),
+    },
+    (table) => [
+        index('idx_rmp_messages_plan').on(table.riskManagementPlanId),
+        index('idx_rmp_messages_creator').on(table.createdBy),
     ],
 );

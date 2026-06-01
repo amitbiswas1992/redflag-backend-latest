@@ -13,6 +13,7 @@ import {
 import {
     ApiBadRequestResponse,
     ApiCreatedResponse,
+    ApiForbiddenResponse,
     ApiNotFoundResponse,
     ApiOkResponse,
     ApiOperation,
@@ -22,6 +23,7 @@ import {
 } from '@nestjs/swagger';
 import {
     CreateRiskManagementPlanDto,
+    CreateRiskManagementPlanMessageDto,
     RiskManagementPlanType,
     RootCauseType,
     UpdateRiskManagementPlanDto,
@@ -41,7 +43,7 @@ export class RiskManagementController {
     @ApiQuery({ name: 'riskRuleId', required: false, type: String })
     @ApiQuery({ name: 'rootCauseType', required: false, enum: RootCauseType })
     @ApiQuery({ name: 'type', required: false, enum: RiskManagementPlanType })
-    @ApiOkResponse({ description: 'Paginated list of risk management plans' })
+    @ApiOkResponse({ description: 'Paginated list of accessible risk management plans' })
     @Get('plans')
     listPlans(
         @Query('page') page?: string,
@@ -63,6 +65,7 @@ export class RiskManagementController {
     @ApiParam({ name: 'id', description: 'Plan UUID' })
     @ApiOkResponse({ description: 'Risk management plan with relations' })
     @ApiNotFoundResponse({ description: 'Plan not found' })
+    @ApiForbiddenResponse({ description: 'Access denied' })
     @Get('plans/:id')
     getPlanById(@Param('id') id: string) {
         return this.service.getPlanById(id);
@@ -95,5 +98,25 @@ export class RiskManagementController {
     @Delete('plans/:id')
     deletePlan(@Param('id') id: string) {
         return this.service.deletePlan(id);
+    }
+
+    // ── Messages ──────────────────────────────────────────────────────────────
+
+    @ApiOperation({ summary: 'List messages for a risk management plan' })
+    @ApiParam({ name: 'id', description: 'Plan UUID' })
+    @ApiOkResponse({ description: 'List of messages (accessible to admin, creator, assignees)' })
+    @ApiForbiddenResponse({ description: 'Access denied' })
+    @Get('plans/:id/messages')
+    listMessages(@Param('id') id: string) {
+        return this.service.listMessages(id);
+    }
+
+    @ApiOperation({ summary: 'Post a message on a risk management plan' })
+    @ApiParam({ name: 'id', description: 'Plan UUID' })
+    @ApiCreatedResponse({ description: 'Message created; plan status updated automatically' })
+    @ApiForbiddenResponse({ description: 'Access denied' })
+    @Post('plans/:id/messages')
+    createMessage(@Param('id') id: string, @Body() dto: CreateRiskManagementPlanMessageDto) {
+        return this.service.createMessage(id, dto);
     }
 }

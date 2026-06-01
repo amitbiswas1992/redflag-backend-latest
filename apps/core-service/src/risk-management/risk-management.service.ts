@@ -3,25 +3,32 @@ import {
     db,
     riskManagementPlanAssignees,
     riskManagementPlanComplianceFlags,
+    riskManagementPlanMessages,
     riskManagementPlans,
     users,
 } from '@app/db';
 import {
     BadRequestException,
+    ForbiddenException,
     Inject,
     Injectable,
     Logger,
     NotFoundException,
 } from '@nestjs/common';
-import { and, count, desc, eq, inArray } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, or } from 'drizzle-orm';
 import {
     CreateRiskManagementPlanDto,
+    CreateRiskManagementPlanMessageDto,
     RiskManagementPlanType,
     RootCauseType,
     UpdateRiskManagementPlanDto,
 } from './dto/risk-management.dto';
 
-type RequestContext = { organizationId?: string; tenantId?: string };
+type RequestContext = {
+    organizationId?: string;
+    tenantId?: string;
+    user?: { id: string; role: string };
+};
 
 @Injectable()
 export class RiskManagementService {
@@ -35,6 +42,17 @@ export class RiskManagementService {
         return id;
     }
 
+    private get userId(): string {
+        const id = this.request.user?.id;
+        if (!id) throw new BadRequestException('Missing user context');
+        return id;
+    }
+
+    private get isAdminOrOwner(): boolean {
+        const role = this.request.user?.role?.toUpperCase();
+        return role === 'ADMIN' || role === 'OWNER';
+    }
+
     // ── Plans ─────────────────────────────────────────────────────────────────
 
     async createPlan(dto: CreateRiskManagementPlanDto) {
@@ -44,6 +62,7 @@ export class RiskManagementService {
                 .values({
                     organizationId: this.orgId,
                     riskRuleId: dto.riskRuleId ?? null,
+                    createdBy: this.userId,
                     title: dto.title,
                     dueDate: new Date(dto.dueDate),
                     type: dto.type ?? RiskManagementPlanType.MITIGATE,
@@ -99,6 +118,23 @@ export class RiskManagementService {
                 eq(riskManagementPlans.type, filters.type as RiskManagementPlanType),
             );
 
+        // Non-admin users only see plans they created or are assigned to
+        if (!this.isAdminOrOwner) {
+            const uid = this.userId;
+            const assignedPlanIds = await db
+                .select({ riskManagementPlanId: riskManagementPlanAssignees.riskManagementPlanId })
+                .from(riskManagementPlanAssignees)
+                .where(eq(riskManagementPlanAssignees.userId, uid));
+            const assignedIds = assignedPlanIds.map((r) => r.riskManagementPlanId);
+
+            predicates.push(
+                or(
+                    eq(riskManagementPlans.createdBy, uid),
+                    ...(assignedIds.length ? [inArray(riskManagementPlans.id, assignedIds)] : []),
+                )!,
+            );
+        }
+
         const where = and(...predicates);
 
         const [{ total }] = await db
@@ -125,13 +161,15 @@ export class RiskManagementService {
             .from(riskManagementPlans)
             .where(and(eq(riskManagementPlans.id, id), eq(riskManagementPlans.organizationId, this.orgId)));
         if (!plan) throw new NotFoundException('Risk management plan not found');
+        const hasAccess = await this.canAccessPlan(id);
+        if (!hasAccess) throw new ForbiddenException('Access denied to this risk management plan');
         return this.attachRelations(plan);
     }
 
     async updatePlan(id: string, dto: UpdateRiskManagementPlanDto) {
         return db.transaction(async (tx) => {
             const [existing] = await tx
-                .select({ id: riskManagementPlans.id })
+                .select()
                 .from(riskManagementPlans)
                 .where(and(eq(riskManagementPlans.id, id), eq(riskManagementPlans.organizationId, this.orgId)))
                 .limit(1);
@@ -196,7 +234,98 @@ export class RiskManagementService {
         return { message: 'Risk management plan deleted' };
     }
 
+    // ── Messages ──────────────────────────────────────────────────────────────
+
+    async listMessages(planId: string) {
+        const plan = await this.getPlanById(planId);
+
+        const messages = await db
+            .select({
+                id: riskManagementPlanMessages.id,
+                riskManagementPlanId: riskManagementPlanMessages.riskManagementPlanId,
+                createdBy: riskManagementPlanMessages.createdBy,
+                text: riskManagementPlanMessages.text,
+                createdAt: riskManagementPlanMessages.createdAt,
+            })
+            .from(riskManagementPlanMessages)
+            .where(eq(riskManagementPlanMessages.riskManagementPlanId, planId))
+            .orderBy(riskManagementPlanMessages.createdAt);
+
+        const creatorIds = [...new Set(messages.map((m) => m.createdBy).filter(Boolean) as string[])];
+        const senders = creatorIds.length
+            ? await db
+                .select({ id: users.id, email: users.email, firstName: users.firstName, lastName: users.lastName })
+                .from(users)
+                .where(inArray(users.id, creatorIds))
+            : [];
+
+        const senderMap = Object.fromEntries(senders.map((s) => [s.id, s]));
+
+        return messages.map((m) => ({ ...m, sender: m.createdBy ? senderMap[m.createdBy] ?? null : null }));
+    }
+
+    async createMessage(planId: string, dto: CreateRiskManagementPlanMessageDto) {
+        const hasAccess = await this.canAccessPlan(planId);
+        if (!hasAccess) throw new ForbiddenException('Access denied to this risk management plan');
+
+        return db.transaction(async (tx) => {
+            const [plan] = await tx
+                .select()
+                .from(riskManagementPlans)
+                .where(and(eq(riskManagementPlans.id, planId), eq(riskManagementPlans.organizationId, this.orgId)))
+                .limit(1);
+            if (!plan) throw new NotFoundException('Risk management plan not found');
+
+            const uid = this.userId;
+            const isCreator = plan.createdBy === uid;
+
+            const [message] = await tx
+                .insert(riskManagementPlanMessages)
+                .values({ riskManagementPlanId: planId, createdBy: uid, text: dto.text })
+                .returning();
+
+            // Update plan status based on who is sending
+            const newStatus = isCreator ? 'query_answered' : 'need_more_info';
+            await tx
+                .update(riskManagementPlans)
+                .set({ status: newStatus, updatedAt: new Date() })
+                .where(eq(riskManagementPlans.id, planId));
+
+            const [sender] = await tx
+                .select({ id: users.id, email: users.email, firstName: users.firstName, lastName: users.lastName })
+                .from(users)
+                .where(eq(users.id, uid));
+
+            return { ...message, sender: sender ?? null };
+        });
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    async canAccessPlan(planId: string): Promise<boolean> {
+        if (this.isAdminOrOwner) return true;
+        const uid = this.userId;
+
+        const [plan] = await db
+            .select({ createdBy: riskManagementPlans.createdBy })
+            .from(riskManagementPlans)
+            .where(and(eq(riskManagementPlans.id, planId), eq(riskManagementPlans.organizationId, this.orgId)))
+            .limit(1);
+        if (!plan) return false;
+        if (plan.createdBy === uid) return true;
+
+        const [assignee] = await db
+            .select({ userId: riskManagementPlanAssignees.userId })
+            .from(riskManagementPlanAssignees)
+            .where(
+                and(
+                    eq(riskManagementPlanAssignees.riskManagementPlanId, planId),
+                    eq(riskManagementPlanAssignees.userId, uid),
+                ),
+            )
+            .limit(1);
+        return !!assignee;
+    }
 
     private async attachRelations(
         plan: typeof riskManagementPlans.$inferSelect,
@@ -226,6 +355,7 @@ export class RiskManagementService {
                         entityType: complianceFlags.entityType,
                         entityId: complianceFlags.entityId,
                         createdAt: complianceFlags.createdAt,
+                        instanceId: complianceFlags.instanceId,
                     })
                     .from(complianceFlags)
                     .where(inArray(complianceFlags.id, flagIds))
