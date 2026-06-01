@@ -34,7 +34,7 @@ export const encounterAnalytics = pgTable('encounter_analytics', {
     documentationComplete: boolean('documentation_complete'),
     mentalHealthScreening: boolean('mental_health_screening'),
     substanceUseScreening: boolean('substance_use_screening'),
-    allergiesReviewed: boolean('allergies_reviewed'),
+    allergiesReviewed: text('allergies_reviewed'),
     coordinationWithPcp: boolean('coordination_with_pcp'),
     followUpScheduled: boolean('follow_up_scheduled'),
     carePlanUpdated: boolean('care_plan_updated'),

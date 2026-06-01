@@ -4,7 +4,7 @@ import { InternalJwtPayload } from '@app/common';
 import { BadRequestException, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import axios from 'axios';
-import { eq, or } from 'drizzle-orm';
+import { eq, or, and } from 'drizzle-orm';
 import { customAlphabet } from 'nanoid';
 
 const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 20);
@@ -91,7 +91,7 @@ export class AuthService {
     }
 
     async switchTenant(userId: string, tenantId: string): Promise<{ access_token: string }> {
-        const membership = await db.select().from(organizationMemberships).where(eq(organizationMemberships.userId, userId)).then(rows => rows.find(r => r.organizationId === tenantId));
+        const membership = (await db.select().from(organizationMemberships).where(and(eq(organizationMemberships.userId, userId), eq(organizationMemberships.organizationId, tenantId))).limit(1))?.[0];
         if (!membership) throw new ForbiddenException('TENANT_ACCESS_DENIED: You are not a member of this organization.');
         const allMemberships = await db.select({ organizationId: organizationMemberships.organizationId }).from(organizationMemberships).where(eq(organizationMemberships.userId, userId));
         const user = await db.select().from(users).where(eq(users.id, userId)).then(r => r[0]);

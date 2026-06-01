@@ -1199,9 +1199,7 @@ export class IngestionWorkerService {
                 substanceUseScreening: this.parseBoolean(
                     this.pickFirst(normalized, ['substance_use_screening']),
                 ),
-                allergiesReviewed: this.parseBoolean(
-                    this.pickFirst(normalized, ['allergies_reviewed']),
-                ),
+                allergiesReviewed: this.pickFirst(normalized, ['allergies_reviewed']),
                 coordinationWithPcp: this.parseBoolean(
                     this.pickFirst(normalized, ['coordination_with_pcp']),
                 ),
@@ -1283,7 +1281,9 @@ export class IngestionWorkerService {
                         updatedAt: new Date(),
                     },
                 })
-                .returning({ id: encounterAnalytics.id });
+                .returning({ id: encounterAnalytics.id, allergiesReviewed: encounterAnalytics.allergiesReviewed });
+        
+            console.log(upsertedEncounterProjection);
 
             const encounterProjectionAction = existingEncounterProjection
                 ? 'UPDATED'
