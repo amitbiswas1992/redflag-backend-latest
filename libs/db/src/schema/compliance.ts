@@ -1,6 +1,7 @@
 import { index, integer, jsonb, pgTable, real, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { organizations } from './identity';
 import { riskRules } from './rules';
+import { patients } from './clinical';
 
 // ── Compliance Flags ─────────────────────────────────────────────────────────
 // Written by RuleEvaluatorService after each ingestion job.
@@ -16,8 +17,8 @@ export const complianceFlags = pgTable(
             .notNull(),
         entityType: text('entity_type').notNull(), // 'ENCOUNTER' | 'MEDICATION'
         entityId: uuid('entity_id').notNull(),
-        patientId: uuid('patient_id'),
-        providerName: text('provider_name'),
+        patientId: uuid('patient_id')
+            .references(() => patients.id, { onDelete: 'set null' }),
         // The rule that generated this flag (nullable for future system-generated flags)
         ruleId: uuid('rule_id').references(() => riskRules.id, {
             onDelete: 'set null',

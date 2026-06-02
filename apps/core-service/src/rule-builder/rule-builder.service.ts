@@ -1,7 +1,9 @@
 import {
     complianceFlags,
     db,
+    encounters,
     findingArchetypes,
+    medications,
     organizations,
     patients,
     riskManagementPlanComplianceFlags,
@@ -800,27 +802,21 @@ export class RuleBuilderService {
     }
 
     /**
-     * Get individual compliance flags for a specific rule with patient details.
+     * Get individual compliance flags for a specific rule with patient details and entity data.
      */
     async getFindingsDetail(ruleId: string) {
-        const flags = await db
+        const rows = await db
             .select({
-                id: complianceFlags.id,
-                entityId: complianceFlags.entityId,
-                entityType: complianceFlags.entityType,
-                flagType: complianceFlags.flagType,
-                severity: complianceFlags.severity,
-                violationContext: complianceFlags.violationContext,
-                resolvedAt: complianceFlags.resolvedAt,
-                createdAt: complianceFlags.createdAt,
-                patientId: patients.id,
+                flag: complianceFlags,
                 patientName: patients.name,
                 patientSourceId: patients.sourceId,
-                providerName: complianceFlags.providerName,
-                riskManagementPlanId: riskManagementPlanComplianceFlags.riskManagementPlanId,
+                encounter: encounters,
+                medication: medications,
             })
             .from(complianceFlags)
             .leftJoin(patients, eq(complianceFlags.patientId, patients.id))
+            .leftJoin(encounters, eq(complianceFlags.entityId, encounters.id))
+            .leftJoin(medications, eq(complianceFlags.entityId, medications.id))
             .leftJoin(
                 riskManagementPlanComplianceFlags,
                 eq(complianceFlags.id, riskManagementPlanComplianceFlags.complianceFlagId),
@@ -834,82 +830,74 @@ export class RuleBuilderService {
             .orderBy(desc(complianceFlags.createdAt))
             .limit(200);
 
-        return flags;
+        return rows.map(({ encounter, medication, flag, ...others }) => ({
+            ...flag,
+            ...others,
+            entity: flag.entityType === 'ENCOUNTER' ? encounter : medication,
+        }));
     }
 
     async getFlagByInstanceId(instanceId: string) {
-        const [flag] = await db
-            .select()
+        const orgId = this.orgId;
+
+        const [row] = await db
+            .select({
+                flag:         complianceFlags,
+                rule:         riskRules,
+                archetype:    findingArchetypes,
+                patient:      patients,
+                scoreTuning:  organizations.scoreTuning,
+                plan:         riskManagementPlans,
+                category:     ruleCategories,
+                encounter:    encounters,
+                medication:   medications,
+            })
             .from(complianceFlags)
+            .leftJoin(riskRules, eq(complianceFlags.ruleId, riskRules.id))
+            .leftJoin(findingArchetypes, and(
+                eq(findingArchetypes.ruleId, complianceFlags.ruleId),
+                eq(findingArchetypes.organizationId, orgId),
+            ))
+            .leftJoin(patients, eq(complianceFlags.patientId, patients.id))
+            .leftJoin(organizations, eq(complianceFlags.organizationId, organizations.id))
+            .leftJoin(
+                riskManagementPlanComplianceFlags,
+                eq(riskManagementPlanComplianceFlags.complianceFlagId, complianceFlags.id),
+            )
+            .leftJoin(
+                riskManagementPlans,
+                eq(riskManagementPlanComplianceFlags.riskManagementPlanId, riskManagementPlans.id),
+            )
+            .leftJoin(ruleCategories, eq(ruleCategories.id, riskRules.categoryId))
+            .leftJoin(encounters, eq(complianceFlags.entityId, encounters.id))
+            .leftJoin(medications, eq(complianceFlags.entityId, medications.id))
             .where(and(
-                eq(complianceFlags.organizationId, this.orgId),
+                eq(complianceFlags.organizationId, orgId),
                 eq(complianceFlags.instanceId, instanceId),
             ))
             .limit(1);
 
-        if (!flag) throw new NotFoundException(`Flag not found: ${instanceId}`);
+        if (!row) throw new NotFoundException(`Flag not found: ${instanceId}`);
 
-        const [ruleRows, archetypeRows, planLinks, patientRows, orgRows] = await Promise.all([
-            flag.ruleId
-                ? db.select().from(riskRules).where(eq(riskRules.id, flag.ruleId)).limit(1)
-                : Promise.resolve([] as (typeof riskRules.$inferSelect)[]),
-            flag.ruleId
-                ? db.select().from(findingArchetypes).where(and(
-                    eq(findingArchetypes.organizationId, this.orgId),
-                    eq(findingArchetypes.ruleId, flag.ruleId),
-                  )).limit(1)
-                : Promise.resolve([] as (typeof findingArchetypes.$inferSelect)[]),
-            db
-                .select({ plan: riskManagementPlans })
-                .from(riskManagementPlanComplianceFlags)
-                .innerJoin(
-                    riskManagementPlans,
-                    eq(riskManagementPlanComplianceFlags.riskManagementPlanId, riskManagementPlans.id),
-                )
-                .where(eq(riskManagementPlanComplianceFlags.complianceFlagId, flag.id))
-                .limit(1),
-            flag.patientId
-                ? db.select().from(patients).where(eq(patients.id, flag.patientId)).limit(1)
-                : Promise.resolve([] as (typeof patients.$inferSelect)[]),
-            db.select({ scoreTuning: organizations.scoreTuning })
-                .from(organizations)
-                .where(eq(organizations.id, this.orgId))
-                .limit(1),
-        ]);
+        const { flag, rule, archetype, patient, scoreTuning, plan, category, encounter, medication } = row;
 
-        const rule        = ruleRows[0]      ?? null;
-        const archetype   = archetypeRows[0] ?? null;
-        const plan        = planLinks[0]?.plan ?? null;
-        const patient     = patientRows[0]   ?? null;
-        const scoreTuning = (orgRows[0]?.scoreTuning ?? {}) as ScoreTuning;
-
-        let conditions: (typeof ruleConditions.$inferSelect)[] = [];
-        let category:   (typeof ruleCategories.$inferSelect) | null = null;
-
-        if (rule) {
-            conditions = await db
+        const conditions = rule
+            ? await db
                 .select()
                 .from(ruleConditions)
                 .where(and(
                     eq(ruleConditions.ruleId, rule.id),
-                    eq(ruleConditions.organizationId, this.orgId),
+                    eq(ruleConditions.organizationId, orgId),
                 ))
-                .orderBy(asc(ruleConditions.order));
-
-            if (rule.categoryId) {
-                const [cat] = await db
-                    .select()
-                    .from(ruleCategories)
-                    .where(eq(ruleCategories.id, rule.categoryId))
-                    .limit(1);
-                category = cat ?? null;
-            }
-        }
+                .orderBy(asc(ruleConditions.order))
+            : [];
 
         return {
             ...flag,
+            patientName: patient?.name ?? null,
             patient,
-            scoreTuning,
+            entity: flag.entityType === 'ENCOUNTER' ? encounter : medication,
+            scoreTuning: (scoreTuning ?? {}) as ScoreTuning,
             rule: rule ? { ...rule, conditions, category } : null,
             findingArchetype: archetype,
             riskManagementPlan: plan,

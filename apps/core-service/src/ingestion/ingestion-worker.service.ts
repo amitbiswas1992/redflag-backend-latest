@@ -977,6 +977,7 @@ export class IngestionWorkerService {
                     organizationId,
                     sourceId: medicationSourceId,
                     patientId: upsertedPatient.id,
+                    encounterId,
                     status: medicationStatus,
                     intent: this.pickFirst(normalized, ['medication_intent']),
                     medicationCodeableConcept: this.buildCodeableConcept(
@@ -998,6 +999,7 @@ export class IngestionWorkerService {
                     target: [medications.organizationId, medications.sourceId],
                     set: {
                         patientId: upsertedPatient.id,
+                        encounterId,
                         status: medicationStatus,
                         intent: this.pickFirst(normalized, ['medication_intent']),
                         medicationCodeableConcept: this.buildCodeableConcept(

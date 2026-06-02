@@ -62,6 +62,7 @@ export const medications = pgTable('medications', {
     organizationId: uuid('organization_id').references(() => organizations.id, { onDelete: 'cascade' }).notNull(),
     sourceId: text('source_id').notNull(),
     patientId: uuid('patient_id').references(() => patients.id, { onDelete: 'cascade' }).notNull(),
+    encounterId: uuid('encounter_id').references(() => encounters.id, { onDelete: 'set null' }),
     status: text('status'),
     intent: text('intent'),
     medicationCodeableConcept: jsonb('medication_codeable_concept'),
