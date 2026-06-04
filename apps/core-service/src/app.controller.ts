@@ -1,18 +1,13 @@
-import { Public } from '@app/common';
+import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 import { Controller, Get } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AppService } from './app.service';
-import { AuthService } from './auth/auth.service';
-import { JWKSet } from './auth/utils/jwk.util';
 
 @ApiTags('health')
-@Public()
+@AllowAnonymous()
 @Controller()
 export class AppController {
-  constructor(
-    private readonly appService: AppService,
-    private readonly authService: AuthService,
-  ) { }
+  constructor(private readonly appService: AppService) { }
 
   @ApiOperation({
     summary: 'Welcome message',
@@ -57,37 +52,5 @@ export class AppController {
       status: 'ok',
       timestamp: new Date().toISOString(),
     };
-  }
-
-  @ApiOperation({
-    summary: 'Get JWK Set',
-    description:
-      'Returns the JSON Web Key Set (JWK Set) containing the public key for JWT signature verification. This URL should be configured in Epic App Orchard as the Non-Production JWK Set URL.',
-  })
-  @ApiOkResponse({
-    description: 'JWK Set returned successfully',
-    schema: {
-      type: 'object',
-      properties: {
-        keys: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              kty: { type: 'string', example: 'RSA' },
-              use: { type: 'string', example: 'sig' },
-              alg: { type: 'string', example: 'RS256' },
-              kid: { type: 'string', example: 'your-key-id' },
-              n: { type: 'string', description: 'Modulus (base64url encoded)' },
-              e: { type: 'string', description: 'Exponent (base64url encoded)' },
-            },
-          },
-        },
-      },
-    },
-  })
-  @Get('.well-known/jwks.json')
-  async getJWKSet(): Promise<JWKSet> {
-    return await this.authService.getJWKSet();
   }
 }

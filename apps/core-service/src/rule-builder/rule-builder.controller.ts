@@ -1,4 +1,4 @@
-import { RBAC_ROLES, Roles } from '@app/common';
+import { OrgRoles } from '@thallesp/nestjs-better-auth';
 import {
     Body,
     Controller,
@@ -66,7 +66,7 @@ export class RuleBuilderController {
     @ApiOperation({ summary: 'Create a finding category' })
     @ApiCreatedResponse({ description: 'Category created' })
     @ApiBadRequestResponse({ description: 'Invalid input' })
-    @Roles(RBAC_ROLES.OWNER, RBAC_ROLES.ADMIN)
+    @OrgRoles(['owner', 'admin'])
     @Post('categories')
     createCategory(@Body() dto: CreateRuleCategoryDto) {
         return this.service.createCategory(dto);
@@ -75,7 +75,7 @@ export class RuleBuilderController {
     @ApiOperation({ summary: 'Update a finding category' })
     @ApiOkResponse({ description: 'Category updated' })
     @ApiNotFoundResponse({ description: 'Category not found' })
-    @Roles(RBAC_ROLES.OWNER, RBAC_ROLES.ADMIN)
+    @OrgRoles(['owner', 'admin'])
     @Put('categories/:id')
     updateCategory(@Param('id') id: string, @Body() dto: UpdateRuleCategoryDto) {
         return this.service.updateCategory(id, dto);
@@ -85,7 +85,7 @@ export class RuleBuilderController {
     @ApiOkResponse({ description: 'Category deleted' })
     @ApiNotFoundResponse({ description: 'Category not found' })
     @ApiBadRequestResponse({ description: 'Cannot delete — rules still assigned' })
-    @Roles(RBAC_ROLES.OWNER, RBAC_ROLES.ADMIN)
+    @OrgRoles(['owner', 'admin'])
     @Delete('categories/:id')
     deleteCategory(@Param('id') id: string) {
         return this.service.deleteCategory(id);
@@ -138,7 +138,7 @@ export class RuleBuilderController {
     @ApiOperation({ summary: 'Create a new rule with conditions' })
     @ApiCreatedResponse({ description: 'Rule created' })
     @ApiBadRequestResponse({ description: 'Invalid field names or input' })
-    @Roles(RBAC_ROLES.OWNER, RBAC_ROLES.ADMIN)
+    @OrgRoles(['owner', 'admin'])
     @Post('rules')
     createRule(@Body() dto: CreateRiskRuleDto) {
         return this.service.createRule(dto);
@@ -148,7 +148,7 @@ export class RuleBuilderController {
     @ApiParam({ name: 'id', description: 'Rule UUID' })
     @ApiOkResponse({ description: 'Rule updated' })
     @ApiNotFoundResponse({ description: 'Rule not found' })
-    @Roles(RBAC_ROLES.OWNER, RBAC_ROLES.ADMIN)
+    @OrgRoles(['owner', 'admin'])
     @Put('rules/:id')
     updateRule(@Param('id') id: string, @Body() dto: UpdateRiskRuleDto) {
         return this.service.updateRule(id, dto);
@@ -157,7 +157,7 @@ export class RuleBuilderController {
     @ApiOperation({ summary: 'Toggle rule active/inactive' })
     @ApiParam({ name: 'id', description: 'Rule UUID' })
     @ApiOkResponse({ description: 'Rule toggled' })
-    @Roles(RBAC_ROLES.OWNER, RBAC_ROLES.ADMIN)
+    @OrgRoles(['owner', 'admin'])
     @Patch('rules/:id/toggle')
     toggleRule(@Param('id') id: string) {
         return this.service.toggleRule(id);
@@ -167,7 +167,7 @@ export class RuleBuilderController {
     @ApiParam({ name: 'id', description: 'Rule UUID' })
     @ApiOkResponse({ description: 'Rule deleted' })
     @ApiNotFoundResponse({ description: 'Rule not found' })
-    @Roles(RBAC_ROLES.OWNER, RBAC_ROLES.ADMIN)
+    @OrgRoles(['owner', 'admin'])
     @Delete('rules/:id')
     deleteRule(@Param('id') id: string) {
         return this.service.deleteRule(id);

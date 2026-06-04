@@ -1,4 +1,4 @@
-import { RBAC_ROLES, Roles } from '@app/common';
+import { OrgRoles } from '@thallesp/nestjs-better-auth';
 import {
     Body,
     Controller,
@@ -67,7 +67,7 @@ export class FindingArchetypeController {
     @ApiOperation({ summary: 'Create a finding archetype' })
     @ApiCreatedResponse({ description: 'Archetype created' })
     @ApiBadRequestResponse({ description: 'Invalid input' })
-    @Roles(RBAC_ROLES.OWNER, RBAC_ROLES.ADMIN)
+    @OrgRoles(['owner', 'admin'])
     @Post()
     create(@Body() dto: CreateFindingArchetypeDto) {
         return this.service.create(dto);
@@ -77,7 +77,7 @@ export class FindingArchetypeController {
     @ApiParam({ name: 'id', description: 'Archetype UUID' })
     @ApiOkResponse({ description: 'Archetype updated' })
     @ApiNotFoundResponse({ description: 'Not found' })
-    @Roles(RBAC_ROLES.OWNER, RBAC_ROLES.ADMIN)
+    @OrgRoles(['owner', 'admin'])
     @Put(':id')
     update(@Param('id') id: string, @Body() dto: UpdateFindingArchetypeDto) {
         return this.service.update(id, dto);
@@ -88,7 +88,7 @@ export class FindingArchetypeController {
     @ApiOkResponse({ description: 'Archetype deleted' })
     @ApiNotFoundResponse({ description: 'Not found' })
     @ApiBadRequestResponse({ description: 'Has child archetypes' })
-    @Roles(RBAC_ROLES.OWNER, RBAC_ROLES.ADMIN)
+    @OrgRoles(['owner', 'admin'])
     @Delete(':id')
     delete(@Param('id') id: string) {
         return this.service.delete(id);

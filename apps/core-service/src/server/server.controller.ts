@@ -1,4 +1,4 @@
-import { RBAC_ROLES, Roles } from '@app/common';
+import { OrgRoles } from '@thallesp/nestjs-better-auth';
 import {
   Body,
   Controller,
@@ -40,7 +40,7 @@ export class ServerController {
   @ApiBody({ type: CreatePatientDto })
   @ApiCreatedResponse({ description: 'Patient created successfully' })
   @ApiBadRequestResponse({ description: 'Invalid input or patient already exists' })
-  @Roles(RBAC_ROLES.OWNER, RBAC_ROLES.ADMIN)
+  @OrgRoles(['owner', 'admin'])
   @Post('patients')
   async createPatient(@Body() createPatientDto: CreatePatientDto) {
     return this.serverService.createPatient(createPatientDto);
@@ -105,7 +105,7 @@ export class ServerController {
   @ApiBody({ type: UpdatePatientDto })
   @ApiOkResponse({ description: 'Patient updated successfully' })
   @ApiNotFoundResponse({ description: 'Patient not found' })
-  @Roles(RBAC_ROLES.OWNER, RBAC_ROLES.ADMIN)
+  @OrgRoles(['owner', 'admin'])
   @Put('patients/:id')
   async updatePatient(
     @Param('id') id: string,
@@ -119,7 +119,7 @@ export class ServerController {
   @ApiOkResponse({ description: 'Patient deleted successfully' })
   @ApiNotFoundResponse({ description: 'Patient not found' })
   @HttpCode(HttpStatus.OK)
-  @Roles(RBAC_ROLES.OWNER, RBAC_ROLES.ADMIN)
+  @OrgRoles(['owner', 'admin'])
   @Delete('patients/:id')
   async deletePatient(@Param('id') id: string) {
     return this.serverService.deletePatient(id);
@@ -130,7 +130,7 @@ export class ServerController {
   @ApiBody({ type: CreatePractitionerDto })
   @ApiCreatedResponse({ description: 'Practitioner created successfully' })
   @ApiBadRequestResponse({ description: 'Invalid input or practitioner already exists' })
-  @Roles(RBAC_ROLES.OWNER, RBAC_ROLES.ADMIN)
+  @OrgRoles(['owner', 'admin'])
   @Post('practitioners')
   async createPractitioner(@Body() createPractitionerDto: CreatePractitionerDto) {
     return this.serverService.createPractitioner(createPractitionerDto);
@@ -306,7 +306,7 @@ export class ServerController {
   @ApiBadRequestResponse({
     description: 'Invalid patient ID or patient not found in Epic',
   })
-  @Roles(RBAC_ROLES.OWNER, RBAC_ROLES.ADMIN)
+  @OrgRoles(['owner', 'admin'])
   @Post('sync/patient/:patientId')
   async syncPatientFromEpic(@Param('patientId') patientId: string) {
     return this.serverService.syncPatientFromEpic(patientId);

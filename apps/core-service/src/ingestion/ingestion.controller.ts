@@ -1,4 +1,4 @@
-import { RBAC_ROLES, Roles } from '@app/common';
+import { OrgRoles } from '@thallesp/nestjs-better-auth';
 import {
     Body,
     Controller,
@@ -38,7 +38,7 @@ export class IngestionController {
         },
     })
     @ApiOkResponse({ description: 'Ingestion job created' })
-    @Roles(RBAC_ROLES.OWNER, RBAC_ROLES.ADMIN)
+    @OrgRoles(['owner', 'admin'])
     @Post('jobs')
     @HttpCode(HttpStatus.CREATED)
     async createJob(@Body() body: unknown) {
@@ -61,7 +61,7 @@ export class IngestionController {
         },
     })
     @ApiOkResponse({ description: 'CSV accepted and validated' })
-    @Roles(RBAC_ROLES.OWNER, RBAC_ROLES.ADMIN)
+    @OrgRoles(['owner', 'admin'])
     @Post('jobs/:jobId/upload-csv')
     async uploadCsv(@Param('jobId') jobId: string, @Body() body: unknown) {
         return this.ingestionService.uploadCsv(jobId, body);
@@ -81,7 +81,7 @@ export class IngestionController {
         },
     })
     @ApiOkResponse({ description: 'Job started' })
-    @Roles(RBAC_ROLES.OWNER, RBAC_ROLES.ADMIN)
+    @OrgRoles(['owner', 'admin'])
     @Post('jobs/:jobId/start')
     @HttpCode(HttpStatus.ACCEPTED)
     async startJob(@Param('jobId') jobId: string, @Body() body: unknown) {
@@ -137,7 +137,7 @@ export class IngestionController {
         },
     })
     @ApiOkResponse({ description: 'Template confirmed and job is ready to start' })
-    @Roles(RBAC_ROLES.OWNER, RBAC_ROLES.ADMIN)
+    @OrgRoles(['owner', 'admin'])
     @Post('jobs/:jobId/confirm-template')
     async confirmTemplate(@Param('jobId') jobId: string, @Body() body: unknown) {
         return this.ingestionService.confirmTemplate(jobId, body);

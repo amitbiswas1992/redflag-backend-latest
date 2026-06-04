@@ -1,4 +1,4 @@
-import { RBAC_ROLES, Roles } from '@app/common';
+import { OrgRoles } from '@thallesp/nestjs-better-auth';
 import {
     Body,
     Controller,
@@ -74,7 +74,7 @@ export class RiskManagementController {
     @ApiOperation({ summary: 'Create a new risk management plan' })
     @ApiCreatedResponse({ description: 'Plan created' })
     @ApiBadRequestResponse({ description: 'Invalid input' })
-    @Roles(RBAC_ROLES.OWNER, RBAC_ROLES.ADMIN)
+    @OrgRoles(['owner', 'admin'])
     @Post('plans')
     createPlan(@Body() dto: CreateRiskManagementPlanDto) {
         return this.service.createPlan(dto);
@@ -84,7 +84,7 @@ export class RiskManagementController {
     @ApiParam({ name: 'id', description: 'Plan UUID' })
     @ApiOkResponse({ description: 'Plan updated' })
     @ApiNotFoundResponse({ description: 'Plan not found' })
-    @Roles(RBAC_ROLES.OWNER, RBAC_ROLES.ADMIN)
+    @OrgRoles(['owner', 'admin'])
     @Put('plans/:id')
     updatePlan(@Param('id') id: string, @Body() dto: UpdateRiskManagementPlanDto) {
         return this.service.updatePlan(id, dto);
@@ -94,7 +94,7 @@ export class RiskManagementController {
     @ApiParam({ name: 'id', description: 'Plan UUID' })
     @ApiOkResponse({ description: 'Plan deleted' })
     @ApiNotFoundResponse({ description: 'Plan not found' })
-    @Roles(RBAC_ROLES.OWNER, RBAC_ROLES.ADMIN)
+    @OrgRoles(['owner', 'admin'])
     @Delete('plans/:id')
     deletePlan(@Param('id') id: string) {
         return this.service.deletePlan(id);

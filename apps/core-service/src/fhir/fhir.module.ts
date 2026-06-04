@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
 import { FhirService } from './fhir.service';
-import { AuthModule } from '../auth/auth.module';
+import { TokenModule } from '../token/token.module';
 
 @Module({
-  imports: [AuthModule],
+  imports: [TokenModule],
   providers: [FhirService],
   exports: [FhirService],
 })

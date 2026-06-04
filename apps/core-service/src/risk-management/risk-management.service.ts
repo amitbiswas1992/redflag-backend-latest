@@ -1,6 +1,7 @@
 import {
     complianceFlags,
     db,
+    members,
     riskManagementPlanAssignees,
     riskManagementPlanComplianceFlags,
     riskManagementPlanMessages,
@@ -25,9 +26,8 @@ import {
 } from './dto/risk-management.dto';
 
 type RequestContext = {
-    organizationId?: string;
-    tenantId?: string;
-    user?: { id: string; role: string };
+    session?: { activeOrganizationId?: string | null };
+    user?: { id: string };
 };
 
 @Injectable()
@@ -37,7 +37,7 @@ export class RiskManagementService {
     constructor(@Inject('REQUEST') private readonly request: RequestContext) {}
 
     private get orgId(): string {
-        const id = this.request.organizationId ?? this.request.tenantId;
+        const id = this.request.session?.activeOrganizationId;
         if (!id) throw new BadRequestException('Missing organizationId');
         return id;
     }
@@ -48,8 +48,13 @@ export class RiskManagementService {
         return id;
     }
 
-    private get isAdminOrOwner(): boolean {
-        const role = this.request.user?.role?.toUpperCase();
+    private async getIsAdminOrOwner(): Promise<boolean> {
+        const [member] = await db
+            .select({ role: members.role })
+            .from(members)
+            .where(and(eq(members.userId, this.userId), eq(members.organizationId, this.orgId)))
+            .limit(1);
+        const role = member?.role?.toUpperCase();
         return role === 'ADMIN' || role === 'OWNER';
     }
 
@@ -119,7 +124,7 @@ export class RiskManagementService {
             );
 
         // Non-admin users only see plans they created or are assigned to
-        if (!this.isAdminOrOwner) {
+        if (!await this.getIsAdminOrOwner()) {
             const uid = this.userId;
             const assignedPlanIds = await db
                 .select({ riskManagementPlanId: riskManagementPlanAssignees.riskManagementPlanId })
@@ -303,7 +308,7 @@ export class RiskManagementService {
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     async canAccessPlan(planId: string): Promise<boolean> {
-        if (this.isAdminOrOwner) return true;
+        if (await this.getIsAdminOrOwner()) return true;
         const uid = this.userId;
 
         const [plan] = await db

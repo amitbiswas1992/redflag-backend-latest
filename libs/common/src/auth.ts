@@ -1,7 +1,7 @@
 import { db } from '@app/db';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
-import { organization } from 'better-auth/plugins';
+import { genericOAuth, keycloak, organization } from 'better-auth/plugins';
 import { createAccessControl } from 'better-auth/plugins/access';
 import {
   defaultStatements,
@@ -52,6 +52,15 @@ export const auth = betterAuth({
     },
   },
   plugins: [
+    genericOAuth({
+      config: [
+        keycloak({
+          clientId: process.env.KEYCLOAK_CLIENT_ID!,
+          clientSecret: process.env.KEYCLOAK_CLIENT_SECRET!,
+          issuer: `${process.env.KEYCLOAK_URL}/realms/${process.env.KEYCLOAK_REALM}`,
+        }),
+      ],
+    }),
     organization({
       ac,
       roles: {
@@ -61,6 +70,17 @@ export const auth = betterAuth({
         control_owner,
         compliance_officer,
         executive_sponsor,
+      },
+      schema: {
+        organization: {
+          additionalFields: {
+            scoreTuning: {
+              type: "json",
+              input: true,
+              required: false,
+            },
+          },
+        },
       },
     }),
   ],

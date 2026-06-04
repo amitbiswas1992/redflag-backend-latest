@@ -1,7 +1,7 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosInstance, AxiosError } from 'axios';
-import { AuthService } from '../auth/auth.service';
+import { TokenService } from '../token/token.service';
 
 /**
  * Custom exception for forbidden scope errors
@@ -39,7 +39,7 @@ export class FhirService {
 
   constructor(
     private configService: ConfigService,
-    private authService: AuthService,
+    private tokenService: TokenService,
   ) {
     const config = this.configService.get('epic');
     if (!config) {
@@ -64,7 +64,7 @@ export class FhirService {
       throw new BadRequestException('Patient ID is required');
     }
 
-    const accessToken = await this.authService.getAccessToken();
+    const accessToken = this.tokenService.getToken()?.accessToken ?? '';
 
     try {
       const response = await this.httpClient.get<FhirPatient>(
@@ -98,7 +98,7 @@ export class FhirService {
       throw new BadRequestException('Patient ID is required');
     }
 
-    const accessToken = await this.authService.getAccessToken();
+    const accessToken = this.tokenService.getToken()?.accessToken ?? '';
 
     try {
       const params = new URLSearchParams({
@@ -154,7 +154,7 @@ export class FhirService {
       throw new BadRequestException('Patient ID is required');
     }
 
-    const accessToken = await this.authService.getAccessToken();
+    const accessToken = this.tokenService.getToken()?.accessToken ?? '';
 
     try {
       const params = new URLSearchParams({
@@ -201,7 +201,7 @@ export class FhirService {
       throw new BadRequestException('Patient ID is required');
     }
 
-    const accessToken = await this.authService.getAccessToken();
+    const accessToken = this.tokenService.getToken()?.accessToken ?? '';
 
     try {
       const params = new URLSearchParams({
@@ -250,7 +250,7 @@ export class FhirService {
       throw new BadRequestException('Patient ID is required');
     }
 
-    const accessToken = await this.authService.getAccessToken();
+    const accessToken = this.tokenService.getToken()?.accessToken ?? '';
 
     try {
       const params = new URLSearchParams({
@@ -299,7 +299,7 @@ export class FhirService {
       throw new BadRequestException('Patient ID is required');
     }
 
-    const accessToken = await this.authService.getAccessToken();
+    const accessToken = this.tokenService.getToken()?.accessToken ?? '';
 
     try {
       const params = new URLSearchParams({
@@ -345,7 +345,7 @@ export class FhirService {
       throw new BadRequestException('Patient ID is required');
     }
 
-    const accessToken = await this.authService.getAccessToken();
+    const accessToken = this.tokenService.getToken()?.accessToken ?? '';
 
     try {
       const params = new URLSearchParams({
@@ -391,7 +391,7 @@ export class FhirService {
       throw new BadRequestException('Patient ID is required');
     }
 
-    const accessToken = await this.authService.getAccessToken();
+    const accessToken = this.tokenService.getToken()?.accessToken ?? '';
 
     try {
       const params = new URLSearchParams({
@@ -436,7 +436,7 @@ export class FhirService {
       throw new BadRequestException('Practitioner ID is required');
     }
 
-    const accessToken = await this.authService.getAccessToken();
+    const accessToken = this.tokenService.getToken()?.accessToken ?? '';
 
     try {
       const response = await this.httpClient.get<FhirPractitioner>(
