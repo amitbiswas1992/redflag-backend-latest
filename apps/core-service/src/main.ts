@@ -21,7 +21,10 @@ function swaggerBasicAuth(req: Request, res: Response, next: NextFunction) {
 }
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    // Better Auth will re-add the default body parsers for non-auth routes.
+    bodyParser: false,
+  });
   const logger = app.get(LoggerService);
   logger.setServiceContext('core-service');
   app.useGlobalFilters(new GlobalExceptionFilter(logger));

@@ -34,9 +34,9 @@ export class OrganizationService {
         return updated;
     }
 
-    async updateOrganizationLogo(organizationId: string, logoUrl: string, actorUserId: string) {
+    async updateOrganizationLogo(organizationId: string, logo: string, actorUserId: string) {
         const [updated] = await db.update(organizations)
-            .set({ logoUrl })
+            .set({ logo: logo })
             .where(eq(organizations.id, organizationId))
             .returning();
 
@@ -44,7 +44,7 @@ export class OrganizationService {
             eventType: 'ORGANIZATION_UPDATED',
             userId: actorUserId,
             organizationId,
-            metadata: { field: 'logoUrl' },
+            metadata: { field: 'logo' },
         });
 
         return updated;

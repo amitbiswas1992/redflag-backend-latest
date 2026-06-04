@@ -1,5 +1,5 @@
 import { AuditService } from '@app/common';
-import { db, organizationInvites, organizationMemberships, organizations, users } from '@app/db';
+import { db, organizations, users, invitations, members } from '@app/db';
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { randomUUID } from 'crypto';
@@ -9,8 +9,7 @@ import Mailgun from 'mailgun.js';
 
 export interface CreateInviteDto {
     email: string;
-    platformRole: string;
-    functionalRoleId: string;
+    role: string;
 }
 
 @Injectable()
@@ -36,14 +35,14 @@ export class InviteService {
     }
 
     async createInvite(dto: CreateInviteDto, invitedBy: { userId: string; organizationId: string }) {
-        const existing = await db.select().from(organizationInvites)
-            .where(and(eq(organizationInvites.organizationId, invitedBy.organizationId), eq(organizationInvites.email, dto.email), isNull(organizationInvites.acceptedAt), isNull(organizationInvites.revokedAt)))
+        const existing = await db.select().from(invitations)
+            .where(and(eq(invitations.organizationId, invitedBy.organizationId), eq(invitations.email, dto.email), isNull(invitations.acceptedAt), isNull(invitations.revokedAt)))
             .then(r => r[0]);
         if (existing) throw new BadRequestException('INVITE_ALREADY_PENDING');
         const targetUser = await db.select().from(users).where(eq(users.email, dto.email.toLowerCase())).then(r => r[0]);
         if (targetUser) {
-            const existingMembership = await db.select().from(organizationMemberships)
-                .where(and(eq(organizationMemberships.organizationId, invitedBy.organizationId), eq(organizationMemberships.userId, targetUser.id)))
+            const existingMembership = await db.select().from(members)
+                .where(and(eq(members.organizationId, invitedBy.organizationId), eq(members.userId, targetUser.id)))
                 .then(r => r[0]);
             if (existingMembership) throw new BadRequestException('USER_ALREADY_MEMBER');
         }
@@ -51,21 +50,24 @@ export class InviteService {
         const jti = randomUUID();
         const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
         const inviteToken = await this.jwtService.signAsync(
-            { type: 'invite', orgId: invitedBy.organizationId, email: dto.email, platformRole: dto.platformRole, functionalRoleId: dto.functionalRoleId, jti },
+            { type: 'invite', orgId: invitedBy.organizationId, email: dto.email, role: dto.role, jti },
             { expiresIn: '7d' },
         );
-        await db.insert(organizationInvites).values({
-            organizationId: invitedBy.organizationId, email: dto.email, platformRole: dto.platformRole,
-            functionalRoleId: dto.functionalRoleId, invitedByUserId: invitedBy.userId, tokenJti: jti, expiresAt,
+        await db.insert(invitations).values({
+            organizationId: invitedBy.organizationId,
+            email: dto.email,
+            role: dto.role,
+            inviterId: invitedBy.userId,
+            expiresAt,
         });
-        await this.auditService.log({ eventType: 'INVITE_SENT', userId: invitedBy.userId, organizationId: invitedBy.organizationId, metadata: { invitedEmail: dto.email, platformRole: dto.platformRole } });
-        await this.sendInviteEmail(dto.email, org?.name ?? 'Organization', inviteToken, dto.platformRole, expiresAt);
+        await this.auditService.log({ eventType: 'INVITE_SENT', userId: invitedBy.userId, organizationId: invitedBy.organizationId, metadata: { invitedEmail: dto.email, role: dto.role } });
+        await this.sendInviteEmail(dto.email, org?.name ?? 'Organization', inviteToken, dto.role, expiresAt);
         return { inviteToken, expiresAt };
     }
 
     async resendInvite(inviteId: string, organizationId: string, invitedByUserId: string) {
-        const invite = await db.select().from(organizationInvites)
-            .where(and(eq(organizationInvites.id, inviteId), eq(organizationInvites.organizationId, organizationId)))
+        const invite = await db.select().from(invitations)
+            .where(and(eq(invitations.id, inviteId), eq(invitations.organizationId, organizationId)))
             .then(r => r[0]);
         if (!invite) throw new NotFoundException('INVITE_NOT_FOUND');
         if (invite.revokedAt) throw new BadRequestException('INVITE_ALREADY_REVOKED');
@@ -74,52 +76,56 @@ export class InviteService {
         const jti = randomUUID();
         const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
         const inviteToken = await this.jwtService.signAsync(
-            { type: 'invite', orgId: organizationId, email: invite.email, platformRole: invite.platformRole, functionalRoleId: invite.functionalRoleId, jti },
+            { type: 'invite', orgId: organizationId, email: invite.email, role: invite.role, jti },
             { expiresIn: '7d' },
         );
-        await db.update(organizationInvites)
-            .set({ tokenJti: jti, expiresAt })
-            .where(eq(organizationInvites.id, inviteId));
-        await this.auditService.log({ eventType: 'INVITE_RESENT', userId: invitedByUserId, organizationId, metadata: { invitedEmail: invite.email, platformRole: invite.platformRole } });
-        await this.sendInviteEmail(invite.email, org?.name ?? 'Organization', inviteToken, invite.platformRole, expiresAt);
+        await db.update(invitations)
+            .set({ expiresAt })
+            .where(eq(invitations.id, inviteId));
+        await this.auditService.log({ eventType: 'INVITE_RESENT', userId: invitedByUserId, organizationId, metadata: { invitedEmail: invite.email, role: invite.role } });
+        await this.sendInviteEmail(invite.email, org?.name ?? 'Organization', inviteToken, invite.role || 'member', expiresAt);
         return { success: true };
     }
 
-    async acceptInvite(token: string, keycloakUser: { sub: string; email: string }) {
+    async acceptInvite(token: string, inviteUser: { sub: string; email: string }) {
         let payload: any;
         try { payload = await this.jwtService.verifyAsync(token, { clockTolerance: 60 }); }
         catch { throw new UnauthorizedException('INVALID_INVITE_TOKEN'); }
         if (payload.type !== 'invite') throw new UnauthorizedException('INVALID_INVITE_TOKEN');
-        const invite = await db.select().from(organizationInvites).where(eq(organizationInvites.tokenJti, payload.jti)).then(r => r[0]);
+        const invite = await db.select().from(invitations).where(eq(invitations.email, inviteUser.email)).then(r => r[0]);
         if (!invite) throw new NotFoundException('INVITE_NOT_FOUND');
         if (invite.revokedAt) throw new ForbiddenException('INVITE_REVOKED');
         if (invite.acceptedAt) throw new BadRequestException('INVITE_ALREADY_ACCEPTED');
         if (new Date() > invite.expiresAt) throw new BadRequestException('INVITE_EXPIRED');
-        if (payload.email.toLowerCase() !== keycloakUser.email.toLowerCase()) throw new ForbiddenException('INVITE_EMAIL_MISMATCH');
-        const user = await this.findOrCreateUser(keycloakUser);
-        await db.insert(organizationMemberships).values({ userId: user.id, organizationId: payload.orgId, role: payload.platformRole, functionalRoleId: payload.functionalRoleId }).onConflictDoNothing();
-        await db.update(organizationInvites).set({ acceptedAt: new Date() }).where(eq(organizationInvites.id, invite.id));
-        await this.auditService.log({ eventType: 'INVITE_ACCEPTED', userId: user.id, organizationId: payload.orgId, metadata: { invitedBy: invite.invitedByUserId } });
+        if (payload.email.toLowerCase() !== inviteUser.email.toLowerCase()) throw new ForbiddenException('INVITE_EMAIL_MISMATCH');
+        const user = await this.findOrCreateUser(inviteUser);
+        await db.insert(members).values({
+            userId: user.id,
+            organizationId: payload.orgId,
+            role: payload.role,
+        }).onConflictDoNothing();
+        await db.update(invitations).set({ acceptedAt: new Date() }).where(eq(invitations.id, invite.id));
+        await this.auditService.log({ eventType: 'INVITE_ACCEPTED', userId: user.id, organizationId: payload.orgId, metadata: { invitedBy: invite.inviterId } });
         return { success: true, organizationId: payload.orgId };
     }
 
     async listPendingInvites(organizationId: string) {
-        return db.select().from(organizationInvites).where(and(eq(organizationInvites.organizationId, organizationId), isNull(organizationInvites.acceptedAt), isNull(organizationInvites.revokedAt)));
+        return db.select().from(invitations).where(and(eq(invitations.organizationId, organizationId), isNull(invitations.acceptedAt), isNull(invitations.revokedAt)));
     }
 
     async revokeInvite(inviteId: string, organizationId: string, revokedByUserId: string) {
-        const invite = await db.select().from(organizationInvites).where(and(eq(organizationInvites.id, inviteId), eq(organizationInvites.organizationId, organizationId))).then(r => r[0]);
+        const invite = await db.select().from(invitations).where(and(eq(invitations.id, inviteId), eq(invitations.organizationId, organizationId))).then(r => r[0]);
         if (!invite) throw new NotFoundException('INVITE_NOT_FOUND');
         if (invite.revokedAt) throw new BadRequestException('INVITE_ALREADY_REVOKED');
         if (invite.acceptedAt) throw new BadRequestException('INVITE_ALREADY_ACCEPTED');
-        await db.update(organizationInvites).set({ revokedAt: new Date() }).where(eq(organizationInvites.id, inviteId));
+        await db.update(invitations).set({ revokedAt: new Date() }).where(eq(invitations.id, inviteId));
         await this.auditService.log({ eventType: 'INVITE_REVOKED', userId: revokedByUserId, organizationId, metadata: { revokedInviteId: inviteId } });
         return { success: true };
     }
 
     async getInviteToken(inviteId: string, organizationId: string) {
-        const invite = await db.select().from(organizationInvites)
-            .where(and(eq(organizationInvites.id, inviteId), eq(organizationInvites.organizationId, organizationId)))
+        const invite = await db.select().from(invitations)
+            .where(and(eq(invitations.id, inviteId), eq(invitations.organizationId, organizationId)))
             .then(r => r[0]);
         if (!invite) throw new NotFoundException('INVITE_NOT_FOUND');
         if (invite.revokedAt) throw new BadRequestException('INVITE_ALREADY_REVOKED');
@@ -127,12 +133,12 @@ export class InviteService {
         const jti = randomUUID();
         const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
         const inviteToken = await this.jwtService.signAsync(
-            { type: 'invite', orgId: organizationId, email: invite.email, platformRole: invite.platformRole, functionalRoleId: invite.functionalRoleId, jti },
+            { type: 'invite', orgId: organizationId, email: invite.email, role: invite.role, jti },
             { expiresIn: '7d' },
         );
-        await db.update(organizationInvites)
-            .set({ tokenJti: jti, expiresAt })
-            .where(eq(organizationInvites.id, inviteId));
+        await db.update(invitations)
+            .set({ expiresAt })
+            .where(eq(invitations.id, inviteId));
         return { inviteToken, expiresAt };
     }
 
@@ -172,10 +178,10 @@ export class InviteService {
         }
     }
 
-    private async findOrCreateUser(keycloakUser: { sub: string; email: string }) {
-        const existing = await db.select().from(users).where(eq(users.keycloakId, keycloakUser.sub)).then(r => r[0]);
+    private async findOrCreateUser(inviteUser: { sub: string; email: string }) {
+        const existing = await db.select().from(users).where(eq(users.email, inviteUser.email)).then(r => r[0]);
         if (existing) return existing;
-        const newUsers = await db.insert(users).values({ keycloakId: keycloakUser.sub, email: keycloakUser.email }).returning();
+        const newUsers = await db.insert(users).values({ email: inviteUser.email, name: inviteUser.email }).returning();
         return newUsers[0];
     }
 }

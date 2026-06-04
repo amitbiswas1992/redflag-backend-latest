@@ -12,15 +12,13 @@ export class IdentityController {
         @Req() req: any,
         @Body() body: { name: string; slug: string; adminEmail: string }
     ) {
-        // Securely derive Keycloak 'sub' value directly from verified JSON Web Token
-        const keycloakId = req.keycloakUser.sub;
         const validEmail = req.keycloakUser.email || body.adminEmail;
 
         // 1. Create the workspace in our multi-tenant Database
         const org = await this.identityService.createOrganizationInDB(body.name, body.slug);
 
         // 2. Ensure user exists
-        const user = await this.identityService.ensureUserExists(keycloakId, validEmail);
+        const user = await this.identityService.ensureUserExists(validEmail);
 
         // 3. Make user OWNER of the new workspace
         await this.identityService.assignRole(user.id, org.id, 'OWNER');
@@ -31,10 +29,9 @@ export class IdentityController {
     @Post('users')
     @UseGuards(KeycloakAuthGuard)
     async registerUser(@Req() req: any) {
-        const keycloakId = req.keycloakUser.sub;
         const validEmail = req.keycloakUser.email;
 
-        const user = await this.identityService.ensureUserExists(keycloakId, validEmail);
+        const user = await this.identityService.ensureUserExists(validEmail);
 
         return { success: true, user };
     }

@@ -7,11 +7,9 @@ import { AUTH_PUBLIC_ROUTE_KEY } from '../constants/auth.constants';
 export interface InternalJwtPayload {
     sub: string;
     email: string;
-    keycloakId: string;
     tenantIds: string[];
     activeTenant: string;
     role: string;
-    functionalRole: string;
     permissions: string[];
     tokenVersion: number;
     iat?: number;
@@ -29,7 +27,7 @@ export class InternalAuthGuard implements CanActivate {
         if (token) {
             try {
                 const payload = await this.jwtService.verifyAsync<InternalJwtPayload>(token, { secret: process.env.JWT_SECRET ?? 'change-me-in-production' });
-                request['user'] = { id: payload.sub, email: payload.email, keycloakId: payload.keycloakId, tenantIds: payload.tenantIds, activeTenant: payload.activeTenant, role: payload.role, functionalRole: payload.functionalRole, permissions: payload.permissions };
+                request['user'] = { id: payload.sub, email: payload.email, tenantIds: payload.tenantIds, activeTenant: payload.activeTenant, role: payload.role, permissions: payload.permissions };
             } catch {
                 // Invalid token on a public route: ignore so unauthenticated users can still access
                 if (!isPublic) throw new UnauthorizedException('AUTH_INVALID_TOKEN');

@@ -38,11 +38,11 @@ export class OrganizationController {
     async updateLogo(
         @Req() req: any,
         @Param('id') organizationId: string,
-        @Body('logoUrl') logoUrl: string,
+        @Body('logo') logo: string,
     ) {
         const org = await this.organizationService.updateOrganizationLogo(
             organizationId,
-            logoUrl,
+            logo,
             req.user.id,
         );
         return { success: true, organization: org };

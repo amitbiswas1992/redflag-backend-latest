@@ -40,11 +40,4 @@ export class MembershipController {
         await this.membershipService.updatePlatformRole(req.user.activeTenant, targetUserId, newRole, { userId: req.user.id, role: req.user.role });
         return { success: true };
     }
-
-    @Patch(':userId/functional-role')
-    @Roles('OWNER', 'ADMIN')
-    async updateFunctionalRole(@Req() req: any, @Param('userId') targetUserId: string, @Body('functionalRoleId') functionalRoleId: string) {
-        await this.membershipService.updateFunctionalRole(req.user.activeTenant, targetUserId, functionalRoleId, { userId: req.user.id, role: req.user.role });
-        return { success: true };
-    }
 }

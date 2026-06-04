@@ -254,7 +254,7 @@ export class RiskManagementService {
         const creatorIds = [...new Set(messages.map((m) => m.createdBy).filter(Boolean) as string[])];
         const senders = creatorIds.length
             ? await db
-                .select({ id: users.id, email: users.email, firstName: users.firstName, lastName: users.lastName })
+                .select({ id: users.id, email: users.email, name: users.name })
                 .from(users)
                 .where(inArray(users.id, creatorIds))
             : [];
@@ -292,7 +292,7 @@ export class RiskManagementService {
                 .where(eq(riskManagementPlans.id, planId));
 
             const [sender] = await tx
-                .select({ id: users.id, email: users.email, firstName: users.firstName, lastName: users.lastName })
+                .select({ id: users.id, email: users.email, name: users.name })
                 .from(users)
                 .where(eq(users.id, uid));
 
@@ -365,8 +365,7 @@ export class RiskManagementService {
                     .select({
                         id: users.id,
                         email: users.email,
-                        firstName: users.firstName,
-                        lastName: users.lastName,
+                        name: users.name,
                     })
                     .from(users)
                     .where(inArray(users.id, userIds))

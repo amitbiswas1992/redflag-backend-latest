@@ -1,10 +1,16 @@
-import { InternalAuthGuard, LoggerService, PermissionsGuard, RolesGuard, TenantGuard } from '@app/common';
+import {
+  InternalAuthGuard,
+  LoggerService,
+  PermissionsGuard,
+  RolesGuard,
+  TenantGuard,
+} from '@app/common';
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
+import { AuthModule } from '@thallesp/nestjs-better-auth';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { AuthModule } from './auth/auth.module';
 import { ClinicalModule } from './clinical/clinical.module';
 import { ConfigModule } from './config/config.module';
 import { FhirModule } from './fhir/fhir.module';
@@ -15,12 +21,37 @@ import { LlmModule } from './llm/llm.module';
 import { RuleBuilderModule } from './rule-builder/rule-builder.module';
 import { ServerModule } from './server/server.module';
 import { TokenModule } from './token/token.module';
+import { auth } from '@app/common/auth';
 
 @Module({
-  imports: [ConfigModule, JwtModule.register({ secret: process.env.JWT_SECRET ?? 'change-me-in-production', signOptions: { expiresIn: (process.env.JWT_EXPIRES_IN ?? '15m') as any } }), TokenModule, AuthModule, FhirModule, ClinicalModule, ServerModule, RuleBuilderModule, RiskManagementModule, IngestionModule, FindingArchetypeModule, LlmModule],
+  imports: [
+    ConfigModule,
+    JwtModule.register({
+      secret: process.env.JWT_SECRET ?? 'change-me-in-production',
+      signOptions: { expiresIn: (process.env.JWT_EXPIRES_IN ?? '15m') as any },
+    }),
+    TokenModule,
+    AuthModule.forRoot({
+      auth,
+      bodyParser: {
+        json: { limit: "2mb" },
+        urlencoded: { limit: "2mb", extended: true },
+        rawBody: true,
+      },
+    }),
+    FhirModule,
+    ClinicalModule,
+    ServerModule,
+    RuleBuilderModule,
+    RiskManagementModule,
+    IngestionModule,
+    FindingArchetypeModule,
+    LlmModule,
+  ],
   controllers: [AppController],
   providers: [
-    AppService, LoggerService,
+    AppService,
+    LoggerService,
     { provide: APP_GUARD, useClass: InternalAuthGuard },
     { provide: APP_GUARD, useClass: TenantGuard },
     { provide: APP_GUARD, useClass: RolesGuard },

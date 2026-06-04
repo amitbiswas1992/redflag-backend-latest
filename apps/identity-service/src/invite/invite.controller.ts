@@ -11,12 +11,12 @@ export class InviteController {
     @Post()
     @Throttle({ invite: { limit: 20, ttl: 3600000 } })
     @Roles('OWNER', 'ADMIN')
-    async createInvite(@Req() req: any, @Body() body: { email: string; platformRole: string; functionalRoleId: string }) {
-        if (body.platformRole === 'OWNER' && req.user.role !== 'OWNER') {
+    async createInvite(@Req() req: any, @Body() body: { email: string; role: string }) {
+        if (body.role === 'OWNER' && req.user.role !== 'OWNER') {
             return { success: false, message: 'ONLY_OWNER_CAN_INVITE_OWNER' };
         }
         const result = await this.inviteService.createInvite(
-            { email: body.email, platformRole: body.platformRole, functionalRoleId: body.functionalRoleId },
+            { email: body.email, role: body.role },
             { userId: req.user.id, organizationId: req.user.activeTenant },
         );
         return { success: true, ...result };
@@ -27,8 +27,8 @@ export class InviteController {
     async acceptInvite(@Body() body: { token: string }, @Req() req: any, @Query('keycloak_sub') keycloakSub?: string, @Query('email') email?: string) {
         // Prefer internal JWT user if available (authenticated frontend request)
         const user = req?.user;
-        if (user?.keycloakId && user?.email) {
-            const result = await this.inviteService.acceptInvite(body.token, { sub: user.keycloakId, email: user.email });
+        if (user?.id && user?.email) {
+            const result = await this.inviteService.acceptInvite(body.token, { sub: user.id, email: user.email });
             return result;
         }
         // Fall back to query params (direct API call)
