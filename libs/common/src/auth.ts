@@ -1,7 +1,8 @@
 import { db } from '@app/db';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
-import { genericOAuth, keycloak, organization } from 'better-auth/plugins';
+import { genericOAuth, organization } from 'better-auth/plugins';
+import { keycloak } from './keycloak';
 import { createAccessControl } from 'better-auth/plugins/access';
 import {
   defaultStatements,
@@ -9,6 +10,7 @@ import {
   ownerAc,
   memberAc,
 } from 'better-auth/plugins/organization/access';
+import { seedOrgRules } from '@app/db/seeders/rule-seeder';
 
 const statement = {
   ...defaultStatements,
@@ -46,6 +48,13 @@ export const auth = betterAuth({
     provider: 'pg',
     usePlural: true,
   }),
+  trustedOrigins: process.env.FRONTEND_ORIGIN ? [process.env.FRONTEND_ORIGIN] : [],
+  account: {
+    accountLinking: {
+      enabled: true,
+      trustedProviders: ['keycloak'],
+    },
+  },
   advanced: {
     database: {
       generateId: 'uuid',
@@ -58,6 +67,9 @@ export const auth = betterAuth({
           clientId: process.env.KEYCLOAK_CLIENT_ID!,
           clientSecret: process.env.KEYCLOAK_CLIENT_SECRET!,
           issuer: `${process.env.KEYCLOAK_URL}/realms/${process.env.KEYCLOAK_REALM}`,
+          internalIssuer: process.env.KEYCLOAK_INTERNAL_URL
+            ? `${process.env.KEYCLOAK_INTERNAL_URL}/realms/${process.env.KEYCLOAK_REALM}`
+            : undefined,
         }),
       ],
     }),
@@ -82,6 +94,11 @@ export const auth = betterAuth({
           },
         },
       },
+      organizationHooks: {
+        async afterCreateOrganization(data) {
+          await seedOrgRules(data.organization);
+        }
+      }
     }),
   ],
 });

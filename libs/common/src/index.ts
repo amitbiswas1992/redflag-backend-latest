@@ -1,4 +1,5 @@
 export * from './constants/auth.constants';
+export * from './types/request-context';
 export * from './exceptions/domain.exception';
 export * from './exceptions/http.exceptions';
 export * from './exceptions/infrastructure.exception';

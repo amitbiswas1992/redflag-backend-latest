@@ -24,11 +24,7 @@ import {
     RootCauseType,
     UpdateRiskManagementPlanDto,
 } from './dto/risk-management.dto';
-
-type RequestContext = {
-    session?: { activeOrganizationId?: string | null };
-    user?: { id: string };
-};
+import type { RequestContext } from '@app/common';
 
 @Injectable()
 export class RiskManagementService {
@@ -37,13 +33,13 @@ export class RiskManagementService {
     constructor(@Inject('REQUEST') private readonly request: RequestContext) {}
 
     private get orgId(): string {
-        const id = this.request.session?.activeOrganizationId;
+        const id = this.request.session?.session.activeOrganizationId;
         if (!id) throw new BadRequestException('Missing organizationId');
         return id;
     }
 
     private get userId(): string {
-        const id = this.request.user?.id;
+        const id = this.request.session?.user.id;
         if (!id) throw new BadRequestException('Missing user context');
         return id;
     }

@@ -6,13 +6,12 @@ import * as complianceSchema from './schema/compliance';
 import * as findingArchetypeSchema from './schema/finding_archetype';
 import * as identitySchema from './schema/identity';
 import * as ingestionSchema from './schema/ingestion';
-import * as rbacSchema from './schema/rbac';
 import * as rulesSchema from './schema/rules';
 import * as riskManagementSchema from './schema/risk_management';
 
 export const dbSchema = {
     ...identitySchema, ...clinicalSchema, ...ingestionSchema, ...rulesSchema,
-    ...analyticsSchema, ...complianceSchema, ...riskManagementSchema, ...rbacSchema,
+    ...analyticsSchema, ...complianceSchema, ...riskManagementSchema,
     ...findingArchetypeSchema,
 };
 
@@ -46,6 +45,5 @@ export * from './schema/compliance';
 export * from './schema/finding_archetype';
 export * from './schema/identity';
 export * from './schema/ingestion';
-export * from './schema/rbac';
 export * from './schema/rules';
 export * from './schema/risk_management';

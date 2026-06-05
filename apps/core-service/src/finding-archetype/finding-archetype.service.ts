@@ -1,5 +1,6 @@
 import { db, findingArchetypes, riskRules, ruleCategories } from '@app/db';
 import { syncRiskForArchetype } from '../rule-builder/rule-builder.service';
+import type { RequestContext } from '@app/common';
 import {
     BadRequestException,
     Inject,
@@ -14,8 +15,6 @@ import {
     UpdateFindingArchetypeDto,
 } from './dto/finding-archetype.dto';
 
-type RequestContext = { organizationId?: string; tenantId?: string };
-
 @Injectable()
 export class FindingArchetypeService {
     private readonly logger = new Logger(FindingArchetypeService.name);
@@ -23,7 +22,7 @@ export class FindingArchetypeService {
     constructor(@Inject('REQUEST') private readonly request: RequestContext) {}
 
     private get orgId(): string {
-        const id = this.request.organizationId ?? this.request.tenantId;
+        const id = this.request.session?.session.activeOrganizationId;
         if (!id) throw new BadRequestException('Missing organizationId');
         return id;
     }

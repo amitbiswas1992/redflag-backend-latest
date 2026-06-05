@@ -24,7 +24,8 @@ x-node-env: &node-env
   npm_config_store_dir: /pnpm/store
   PATH: /npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
   NODE_ENV: development
-  KEYCLOAK_URL: 'http://keycloak:8080'
+  KEYCLOAK_URL: 'http://localhost:8080'
+  KEYCLOAK_INTERNAL_URL: 'http://keycloak:8080'
 
 services:
   keycloak-db:
@@ -58,6 +59,7 @@ services:
       - KC_DB_PASSWORD=keycloak
       - KC_HEALTH_ENABLED=true
       - KC_METRICS_ENABLED=true
+      - KC_HOSTNAME=localhost
     depends_on:
       - keycloak-db
     volumes:

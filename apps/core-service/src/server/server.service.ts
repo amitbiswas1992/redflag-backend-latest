@@ -28,6 +28,7 @@ import {
   CreatePractitionerDto,
   UpdatePatientDto,
 } from './dto/server.dto';
+import type { RequestContext } from '@app/common';
 
 @Injectable()
 export class ServerService {
@@ -35,11 +36,11 @@ export class ServerService {
 
   constructor(
     private clinicalService: ClinicalService,
-    @Inject('REQUEST') private request: any,
+    @Inject('REQUEST') private request: RequestContext,
   ) { }
 
   private get orgId(): string {
-    const organizationId = this.request.organizationId ?? this.request.tenantId;
+    const organizationId = this.request.session?.session.activeOrganizationId;
     if (!organizationId) {
       throw new BadRequestException(
         'Organization context missing. Multi-tenancy guard failed.',

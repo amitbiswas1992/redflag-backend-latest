@@ -30,6 +30,7 @@ import {
     UpdateRuleCategoryDto,
 } from './dto/rule-builder.dto';
 import { COLUMN_REGISTRY } from './rule-compiler.service';
+import type { RequestContext } from '@app/common';
 
 // ── Score calculation (mirrors frontend finding-archetypes/constants.ts) ──────
 
@@ -167,8 +168,6 @@ export async function syncRiskForArchetype(archetypeId: string): Promise<void> {
     }));
 }
 
-type RequestContext = { organizationId?: string; tenantId?: string };
-
 @Injectable()
 export class RuleBuilderService {
     private readonly logger = new Logger(RuleBuilderService.name);
@@ -176,7 +175,7 @@ export class RuleBuilderService {
     constructor(@Inject('REQUEST') private readonly request: RequestContext) { }
 
     private get orgId(): string {
-        const id = this.request.organizationId ?? this.request.tenantId;
+        const id = this.request.session?.session.activeOrganizationId;
         if (!id) throw new BadRequestException('Missing organizationId');
         return id;
     }
