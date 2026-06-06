@@ -1,8 +1,8 @@
 import { db } from '@app/db';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
-import { genericOAuth, organization } from 'better-auth/plugins';
-import { keycloak } from './keycloak';
+import { genericOAuth, keycloak, organization } from 'better-auth/plugins';
+import { logoutKeycloakSessions, setOAuthInternalUrl } from './auth-utils';
 import { createAccessControl } from 'better-auth/plugins/access';
 import {
   defaultStatements,
@@ -11,6 +11,14 @@ import {
   memberAc,
 } from 'better-auth/plugins/organization/access';
 import { seedOrgRules } from '@app/db/seeders/rule-seeder';
+import { createAuthMiddleware } from 'better-auth/api';
+
+const KEYCLOAK_CLIENT_ID = process.env.KEYCLOAK_CLIENT_ID!;
+const KEYCLOAK_CLIENT_SECRET = process.env.KEYCLOAK_CLIENT_SECRET!;
+const KEYCLOAK_ISSUER = `${process.env.KEYCLOAK_URL}/realms/${process.env.KEYCLOAK_REALM}`;
+const KEYCLOAK_INTERNAL_ISSUER = process.env.KEYCLOAK_INTERNAL_URL
+  ? `${process.env.KEYCLOAK_INTERNAL_URL}/realms/${process.env.KEYCLOAK_REALM}`
+  : undefined;
 
 const statement = {
   ...defaultStatements,
@@ -42,13 +50,14 @@ const executive_sponsor = ac.newRole({
   ...memberAc.statements,
 });
 
-
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
     provider: 'pg',
     usePlural: true,
   }),
-  trustedOrigins: process.env.FRONTEND_ORIGIN ? [process.env.FRONTEND_ORIGIN] : [],
+  trustedOrigins: process.env.FRONTEND_ORIGIN
+    ? [process.env.FRONTEND_ORIGIN]
+    : [],
   account: {
     accountLinking: {
       enabled: true,
@@ -63,14 +72,15 @@ export const auth = betterAuth({
   plugins: [
     genericOAuth({
       config: [
-        keycloak({
-          clientId: process.env.KEYCLOAK_CLIENT_ID!,
-          clientSecret: process.env.KEYCLOAK_CLIENT_SECRET!,
-          issuer: `${process.env.KEYCLOAK_URL}/realms/${process.env.KEYCLOAK_REALM}`,
-          internalIssuer: process.env.KEYCLOAK_INTERNAL_URL
-            ? `${process.env.KEYCLOAK_INTERNAL_URL}/realms/${process.env.KEYCLOAK_REALM}`
-            : undefined,
-        }),
+        setOAuthInternalUrl(
+          keycloak({
+            clientId: KEYCLOAK_CLIENT_ID,
+            clientSecret: KEYCLOAK_CLIENT_SECRET,
+            issuer: KEYCLOAK_ISSUER,
+          }),
+          KEYCLOAK_ISSUER,
+          KEYCLOAK_INTERNAL_ISSUER,
+        ),
       ],
     }),
     organization({
@@ -87,7 +97,7 @@ export const auth = betterAuth({
         organization: {
           additionalFields: {
             scoreTuning: {
-              type: "json",
+              type: 'json',
               input: true,
               required: false,
             },
@@ -97,8 +107,30 @@ export const auth = betterAuth({
       organizationHooks: {
         async afterCreateOrganization(data) {
           await seedOrgRules(data.organization);
-        }
-      }
+        },
+      },
     }),
   ],
+  hooks: {
+    after: createAuthMiddleware(async (ctx) => {
+      if (ctx.context.newSession) {
+        const { id: userId } = ctx.context.newSession.user;
+        // Immediately logout from Keycloak after login — without this, Keycloak
+        // auto-signs into the existing session on every redirect to the login page,
+        // making it impossible to switch accounts.
+        ctx.context.runInBackground(
+          ctx.context.internalAdapter
+            .findAccountByUserId(userId)
+            .then((accounts) =>
+              logoutKeycloakSessions(
+                accounts,
+                KEYCLOAK_CLIENT_ID,
+                KEYCLOAK_CLIENT_SECRET,
+                `${KEYCLOAK_INTERNAL_ISSUER}/protocol/openid-connect/logout`,
+              ),
+            ),
+        );
+      }
+    }),
+  },
 });
