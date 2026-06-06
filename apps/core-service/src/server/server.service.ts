@@ -40,13 +40,9 @@ export class ServerService {
   ) { }
 
   private get orgId(): string {
-    const organizationId = this.request.session?.session.activeOrganizationId;
-    if (!organizationId) {
-      throw new BadRequestException(
-        'Organization context missing. Multi-tenancy guard failed.',
-      );
-    }
-    return organizationId;
+    const id = this.request.session?.session.activeOrganizationId;
+    if (!id) throw new BadRequestException('Missing organizationId');
+    return id;
   }
 
   private parsePatientName(nameValue: unknown): {

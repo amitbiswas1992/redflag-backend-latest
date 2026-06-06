@@ -26,6 +26,7 @@ import {
     UpdateRiskManagementPlanDto,
 } from './dto/risk-management.dto';
 import type { RequestContext } from '@app/common';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class RiskManagementService {
@@ -34,6 +35,7 @@ export class RiskManagementService {
     constructor(
         @Inject('REQUEST') private readonly request: RequestContext,
         private readonly eventEmitter: EventEmitter2,
+        private readonly notificationsService: NotificationsService,
     ) {}
 
     private get orgId(): string {
@@ -61,13 +63,16 @@ export class RiskManagementService {
     // ── Plans ─────────────────────────────────────────────────────────────────
 
     async createPlan(dto: CreateRiskManagementPlanDto) {
-        return db.transaction(async (tx) => {
+        const creatorId = this.userId;
+        const orgId = this.orgId;
+
+        const result = await db.transaction(async (tx) => {
             const [plan] = await tx
                 .insert(riskManagementPlans)
                 .values({
-                    organizationId: this.orgId,
+                    organizationId: orgId,
                     riskRuleId: dto.riskRuleId ?? null,
-                    createdBy: this.userId,
+                    createdBy: creatorId,
                     title: dto.title,
                     dueDate: new Date(dto.dueDate),
                     type: dto.type ?? RiskManagementPlanType.MITIGATE,
@@ -98,6 +103,42 @@ export class RiskManagementService {
 
             return this.attachRelations(plan, tx);
         });
+
+        if (dto.assigneeIds?.length) {
+            void this.sendAssignmentNotifications(result.id, result.title, creatorId, orgId, dto.assigneeIds);
+        }
+
+        return result;
+    }
+
+    private async sendAssignmentNotifications(
+        planId: string,
+        planTitle: string,
+        creatorId: string,
+        orgId: string,
+        assigneeIds: string[],
+    ) {
+        try {
+            const [creator] = await db
+                .select({ name: users.name })
+                .from(users)
+                .where(eq(users.id, creatorId))
+                .limit(1);
+            const assignedByName = creator?.name ?? 'Someone';
+
+            for (const assigneeId of assigneeIds) {
+                await this.notificationsService.createNotification(assigneeId, orgId, {
+                    type: 'rmp_assignment',
+                    planId,
+                    planTitle,
+                    assignedByUserId: creatorId,
+                    assignedByName,
+                    link: `/risk-management/${planId}`,
+                });
+            }
+        } catch (err) {
+            this.logger.error('Failed to send assignment notifications', err);
+        }
     }
 
     async listPlans(filters: {
@@ -273,15 +314,17 @@ export class RiskManagementService {
         const hasAccess = await this.canAccessPlan(planId);
         if (!hasAccess) throw new ForbiddenException('Access denied to this risk management plan');
 
+        const uid = this.userId;
+        const orgId = this.orgId;
+
         const result = await db.transaction(async (tx) => {
             const [plan] = await tx
                 .select()
                 .from(riskManagementPlans)
-                .where(and(eq(riskManagementPlans.id, planId), eq(riskManagementPlans.organizationId, this.orgId)))
+                .where(and(eq(riskManagementPlans.id, planId), eq(riskManagementPlans.organizationId, orgId)))
                 .limit(1);
             if (!plan) throw new NotFoundException('Risk management plan not found');
 
-            const uid = this.userId;
             const isCreator = plan.createdBy === uid;
 
             const [message] = await tx
@@ -301,10 +344,60 @@ export class RiskManagementService {
                 .from(users)
                 .where(eq(users.id, uid));
 
-            return { ...message, sender: sender ?? null };
+            return { message: { ...message, sender: sender ?? null }, plan, isCreator };
         });
-        this.eventEmitter.emit('rmp.message.created', { planId, message: result });
-        return result;
+
+        this.eventEmitter.emit('rmp.message.created', { planId, message: result.message });
+
+        void this.sendMessageNotifications(
+            planId,
+            result.plan.title,
+            result.plan.createdBy,
+            uid,
+            result.message.sender?.name ?? 'Someone',
+            dto.text,
+            result.isCreator,
+            orgId,
+        );
+
+        return result.message;
+    }
+
+    private async sendMessageNotifications(
+        planId: string,
+        planTitle: string,
+        creatorId: string | null,
+        senderId: string,
+        senderName: string,
+        text: string,
+        isCreator: boolean,
+        orgId: string,
+    ) {
+        try {
+            const value = {
+                type: 'rmp_message' as const,
+                planId,
+                planTitle,
+                senderUserId: senderId,
+                senderName,
+                messagePreview: text.slice(0, 100),
+                link: `/risk-management/${planId}`,
+            };
+
+            if (isCreator) {
+                const assignees = await db
+                    .select({ userId: riskManagementPlanAssignees.userId })
+                    .from(riskManagementPlanAssignees)
+                    .where(eq(riskManagementPlanAssignees.riskManagementPlanId, planId));
+                for (const { userId } of assignees) {
+                    await this.notificationsService.createNotification(userId, orgId, value);
+                }
+            } else if (creatorId) {
+                await this.notificationsService.createNotification(creatorId, orgId, value);
+            }
+        } catch (err) {
+            this.logger.error('Failed to send message notifications', err);
+        }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

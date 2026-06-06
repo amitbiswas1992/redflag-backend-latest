@@ -11,7 +11,7 @@ export class PusherService {
       appId: config.getOrThrow('SOKETI_DEFAULT_APP_ID'),
       key: config.getOrThrow('SOKETI_DEFAULT_APP_KEY'),
       secret: config.getOrThrow('SOKETI_DEFAULT_APP_SECRET'),
-      cluster: 'mt1',
+      cluster: config.getOrThrow('PUSHER_CLUSTER'),
     });
   }
 

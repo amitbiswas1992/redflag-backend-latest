@@ -10,6 +10,7 @@ import { FhirModule } from './fhir/fhir.module';
 import { IngestionModule } from './ingestion/ingestion.module';
 import { FindingArchetypeModule } from './finding-archetype/finding-archetype.module';
 import { RiskManagementModule } from './risk-management/risk-management.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { LlmModule } from './llm/llm.module';
 import { RuleBuilderModule } from './rule-builder/rule-builder.module';
 import { ServerModule } from './server/server.module';
@@ -35,6 +36,7 @@ import { auth } from '@app/common/auth';
     ServerModule,
     RuleBuilderModule,
     RiskManagementModule,
+    NotificationsModule,
     IngestionModule,
     FindingArchetypeModule,
     LlmModule,

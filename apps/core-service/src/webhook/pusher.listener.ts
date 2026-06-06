@@ -10,4 +10,13 @@ export class PusherEventListener {
   handleMessageCreated(payload: { planId: string; message: unknown }) {
     void this.pusherService.trigger(`private-rmp-${payload.planId}`, 'new-message', payload.message);
   }
+
+  @OnEvent('notification.created')
+  handleNotificationCreated(payload: { userId: string; orgId: string; notification: unknown }) {
+    void this.pusherService.trigger(
+      `private-n-${payload.userId}_${payload.orgId}`,
+      'new-notification',
+      payload.notification,
+    );
+  }
 }

@@ -35,6 +35,7 @@ import {
   startJobRequestSchema,
   uploadCsvRequestSchema,
 } from './schemas';
+import { RequestContext } from '@app/common';
 
 type TemplateDetectionResult = {
   templateVersion: string;
@@ -50,15 +51,13 @@ export class IngestionService {
   constructor(
     private readonly ingestionQueueService: IngestionQueueService,
     @Inject('REQUEST')
-    private readonly request: { organizationId?: string; tenantId?: string },
+    private readonly request: RequestContext,
   ) { }
 
   private get orgId(): string {
-    const organizationId =
-      this.request?.organizationId ?? this.request?.tenantId;
-    if (!organizationId)
-      throw new BadRequestException('Organization context missing.');
-    return organizationId;
+    const id = this.request.session?.session.activeOrganizationId;
+    if (!id) throw new BadRequestException('Missing organizationId');
+    return id;
   }
 
   async createJob(rawInput: unknown) {

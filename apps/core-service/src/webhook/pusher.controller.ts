@@ -2,6 +2,7 @@ import { Body, Controller, HttpCode, HttpException, HttpStatus, Post } from '@ne
 import { Session, UserSession } from '@thallesp/nestjs-better-auth';
 import type { auth } from '@app/common/auth';
 import { RiskManagementService } from '../risk-management/risk-management.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PusherService } from './pusher.service';
 
 @Controller()
@@ -9,6 +10,7 @@ export class PusherController {
   constructor(
     private readonly pusherService: PusherService,
     private readonly riskManagementService: RiskManagementService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   @Post('pusher/auth')
@@ -20,6 +22,7 @@ export class PusherController {
     let authorized = false;
 
     authorized ||= await this.riskManagementService.isAuthorizedRMPChannel(body.channel_name);
+    authorized ||= this.notificationsService.isAuthorizedChannel(body.channel_name);
 
     if (!authorized) throw new HttpException('Forbidden', 403);
     return this.pusherService.authorizeChannel(body.socket_id, body.channel_name);

@@ -140,6 +140,7 @@ services:
       # Application Configuration
       REDIS_URL: redis://redis:6379
       FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:3002}
+      PUSHER_CLUSTER: ${PUSHER_CLUSTER}
 
   redflag-identity:
     <<: *node-service

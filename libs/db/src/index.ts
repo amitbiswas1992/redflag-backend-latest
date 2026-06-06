@@ -8,11 +8,12 @@ import * as identitySchema from './schema/identity';
 import * as ingestionSchema from './schema/ingestion';
 import * as rulesSchema from './schema/rules';
 import * as riskManagementSchema from './schema/risk_management';
+import * as notificationsSchema from './schema/notifications';
 
 export const dbSchema = {
     ...identitySchema, ...clinicalSchema, ...ingestionSchema, ...rulesSchema,
     ...analyticsSchema, ...complianceSchema, ...riskManagementSchema,
-    ...findingArchetypeSchema,
+    ...findingArchetypeSchema, ...notificationsSchema,
 };
 
 let _db: NodePgDatabase<typeof dbSchema> | null = null;
@@ -47,3 +48,4 @@ export * from './schema/identity';
 export * from './schema/ingestion';
 export * from './schema/rules';
 export * from './schema/risk_management';
+export * from './schema/notifications';
