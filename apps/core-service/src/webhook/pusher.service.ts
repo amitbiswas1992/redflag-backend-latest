@@ -1,14 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Pusher from 'pusher';
-import type { auth } from '@app/common/auth';
-import type { UserSession } from '@thallesp/nestjs-better-auth';
 
 @Injectable()
 export class PusherService {
   private readonly pusher: Pusher;
 
-  constructor(private readonly config: ConfigService) {
+  constructor(config: ConfigService) {
     this.pusher = new Pusher({
       appId: config.getOrThrow('SOKETI_DEFAULT_APP_ID'),
       key: config.getOrThrow('SOKETI_DEFAULT_APP_KEY'),
@@ -17,11 +15,11 @@ export class PusherService {
     });
   }
 
-  authorizeChannel(
-    socketId: string,
-    channel: string,
-    session: UserSession<typeof auth>,
-  ) {
+  authorizeChannel(socketId: string, channel: string) {
     return this.pusher.authorizeChannel(socketId, channel);
+  }
+
+  trigger(channel: string, event: string, data: unknown) {
+    return this.pusher.trigger(channel, event, data as object);
   }
 }

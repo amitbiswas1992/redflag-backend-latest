@@ -16,6 +16,7 @@ import {
     Logger,
     NotFoundException,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { and, count, desc, eq, inArray, or } from 'drizzle-orm';
 import {
     CreateRiskManagementPlanDto,
@@ -30,7 +31,10 @@ import type { RequestContext } from '@app/common';
 export class RiskManagementService {
     private readonly logger = new Logger(RiskManagementService.name);
 
-    constructor(@Inject('REQUEST') private readonly request: RequestContext) {}
+    constructor(
+        @Inject('REQUEST') private readonly request: RequestContext,
+        private readonly eventEmitter: EventEmitter2,
+    ) {}
 
     private get orgId(): string {
         const id = this.request.session?.session.activeOrganizationId;
@@ -269,7 +273,7 @@ export class RiskManagementService {
         const hasAccess = await this.canAccessPlan(planId);
         if (!hasAccess) throw new ForbiddenException('Access denied to this risk management plan');
 
-        return db.transaction(async (tx) => {
+        const result = await db.transaction(async (tx) => {
             const [plan] = await tx
                 .select()
                 .from(riskManagementPlans)
@@ -299,6 +303,8 @@ export class RiskManagementService {
 
             return { ...message, sender: sender ?? null };
         });
+        this.eventEmitter.emit('rmp.message.created', { planId, message: result });
+        return result;
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -326,6 +332,12 @@ export class RiskManagementService {
             )
             .limit(1);
         return !!assignee;
+    }
+
+    async isAuthorizedRMPChannel(channelName: string): Promise<boolean> {
+        const match = channelName.match(/^private-rmp-(.+)$/);
+        if (!match) return false;
+        return this.canAccessPlan(match[1]);
     }
 
     private async attachRelations(

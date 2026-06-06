@@ -1,5 +1,6 @@
 import { LoggerService } from '@app/common';
 import { Module } from '@nestjs/common';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { AuthModule } from '@thallesp/nestjs-better-auth';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -19,6 +20,7 @@ import { auth } from '@app/common/auth';
 @Module({
   imports: [
     ConfigModule,
+    EventEmitterModule.forRoot(),
     TokenModule,
     AuthModule.forRoot({
       auth,
