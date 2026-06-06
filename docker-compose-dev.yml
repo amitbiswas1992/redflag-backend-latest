@@ -77,6 +77,20 @@ services:
       - redflag-network
     restart: unless-stopped
 
+  soketi:
+    image: quay.io/soketi/soketi:latest-16-alpine
+    container_name: redflag-soketi
+    ports:
+      - "${SOKETI_PORT:-6001}:6001"
+    environment:
+      - SOKETI_DEFAULT_APP_USER_AUTHENTICATION=true
+      - SOKETI_DEFAULT_APP_ID=${SOKETI_DEFAULT_APP_ID}
+      - SOKETI_DEFAULT_APP_KEY=${SOKETI_DEFAULT_APP_KEY}
+      - SOKETI_DEFAULT_APP_SECRET=${SOKETI_DEFAULT_APP_SECRET}
+    networks:
+      - redflag-network
+    restart: unless-stopped
+
   postgres:
     image: postgres:16-alpine
     container_name: redflag-postgres

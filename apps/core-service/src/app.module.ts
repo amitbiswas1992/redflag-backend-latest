@@ -13,6 +13,7 @@ import { LlmModule } from './llm/llm.module';
 import { RuleBuilderModule } from './rule-builder/rule-builder.module';
 import { ServerModule } from './server/server.module';
 import { TokenModule } from './token/token.module';
+import { WebhookModule } from './webhook/webhook.module';
 import { auth } from '@app/common/auth';
 
 @Module({
@@ -35,6 +36,7 @@ import { auth } from '@app/common/auth';
     IngestionModule,
     FindingArchetypeModule,
     LlmModule,
+    WebhookModule,
   ],
   controllers: [AppController],
   providers: [
