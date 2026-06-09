@@ -12,6 +12,7 @@ import {
 } from 'better-auth/plugins/organization/access';
 import { seedOrgRules } from '@app/db/seeders/rule-seeder';
 import { createAuthMiddleware } from 'better-auth/api';
+import { sendOrganizationInvitation } from './emails/email';
 
 const KEYCLOAK_CLIENT_ID = process.env.KEYCLOAK_CLIENT_ID!;
 const KEYCLOAK_CLIENT_SECRET = process.env.KEYCLOAK_CLIENT_SECRET!;
@@ -19,6 +20,8 @@ const KEYCLOAK_ISSUER = `${process.env.KEYCLOAK_URL}/realms/${process.env.KEYCLO
 const KEYCLOAK_INTERNAL_ISSUER = process.env.KEYCLOAK_INTERNAL_URL
   ? `${process.env.KEYCLOAK_INTERNAL_URL}/realms/${process.env.KEYCLOAK_REALM}`
   : undefined;
+
+const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3002';
 
 const statement = {
   ...defaultStatements,
@@ -108,6 +111,16 @@ export const auth = betterAuth({
         async afterCreateOrganization(data) {
           await seedOrgRules(data.organization);
         },
+      },
+      async sendInvitationEmail(data) {
+        const inviteLink = `${frontendUrl}/auth/accept-invite?invitationId=${data.id}`;
+        await sendOrganizationInvitation({
+          email: data.email,
+          invitedByUsername: data.inviter.user.name,
+          invitedByEmail: data.inviter.user.email,
+          teamName: data.organization.name,
+          inviteLink,
+        });
       },
     }),
   ],

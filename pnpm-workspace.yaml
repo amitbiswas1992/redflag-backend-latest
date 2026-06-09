@@ -3,4 +3,5 @@ allowBuilds:
   '@scarf/scarf': true
   esbuild: true
   msgpackr-extract: true
+  sharp: false
   unrs-resolver: true
