@@ -21,5 +21,7 @@ export function sendEmail(to: string[], subject: string, html: string) {
 
 export async function sendOrganizationInvitation(props: SendOrganizationInvitationProps) {
   const emailHtml = await renderSendOrganizationInvitation(props);
-  return await sendEmail([props.email], `You've been invited to join ${props.teamName} on Redflag`, emailHtml);
+  const res = await sendEmail([props.email], `You've been invited to join ${props.teamName} on Redflag`, emailHtml);
+  console.log(res);
+  return res;
 }

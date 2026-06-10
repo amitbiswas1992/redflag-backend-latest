@@ -107,6 +107,7 @@ export const auth = betterAuth({
           },
         },
       },
+      requireEmailVerificationOnInvitation: false,
       organizationHooks: {
         async afterCreateOrganization(data) {
           await seedOrgRules(data.organization);
