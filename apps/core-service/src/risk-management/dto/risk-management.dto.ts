@@ -9,6 +9,14 @@ import {
     IsUUID,
 } from 'class-validator';
 
+export enum PlanStatus {
+    IN_PROGRESS = 'in_progress',
+    PENDING_VALIDATION = 'pending_validation',
+    COMPLETED = 'completed',
+    NEED_MORE_INFO = 'need_more_info',
+    QUERY_ANSWERED = 'query_answered',
+}
+
 export enum RootCauseType {
     WORKFLOW_GAP = 'workflow-gap',
     TRAINING_ISSUE = 'training-issue',
@@ -76,4 +84,10 @@ export class CreateRiskManagementPlanMessageDto {
     @IsString()
     @IsNotEmpty()
     text: string;
+}
+
+export class UpdateRiskManagementPlanStatusDto {
+    @ApiProperty({ enum: PlanStatus })
+    @IsEnum(PlanStatus)
+    status: PlanStatus;
 }

@@ -6,6 +6,7 @@ import {
     Get,
     Logger,
     Param,
+    Patch,
     Post,
     Put,
     Query,
@@ -24,9 +25,11 @@ import {
 import {
     CreateRiskManagementPlanDto,
     CreateRiskManagementPlanMessageDto,
+    PlanStatus,
     RiskManagementPlanType,
     RootCauseType,
     UpdateRiskManagementPlanDto,
+    UpdateRiskManagementPlanStatusDto,
 } from './dto/risk-management.dto';
 import { RiskManagementService } from './risk-management.service';
 
@@ -43,6 +46,7 @@ export class RiskManagementController {
     @ApiQuery({ name: 'riskRuleId', required: false, type: String })
     @ApiQuery({ name: 'rootCauseType', required: false, enum: RootCauseType })
     @ApiQuery({ name: 'type', required: false, enum: RiskManagementPlanType })
+    @ApiQuery({ name: 'status', required: false, enum: PlanStatus })
     @ApiOkResponse({ description: 'Paginated list of accessible risk management plans' })
     @Get('plans')
     listPlans(
@@ -51,6 +55,7 @@ export class RiskManagementController {
         @Query('riskRuleId') riskRuleId?: string,
         @Query('rootCauseType') rootCauseType?: RootCauseType,
         @Query('type') type?: RiskManagementPlanType,
+        @Query('status') status?: PlanStatus,
     ) {
         return this.service.listPlans({
             page: page ? Number.parseInt(page, 10) : undefined,
@@ -58,6 +63,7 @@ export class RiskManagementController {
             riskRuleId,
             rootCauseType,
             type,
+            status,
         });
     }
 
@@ -98,6 +104,16 @@ export class RiskManagementController {
     @Delete('plans/:id')
     deletePlan(@Param('id') id: string) {
         return this.service.deletePlan(id);
+    }
+
+    @ApiOperation({ summary: 'Update plan status (assignees only)' })
+    @ApiParam({ name: 'id', description: 'Plan UUID' })
+    @ApiOkResponse({ description: 'Status updated' })
+    @ApiNotFoundResponse({ description: 'Plan not found' })
+    @ApiForbiddenResponse({ description: 'Only assignees can update status' })
+    @Patch('plans/:id/status')
+    updatePlanStatus(@Param('id') id: string, @Body() dto: UpdateRiskManagementPlanStatusDto) {
+        return this.service.updatePlanStatus(id, dto);
     }
 
     // ── Messages ──────────────────────────────────────────────────────────────

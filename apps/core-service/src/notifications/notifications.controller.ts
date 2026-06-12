@@ -1,6 +1,7 @@
-import { Controller, Get, HttpCode, HttpStatus, Param, Patch } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Patch } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { NotificationsService } from './notifications.service';
+import { UpdateNotificationStatusDto } from './dto/notifications.dto';
 
 @ApiTags('Notifications')
 @Controller('notifications')
@@ -12,9 +13,9 @@ export class NotificationsController {
         return this.service.listNotifications();
     }
 
-    @Patch(':id/toggle-read')
+    @Patch('update-status')
     @HttpCode(HttpStatus.OK)
-    toggleIsRead(@Param('id') id: string) {
-        return this.service.toggleIsRead(id);
+    updateStatus(@Body() dto: UpdateNotificationStatusDto) {
+        return this.service.updateStatus(dto.ids, dto.isRead);
     }
 }

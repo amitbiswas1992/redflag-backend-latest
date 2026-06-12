@@ -1,7 +1,7 @@
 import { db, notifications } from '@app/db';
-import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import type { RequestContext } from '@app/common';
 import { type NotificationValue } from './types';
 
@@ -39,20 +39,18 @@ export class NotificationsService {
             .orderBy(desc(notifications.createdAt));
     }
 
-    async toggleIsRead(id: string) {
-        const [existing] = await db
-            .select({ isRead: notifications.isRead })
-            .from(notifications)
-            .where(and(eq(notifications.id, id), eq(notifications.userId, this.userId)))
-            .limit(1);
-        if (!existing) throw new NotFoundException('Notification not found');
-
-        const [updated] = await db
+    async updateStatus(ids: string[], isRead: boolean) {
+        if (!ids.length) return [];
+        return db
             .update(notifications)
-            .set({ isRead: !existing.isRead })
-            .where(eq(notifications.id, id))
+            .set({ isRead })
+            .where(
+                and(
+                    inArray(notifications.id, ids),
+                    eq(notifications.userId, this.userId),
+                ),
+            )
             .returning();
-        return updated;
     }
 
     async createNotification(userId: string, orgId: string, value: NotificationValue) {

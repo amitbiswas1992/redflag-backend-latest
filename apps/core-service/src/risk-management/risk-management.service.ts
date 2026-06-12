@@ -24,6 +24,7 @@ import {
     RiskManagementPlanType,
     RootCauseType,
     UpdateRiskManagementPlanDto,
+    UpdateRiskManagementPlanStatusDto,
 } from './dto/risk-management.dto';
 import type { RequestContext } from '@app/common';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -147,6 +148,7 @@ export class RiskManagementService {
         riskRuleId?: string;
         rootCauseType?: string;
         type?: string;
+        status?: string;
     }) {
         const page = Math.max(1, filters.page ?? 1);
         const limit = Math.min(100, Math.max(1, filters.limit ?? 20));
@@ -162,6 +164,10 @@ export class RiskManagementService {
         if (filters.type)
             predicates.push(
                 eq(riskManagementPlans.type, filters.type as RiskManagementPlanType),
+            );
+        if (filters.status)
+            predicates.push(
+                eq(riskManagementPlans.status, filters.status as any),
             );
 
         // Non-admin users only see plans they created or are assigned to
@@ -269,6 +275,32 @@ export class RiskManagementService {
 
             return this.attachRelations(plan, tx);
         });
+    }
+
+    async updatePlanStatus(id: string, dto: UpdateRiskManagementPlanStatusDto) {
+        const uid = this.userId;
+        const orgId = this.orgId;
+
+        const [assignee] = await db
+            .select({ userId: riskManagementPlanAssignees.userId })
+            .from(riskManagementPlanAssignees)
+            .where(
+                and(
+                    eq(riskManagementPlanAssignees.riskManagementPlanId, id),
+                    eq(riskManagementPlanAssignees.userId, uid),
+                ),
+            )
+            .limit(1);
+        if (!assignee) throw new ForbiddenException('Only assignees can update the plan status');
+
+        const [plan] = await db
+            .update(riskManagementPlans)
+            .set({ status: dto.status, updatedAt: new Date() })
+            .where(and(eq(riskManagementPlans.id, id), eq(riskManagementPlans.organizationId, orgId)))
+            .returning();
+        if (!plan) throw new NotFoundException('Risk management plan not found');
+
+        return this.attachRelations(plan);
     }
 
     async deletePlan(id: string) {

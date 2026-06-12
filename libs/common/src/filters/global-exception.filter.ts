@@ -10,6 +10,7 @@ import { CORRELATION_ID_HEADER_KEY } from '../constants/auth.constants';
 import { DomainException } from '../exceptions/domain.exception';
 import { InfrastructureException } from '../exceptions/infrastructure.exception';
 import { LoggerService } from '../logger/logger.service';
+import { getDbErrorMessage } from './dbErrorUtils';
 
 /**
  * Global exception filter — registered in main.ts.
@@ -80,6 +81,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
             code = 'INTERNAL_ERROR';
             message = 'An unexpected error occurred. Please try again later.';
 
+            const dbError = getDbErrorMessage(exception);
             logPayload = {
                 code,
                 path: request.url,
@@ -87,6 +89,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
                 statusCode,
                 correlationId,
                 stack: exception instanceof Error ? exception.stack : String(exception),
+                ...dbError,
             };
             this.logger.error(`[${code}] Unhandled exception`, logPayload);
         }
