@@ -7,11 +7,16 @@ export class PusherService {
   private readonly pusher: Pusher;
 
   constructor(config: ConfigService) {
+    const host = config.get<string>('PUSHER_HOST');
+    const port = config.get<string>('PUSHER_PORT');
+
     this.pusher = new Pusher({
-      appId: config.getOrThrow('SOKETI_DEFAULT_APP_ID'),
-      key: config.getOrThrow('SOKETI_DEFAULT_APP_KEY'),
-      secret: config.getOrThrow('SOKETI_DEFAULT_APP_SECRET'),
-      cluster: config.getOrThrow('PUSHER_CLUSTER'),
+      appId: config.getOrThrow('PUSHER_APP_ID'),
+      key: config.getOrThrow('PUSHER_APP_KEY'),
+      secret: config.getOrThrow('PUSHER_APP_SECRET'),
+      ...(host && port
+        ? { host, port }
+        : { cluster: config.getOrThrow('PUSHER_CLUSTER') }),
     });
   }
 

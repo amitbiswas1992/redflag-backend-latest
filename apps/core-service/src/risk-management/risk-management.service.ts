@@ -56,8 +56,8 @@ export class RiskManagementService {
             .from(members)
             .where(and(eq(members.userId, this.userId), eq(members.organizationId, this.orgId)))
             .limit(1);
-        const role = member?.role?.toUpperCase();
-        return role === 'ADMIN' || role === 'OWNER';
+        const role = member?.role;
+        return role === 'admin' || role === 'owner';
     }
 
     // ── Plans ─────────────────────────────────────────────────────────────────

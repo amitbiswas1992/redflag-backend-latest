@@ -811,6 +811,7 @@ export class RuleBuilderService {
                 patientSourceId: patients.sourceId,
                 encounter: encounters,
                 medication: medications,
+                riskManagementPlanId: riskManagementPlanComplianceFlags.riskManagementPlanId,
             })
             .from(complianceFlags)
             .leftJoin(patients, eq(complianceFlags.patientId, patients.id))
