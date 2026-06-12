@@ -96,6 +96,17 @@ services:
     networks:
       - redflag-internal
 
+  soketi:
+    image: quay.io/soketi/soketi:latest-16-alpine
+    container_name: redflag-soketi
+    restart: unless-stopped
+    env_file:
+      - ../env/soketi.env
+    ports:
+      - "127.0.0.1:${FRONTEND_BIND_PORT:-18104}:6001"
+    networks:
+      - redflag-internal
+
 volumes:
   keycloak_db_data:
 
