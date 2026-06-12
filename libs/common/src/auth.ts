@@ -21,7 +21,7 @@ const KEYCLOAK_INTERNAL_ISSUER = process.env.KEYCLOAK_INTERNAL_URL
   ? `${process.env.KEYCLOAK_INTERNAL_URL}/realms/${process.env.KEYCLOAK_REALM}`
   : undefined;
 
-const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3002';
+const frontendOrigin = process.env.FRONTEND_ORIGIN ?? 'http://localhost:3002';
 
 const statement = {
   ...defaultStatements,
@@ -114,7 +114,7 @@ export const auth = betterAuth({
         },
       },
       async sendInvitationEmail(data) {
-        const inviteLink = `${frontendUrl}/auth/accept-invite?invitationId=${data.id}`;
+        const inviteLink = `${frontendOrigin}/auth/accept-invite?invitationId=${data.id}`;
         await sendOrganizationInvitation({
           email: data.email,
           invitedByUsername: data.inviter.user.name,

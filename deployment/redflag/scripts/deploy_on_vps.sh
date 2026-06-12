@@ -122,8 +122,8 @@ EOF
 }
 
 pull_and_deploy_stack() {
-  local pull_services=(redis keycloak-db keycloak redflag-core redflag-identity)
-  local up_services=(redis keycloak-db keycloak redflag-core redflag-identity)
+  local pull_services=(redis keycloak-db keycloak soketi redflag-core redflag-identity)
+  local up_services=(redis keycloak-db keycloak soketi redflag-core redflag-identity)
 
   if [[ "${DEPLOY_FRONTEND}" == "true" ]]; then
     pull_services+=(redflag-frontend)
