@@ -186,44 +186,53 @@ export class RuleEvaluatorService {
         if (newIds.length > 0) {
             // Build a safe PostgreSQL array literal (UUIDs are hex+hyphens only)
             const uuidArrayLiteral = `{${newIds.join(',')}}`;
-            await db.execute(sql`
-                WITH pre_max AS (
-                    SELECT rule_id,
-                           DATE(created_at) AS flag_date,
-                           MAX(serial)      AS max_serial
-                    FROM   compliance_flags
-                    WHERE  organization_id = ${organizationId}::uuid
-                      AND  serial IS NOT NULL
-                    GROUP  BY rule_id, DATE(created_at)
-                ),
-                ranked AS (
-                    SELECT cf.id,
-                           cf.rule_id,
-                           cf.created_at,
-                           ( COALESCE(pm.max_serial, 0) +
-                             ROW_NUMBER() OVER (
-                                 PARTITION BY cf.rule_id, DATE(cf.created_at)
-                                 ORDER BY cf.created_at, cf.id
-                             )
-                           )::integer AS new_serial
-                    FROM   compliance_flags cf
-                    LEFT   JOIN pre_max pm
-                           ON pm.rule_id   = cf.rule_id
-                          AND pm.flag_date = DATE(cf.created_at)
-                    WHERE  cf.id = ANY(${uuidArrayLiteral}::uuid[])
-                      AND  cf.serial IS NULL
-                )
-                UPDATE compliance_flags cf
-                SET    serial      = ranked.new_serial,
-                       instance_id = TO_CHAR(cf.created_at, 'YYYY-MM-DD') || '-' ||
-                                     COALESCE(cat.prefix, 'UNK') ||
-                                     LPAD(COALESCE(rr.serial, 0)::text, 3, '0') || '-' ||
-                                     LPAD(ranked.new_serial::text, 3, '0')
-                FROM   ranked
-                JOIN   risk_rules       rr  ON rr.id  = ranked.rule_id
-                LEFT   JOIN rule_categories cat ON cat.id = rr.category_id
-                WHERE  cf.id = ranked.id
-            `);
+            try {
+                await db.execute(sql`
+                    WITH pre_max AS (
+                        SELECT rule_id,
+                               DATE(created_at) AS flag_date,
+                               MAX(serial)      AS max_serial
+                        FROM   compliance_flags
+                        WHERE  organization_id = ${organizationId}::uuid
+                          AND  serial IS NOT NULL
+                        GROUP  BY rule_id, DATE(created_at)
+                    ),
+                    ranked AS (
+                        SELECT cf.id,
+                               cf.rule_id,
+                               cf.created_at,
+                               ( COALESCE(pm.max_serial, 0) +
+                                 ROW_NUMBER() OVER (
+                                     PARTITION BY cf.rule_id, DATE(cf.created_at)
+                                     ORDER BY cf.created_at, cf.id
+                                 )
+                               )::integer AS new_serial
+                        FROM   compliance_flags cf
+                        LEFT   JOIN pre_max pm
+                               ON pm.rule_id   = cf.rule_id
+                              AND pm.flag_date = DATE(cf.created_at)
+                        WHERE  cf.id = ANY(${uuidArrayLiteral}::uuid[])
+                          AND  cf.serial IS NULL
+                    )
+                    UPDATE compliance_flags cf
+                    SET    serial      = ranked.new_serial,
+                           instance_id = TO_CHAR(cf.created_at, 'YYYY-MM-DD') || '-' ||
+                                         COALESCE(cat.prefix, 'UNK') ||
+                                         LPAD(COALESCE(rr.serial, 0)::text, 3, '0') || '-' ||
+                                         LPAD(ranked.new_serial::text, 3, '0')
+                    FROM   ranked
+                    JOIN   risk_rules       rr  ON rr.id  = ranked.rule_id
+                    LEFT   JOIN rule_categories cat ON cat.id = rr.category_id
+                    WHERE  cf.id = ranked.id
+                `);
+            } catch (err: unknown) {
+                const e = err as { message?: string; cause?: { message?: string; code?: string }; query?: string };
+                this.logger.error(
+                    `runBulkEvaluation (${label}): serial/instance_id assignment failed — flags inserted but IDs not set. ` +
+                    `pg_code=${e.cause?.code ?? 'n/a'} pg_msg=${e.cause?.message ?? e.message ?? String(err)}`,
+                );
+                // Non-fatal: flags are already in compliance_flags; the backfill in listFlags will heal them on next read.
+            }
         }
 
         // ── Backfill patient_id for encounter flags ─────────────────────────

@@ -551,7 +551,7 @@ export class RuleBuilderService {
             .from(complianceFlags)
             .where(and(...predicates));
 
-        const flags = await db
+        let flags = await db
             .select()
             .from(complianceFlags)
             .where(and(...predicates))
@@ -560,6 +560,23 @@ export class RuleBuilderService {
             .offset(offset);
 
         if (!flags.length) return { data: [], total: Number(total ?? 0), page, limit };
+
+        // Self-healing: silently backfill any flags whose instanceId was not assigned at ingestion time.
+        const missingIds = flags.filter(f => !f.instanceId).map(f => f.id);
+        if (missingIds.length) {
+            try {
+                this.logger.warn(`listFlags: ${missingIds.length}/${flags.length} flags missing instanceId — backfilling`);
+                await this.backfillMissingInstanceIds(this.orgId, missingIds);
+                const healed = await db
+                    .select()
+                    .from(complianceFlags)
+                    .where(inArray(complianceFlags.id, missingIds));
+                const healedById = new Map(healed.map(f => [f.id, f]));
+                flags = flags.map(f => healedById.get(f.id) ?? f);
+            } catch (err: unknown) {
+                this.logger.error(`listFlags: backfill/re-fetch failed, returning unhealed data`, err);
+            }
+        }
 
         const ruleIds = [...new Set(flags.map(f => f.ruleId).filter((id): id is string => !!id))];
         const flagIds = flags.map(f => f.id);
@@ -994,6 +1011,68 @@ export class RuleBuilderService {
                 );
             }
         }
+    }
+
+    /**
+     * Backfills serial + instance_id for flags that missed the assignment step at ingestion.
+     * Uses a per-org advisory lock so concurrent API calls don't race on serial numbers.
+     * If the lock is held by another request, this call returns immediately (next UI refresh retries).
+     */
+    private async backfillMissingInstanceIds(organizationId: string, flagIds: string[]): Promise<void> {
+        if (!flagIds.length) return;
+        const uuidArrayLiteral = `{${flagIds.join(',')}}`;
+        await db.transaction(async (tx) => {
+            // Advisory lock scoped to this transaction — concurrent backfills skip rather than race.
+            const lockResult = await tx.execute(
+                sql`SELECT pg_try_advisory_xact_lock(hashtext(${`backfill_serial:${organizationId}`})::bigint) AS locked`,
+            );
+            const lockRows: any[] = Array.isArray(lockResult) ? lockResult : ((lockResult as any).rows ?? []);
+            if (!lockRows[0]?.locked) {
+                this.logger.debug(`backfillMissingInstanceIds: lock busy for org ${organizationId}, skipping`);
+                return;
+            }
+
+            await tx.execute(sql`
+                WITH pre_max AS (
+                    SELECT rule_id,
+                           DATE(created_at) AS flag_date,
+                           MAX(serial)      AS max_serial
+                    FROM   compliance_flags
+                    WHERE  organization_id = ${organizationId}::uuid
+                      AND  serial IS NOT NULL
+                    GROUP  BY rule_id, DATE(created_at)
+                ),
+                ranked AS (
+                    SELECT cf.id,
+                           cf.rule_id,
+                           cf.created_at,
+                           ( COALESCE(pm.max_serial, 0) +
+                             ROW_NUMBER() OVER (
+                                 PARTITION BY cf.rule_id, DATE(cf.created_at)
+                                 ORDER BY cf.created_at, cf.id
+                             )
+                           )::integer AS new_serial
+                    FROM   compliance_flags cf
+                    LEFT   JOIN pre_max pm
+                               ON pm.rule_id   = cf.rule_id
+                              AND pm.flag_date = DATE(cf.created_at)
+                    WHERE  cf.id = ANY(${uuidArrayLiteral}::uuid[])
+                      AND  cf.serial IS NULL
+                )
+                UPDATE compliance_flags cf
+                SET    serial      = ranked.new_serial,
+                       instance_id = TO_CHAR(cf.created_at, 'YYYY-MM-DD') || '-' ||
+                                     COALESCE(cat.prefix, 'UNK') ||
+                                     LPAD(COALESCE(rr.serial, 0)::text, 3, '0') || '-' ||
+                                     LPAD(ranked.new_serial::text, 3, '0'),
+                       updated_at  = NOW()
+                FROM   ranked
+                JOIN   risk_rules       rr  ON rr.id  = ranked.rule_id
+                LEFT   JOIN rule_categories cat ON cat.id = rr.category_id
+                WHERE  cf.id = ranked.id
+                  AND  cf.serial IS NULL
+            `);
+        });
     }
 
     private async attachConditions(
