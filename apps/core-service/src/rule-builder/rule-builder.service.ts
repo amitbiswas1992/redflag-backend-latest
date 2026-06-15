@@ -240,9 +240,8 @@ export class RuleBuilderService {
         this.validateConditionFields(dto.targetTable, dto.conditions ?? []);
 
         return db.transaction(async (tx) => {
-            // Auto-assign serial within the category unless caller supplies one
-            let serial = dto.serial;
-            if (serial === undefined && dto.categoryId) {
+            let serial: number | undefined;
+            if (dto.categoryId) {
                 const [{ maxSerial }] = await tx
                     .select({ maxSerial: sql<number>`COALESCE(MAX(${riskRules.serial}), 0)` })
                     .from(riskRules)
@@ -394,10 +393,9 @@ export class RuleBuilderService {
                 this.validateConditionFields(effectiveTargetTable, dto.conditions);
             }
 
-            // Recompute serial when moving to a different category (unless overridden)
-            let serial = dto.serial;
+            let serial: number | undefined;
             const newCategoryId = dto.categoryId !== undefined ? dto.categoryId : existing.categoryId;
-            if (serial === undefined && newCategoryId && newCategoryId !== existing.categoryId) {
+            if (newCategoryId && newCategoryId !== existing.categoryId) {
                 const [{ maxSerial }] = await tx
                     .select({ maxSerial: sql<number>`COALESCE(MAX(${riskRules.serial}), 0)` })
                     .from(riskRules)

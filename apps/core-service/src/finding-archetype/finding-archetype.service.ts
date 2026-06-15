@@ -125,8 +125,8 @@ export class FindingArchetypeService {
             if (!parent) throw new NotFoundException('Parent archetype not found');
         }
 
-        const serial = dto.serial ?? await this.nextSerial(dto.parentId, dto.ruleId);
-        const catalogId = dto.catalogId ?? await this.buildCatalogId(serial, dto.parentId, dto.ruleId);
+        const serial = await this.nextSerial(dto.parentId, dto.ruleId);
+        const catalogId = await this.buildCatalogId(serial, dto.parentId, dto.ruleId);
 
         const [created] = await db
             .insert(findingArchetypes)
@@ -175,14 +175,12 @@ export class FindingArchetypeService {
         const groupingChanged =
             newParentId !== existing.parentId || newRuleId !== existing.ruleId;
 
-        let serial = dto.serial !== undefined ? dto.serial : existing.serial;
-        let catalogId = dto.catalogId !== undefined ? dto.catalogId : existing.catalogId;
+        let serial = existing.serial;
+        let catalogId = existing.catalogId;
 
-        if (groupingChanged && dto.serial === undefined) {
+        if (groupingChanged) {
             serial = await this.nextSerial(newParentId, newRuleId);
-        }
-        if (groupingChanged && dto.catalogId === undefined) {
-            catalogId = await this.buildCatalogId(serial!, newParentId, newRuleId);
+            catalogId = await this.buildCatalogId(serial, newParentId, newRuleId);
         }
 
         const [updated] = await db

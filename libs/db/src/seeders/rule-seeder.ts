@@ -492,6 +492,7 @@ export async function seedOrgRules(org: { id: string; name: string }, clean = fa
   }
 
   const categoryCache = new Map<string, string>();
+  const categorySerialMap = new Map<string, number>();
   let rulesCount = 0;
   let conditionsCount = 0;
   let archetypesCount = 0;
@@ -535,6 +536,8 @@ export async function seedOrgRules(org: { id: string; name: string }, clean = fa
     const catId = categoryCache.get(ruleDef.category)!;
 
     // 2. Rule
+    const ruleSerial = (categorySerialMap.get(catId) ?? 0) + 1;
+    categorySerialMap.set(catId, ruleSerial);
     const [newRule] = await db.insert(riskRules).values({
       organizationId: orgId,
       categoryId: catId,
@@ -542,6 +545,7 @@ export async function seedOrgRules(org: { id: string; name: string }, clean = fa
       ruleCode: ruleDef.code,
       targetTable: ruleDef.targetTable,
       severity: ruleDef.severity as any,
+      serial: ruleSerial,
       isActive: true,
     }).returning();
     rulesCount++;
@@ -570,7 +574,7 @@ export async function seedOrgRules(org: { id: string; name: string }, clean = fa
       severityRationale: arch.severityRationale,
       applicableTheories: arch.applicableTheories,
       scoreFactors: arch.scoreFactors,
-      serial: 1,
+      serial: ruleSerial,
       catalogId: ruleDef.code,
     });
     archetypesCount++;

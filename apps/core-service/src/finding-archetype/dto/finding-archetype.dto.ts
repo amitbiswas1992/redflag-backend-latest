@@ -74,17 +74,6 @@ export class CreateFindingArchetypeDto {
     @IsUUID()
     parentId?: string;
 
-    @ApiPropertyOptional({ example: 1 })
-    @IsOptional()
-    @IsInt()
-    @Min(0)
-    serial?: number;
-
-    @ApiPropertyOptional({ example: 'TH-001-A', description: 'Human-readable unique catalog identifier' })
-    @IsOptional()
-    @IsString()
-    catalogId?: string;
-
     @ApiPropertyOptional({ type: ScoreFactorsDto })
     @IsOptional()
     @IsObject()
