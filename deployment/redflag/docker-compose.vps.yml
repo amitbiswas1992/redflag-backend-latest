@@ -103,7 +103,7 @@ services:
     env_file:
       - ../env/soketi.env
     ports:
-      - "127.0.0.1:${FRONTEND_BIND_PORT:-18104}:6001"
+      - "127.0.0.1:${SOKETI_BIND_PORT:-18104}:6001"
     networks:
       - redflag-internal
 
