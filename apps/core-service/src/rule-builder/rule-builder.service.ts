@@ -241,12 +241,24 @@ export class RuleBuilderService {
 
         return db.transaction(async (tx) => {
             let serial: number | undefined;
+            let ruleCode = dto.ruleCode ?? null;
             if (dto.categoryId) {
                 const [{ maxSerial }] = await tx
                     .select({ maxSerial: sql<number>`COALESCE(MAX(${riskRules.serial}), 0)` })
                     .from(riskRules)
                     .where(and(eq(riskRules.categoryId, dto.categoryId), eq(riskRules.organizationId, this.orgId)));
                 serial = (maxSerial ?? 0) + 1;
+
+                if (!ruleCode) {
+                    const [cat] = await tx
+                        .select({ prefix: ruleCategories.prefix })
+                        .from(ruleCategories)
+                        .where(eq(ruleCategories.id, dto.categoryId))
+                        .limit(1);
+                    if (cat?.prefix) {
+                        ruleCode = `${cat.prefix}-${String(serial).padStart(3, '0')}`;
+                    }
+                }
             }
 
             const [rule] = await tx
@@ -255,7 +267,7 @@ export class RuleBuilderService {
                     organizationId: this.orgId,
                     categoryId: dto.categoryId ?? null,
                     ruleName: dto.ruleName,
-                    ruleCode: dto.ruleCode ?? null,
+                    ruleCode,
                     targetTable: dto.targetTable,
                     severity: dto.severity,
                     serial: serial ?? null,
@@ -394,6 +406,7 @@ export class RuleBuilderService {
             }
 
             let serial: number | undefined;
+            let newRuleCode: string | undefined = dto.ruleCode;
             const newCategoryId = dto.categoryId !== undefined ? dto.categoryId : existing.categoryId;
             if (newCategoryId && newCategoryId !== existing.categoryId) {
                 const [{ maxSerial }] = await tx
@@ -401,6 +414,17 @@ export class RuleBuilderService {
                     .from(riskRules)
                     .where(and(eq(riskRules.categoryId, newCategoryId), eq(riskRules.organizationId, this.orgId)));
                 serial = (maxSerial ?? 0) + 1;
+
+                if (newRuleCode === undefined) {
+                    const [cat] = await tx
+                        .select({ prefix: ruleCategories.prefix })
+                        .from(ruleCategories)
+                        .where(eq(ruleCategories.id, newCategoryId))
+                        .limit(1);
+                    if (cat?.prefix) {
+                        newRuleCode = `${cat.prefix}-${String(serial).padStart(3, '0')}`;
+                    }
+                }
             }
 
             const [rule] = await tx
@@ -408,7 +432,7 @@ export class RuleBuilderService {
                 .set({
                     categoryId: dto.categoryId,
                     ruleName: dto.ruleName,
-                    ruleCode: dto.ruleCode,
+                    ruleCode: newRuleCode,
                     targetTable: dto.targetTable,
                     severity: dto.severity,
                     isActive: dto.isActive,

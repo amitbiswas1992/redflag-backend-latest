@@ -574,8 +574,6 @@ export async function seedOrgRules(org: { id: string; name: string }, clean = fa
       severityRationale: arch.severityRationale,
       applicableTheories: arch.applicableTheories,
       scoreFactors: arch.scoreFactors,
-      serial: ruleSerial,
-      catalogId: ruleDef.code,
     });
     archetypesCount++;
   }

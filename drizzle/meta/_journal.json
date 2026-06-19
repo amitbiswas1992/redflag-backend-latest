@@ -134,6 +134,13 @@
       "when": 1780623331941,
       "tag": "0018_freezing_pixie",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1781871516782,
+      "tag": "0019_handy_klaw",
+      "breakpoints": true
     }
   ]
 }

@@ -1,6 +1,5 @@
 import {
     index,
-    integer,
     jsonb,
     pgTable,
     text,
@@ -23,7 +22,8 @@ import { riskRules } from './rules';
 // ── Finding Archetypes ────────────────────────────────────────────────────────
 // Canonical archetype definitions for compliance findings.
 // parent_id enables hierarchical archetype trees.
-// catalog_id is a human-readable unique identifier (e.g. "TH-001-A").
+// ruleId is unique: each rule has at most one root archetype (has-one relation).
+// catalogId is surfaced to users via riskRules.ruleCode on the joined rule.
 
 export const findingArchetypes = pgTable(
     'finding_archetypes',
@@ -40,8 +40,6 @@ export const findingArchetypes = pgTable(
         // Array of { law_ref, relevant_sentence, explanation }
         applicableTheories: jsonb('applicable_theories'),
         parentId: uuid('parent_id'),
-        serial: integer('serial'),
-        catalogId: text('catalog_id'),
         // ScoreValidator: Record<'S'|'E'|'F'|'B'|'H'|'T', 0-10>
         scoreFactors: jsonb('score_factors'),
         createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -54,6 +52,6 @@ export const findingArchetypes = pgTable(
         index('idx_finding_archetypes_org').on(table.organizationId),
         index('idx_finding_archetypes_rule').on(table.organizationId, table.ruleId),
         index('idx_finding_archetypes_parent').on(table.parentId),
-        uniqueIndex('unq_finding_archetypes_catalog_id').on(table.organizationId, table.catalogId),
+        uniqueIndex('unq_finding_archetypes_rule_id').on(table.ruleId),
     ],
 );

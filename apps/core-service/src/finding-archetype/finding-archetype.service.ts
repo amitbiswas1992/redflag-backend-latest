@@ -1,4 +1,4 @@
-import { db, findingArchetypes, riskRules, ruleCategories } from '@app/db';
+import { db, findingArchetypes, riskRules } from '@app/db';
 import { syncRiskForArchetype } from '../rule-builder/rule-builder.service';
 import type { RequestContext } from '@app/common';
 import {
@@ -8,12 +8,26 @@ import {
     Logger,
     NotFoundException,
 } from '@nestjs/common';
-import { and, asc, count, eq, ilike, isNull, sql } from 'drizzle-orm';
+import { and, asc, count, eq, ilike, isNull } from 'drizzle-orm';
 import {
     CreateFindingArchetypeDto,
     ListFindingArchetypesQuery,
     UpdateFindingArchetypeDto,
 } from './dto/finding-archetype.dto';
+
+const archetypeWithCatalogId = {
+    id: findingArchetypes.id,
+    organizationId: findingArchetypes.organizationId,
+    ruleId: findingArchetypes.ruleId,
+    description: findingArchetypes.description,
+    severityRationale: findingArchetypes.severityRationale,
+    applicableTheories: findingArchetypes.applicableTheories,
+    parentId: findingArchetypes.parentId,
+    scoreFactors: findingArchetypes.scoreFactors,
+    createdAt: findingArchetypes.createdAt,
+    updatedAt: findingArchetypes.updatedAt,
+    catalogId: riskRules.ruleCode,
+} as const;
 
 @Injectable()
 export class FindingArchetypeService {
@@ -27,57 +41,6 @@ export class FindingArchetypeService {
         return id;
     }
 
-    // ── Auto-generation helpers ───────────────────────────────────────────────
-
-    private async nextSerial(parentId?: string | null, ruleId?: string | null): Promise<number> {
-        const predicates = [eq(findingArchetypes.organizationId, this.orgId)];
-        if (parentId) {
-            predicates.push(eq(findingArchetypes.parentId, parentId));
-        } else if (ruleId) {
-            predicates.push(eq(findingArchetypes.ruleId, ruleId));
-        } else {
-            return 1;
-        }
-        const [{ maxSerial }] = await db
-            .select({ maxSerial: sql<number>`COALESCE(MAX(${findingArchetypes.serial}), 0)` })
-            .from(findingArchetypes)
-            .where(and(...predicates));
-        return (maxSerial ?? 0) + 1;
-    }
-
-    private async buildCatalogId(
-        serial: number,
-        parentId?: string | null,
-        ruleId?: string | null,
-    ): Promise<string | null> {
-        if (parentId) {
-            const [parent] = await db
-                .select({ catalogId: findingArchetypes.catalogId })
-                .from(findingArchetypes)
-                .where(eq(findingArchetypes.id, parentId))
-                .limit(1);
-            return parent?.catalogId ? `${parent.catalogId}.${serial}` : null;
-        }
-        if (ruleId) {
-            const [rule] = await db
-                .select({ categoryId: riskRules.categoryId })
-                .from(riskRules)
-                .where(eq(riskRules.id, ruleId))
-                .limit(1);
-            if (rule?.categoryId) {
-                const [cat] = await db
-                    .select({ prefix: ruleCategories.prefix })
-                    .from(ruleCategories)
-                    .where(eq(ruleCategories.id, rule.categoryId))
-                    .limit(1);
-                if (cat?.prefix) {
-                    return `${cat.prefix}-${String(serial).padStart(3, '0')}`;
-                }
-            }
-        }
-        return null;
-    }
-
     // ── CRUD ──────────────────────────────────────────────────────────────────
 
     async list(query: ListFindingArchetypesQuery) {
@@ -88,18 +51,20 @@ export class FindingArchetypeService {
         const predicates = [eq(findingArchetypes.organizationId, this.orgId)];
         if (query.ruleId) predicates.push(eq(findingArchetypes.ruleId, query.ruleId));
         if (query.parentId) predicates.push(eq(findingArchetypes.parentId, query.parentId));
-        if (query.catalogId) predicates.push(ilike(findingArchetypes.catalogId, `%${query.catalogId}%`));
+        if (query.catalogId) predicates.push(ilike(riskRules.ruleCode, `%${query.catalogId}%`));
 
         const [{ total }] = await db
             .select({ total: count() })
             .from(findingArchetypes)
+            .leftJoin(riskRules, eq(findingArchetypes.ruleId, riskRules.id))
             .where(and(...predicates));
 
         const data = await db
-            .select()
+            .select(archetypeWithCatalogId)
             .from(findingArchetypes)
+            .leftJoin(riskRules, eq(findingArchetypes.ruleId, riskRules.id))
             .where(and(...predicates))
-            .orderBy(asc(findingArchetypes.serial), asc(findingArchetypes.createdAt))
+            .orderBy(asc(riskRules.serial), asc(findingArchetypes.createdAt))
             .limit(limit)
             .offset(offset);
 
@@ -108,8 +73,9 @@ export class FindingArchetypeService {
 
     async getById(id: string) {
         const [archetype] = await db
-            .select()
+            .select(archetypeWithCatalogId)
             .from(findingArchetypes)
+            .leftJoin(riskRules, eq(findingArchetypes.ruleId, riskRules.id))
             .where(and(eq(findingArchetypes.id, id), eq(findingArchetypes.organizationId, this.orgId)));
         if (!archetype) throw new NotFoundException('Finding archetype not found');
         return archetype;
@@ -125,9 +91,6 @@ export class FindingArchetypeService {
             if (!parent) throw new NotFoundException('Parent archetype not found');
         }
 
-        const serial = await this.nextSerial(dto.parentId, dto.ruleId);
-        const catalogId = await this.buildCatalogId(serial, dto.parentId, dto.ruleId);
-
         const [created] = await db
             .insert(findingArchetypes)
             .values({
@@ -137,8 +100,6 @@ export class FindingArchetypeService {
                 severityRationale: dto.severityRationale ?? null,
                 applicableTheories: dto.applicableTheories ?? null,
                 parentId: dto.parentId ?? null,
-                serial,
-                catalogId,
                 scoreFactors: dto.scoreFactors ?? null,
             })
             .returning();
@@ -151,8 +112,6 @@ export class FindingArchetypeService {
                 id: findingArchetypes.id,
                 parentId: findingArchetypes.parentId,
                 ruleId: findingArchetypes.ruleId,
-                serial: findingArchetypes.serial,
-                catalogId: findingArchetypes.catalogId,
             })
             .from(findingArchetypes)
             .where(and(eq(findingArchetypes.id, id), eq(findingArchetypes.organizationId, this.orgId)))
@@ -169,20 +128,6 @@ export class FindingArchetypeService {
             if (!parent) throw new NotFoundException('Parent archetype not found');
         }
 
-        // Determine effective grouping key after the update
-        const newParentId = dto.parentId !== undefined ? dto.parentId : existing.parentId;
-        const newRuleId = dto.ruleId !== undefined ? dto.ruleId : existing.ruleId;
-        const groupingChanged =
-            newParentId !== existing.parentId || newRuleId !== existing.ruleId;
-
-        let serial = existing.serial;
-        let catalogId = existing.catalogId;
-
-        if (groupingChanged) {
-            serial = await this.nextSerial(newParentId, newRuleId);
-            catalogId = await this.buildCatalogId(serial, newParentId, newRuleId);
-        }
-
         const [updated] = await db
             .update(findingArchetypes)
             .set({
@@ -191,8 +136,6 @@ export class FindingArchetypeService {
                 severityRationale: dto.severityRationale,
                 applicableTheories: dto.applicableTheories,
                 parentId: dto.parentId,
-                serial,
-                catalogId,
                 scoreFactors: dto.scoreFactors,
                 updatedAt: new Date(),
             })
@@ -222,17 +165,19 @@ export class FindingArchetypeService {
 
     async getRoots() {
         return db
-            .select()
+            .select(archetypeWithCatalogId)
             .from(findingArchetypes)
+            .leftJoin(riskRules, eq(findingArchetypes.ruleId, riskRules.id))
             .where(and(eq(findingArchetypes.organizationId, this.orgId), isNull(findingArchetypes.parentId)))
-            .orderBy(asc(findingArchetypes.serial), asc(findingArchetypes.createdAt));
+            .orderBy(asc(riskRules.serial), asc(findingArchetypes.createdAt));
     }
 
     async getChildren(parentId: string) {
         return db
-            .select()
+            .select(archetypeWithCatalogId)
             .from(findingArchetypes)
+            .leftJoin(riskRules, eq(findingArchetypes.ruleId, riskRules.id))
             .where(and(eq(findingArchetypes.organizationId, this.orgId), eq(findingArchetypes.parentId, parentId)))
-            .orderBy(asc(findingArchetypes.serial), asc(findingArchetypes.createdAt));
+            .orderBy(asc(findingArchetypes.createdAt));
     }
 }
