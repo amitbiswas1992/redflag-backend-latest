@@ -6,6 +6,7 @@ import {
     riskManagementPlanComplianceFlags,
     riskManagementPlanMessages,
     riskManagementPlans,
+    riskManagementPlanUpdateRequests,
     users,
 } from '@app/db';
 import {
@@ -21,12 +22,15 @@ import { and, count, desc, eq, inArray, or } from 'drizzle-orm';
 import {
     CreateRiskManagementPlanDto,
     CreateRiskManagementPlanMessageDto,
+    CreateUpdateRequestDto,
+    ReviewUpdateRequestDto,
     RiskManagementPlanType,
     RootCauseType,
     UpdateRiskManagementPlanDto,
     UpdateRiskManagementPlanStatusDto,
 } from './dto/risk-management.dto';
 import type { RequestContext } from '@app/common';
+import { applyPatch } from '@app/common';
 import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
@@ -429,6 +433,251 @@ export class RiskManagementService {
             }
         } catch (err) {
             this.logger.error('Failed to send message notifications', err);
+        }
+    }
+
+    // ── Maker-Checker Update Requests ─────────────────────────────────────────
+
+    async createUpdateRequest(planId: string, dto: CreateUpdateRequestDto) {
+        const uid = this.userId;
+        const orgId = this.orgId;
+
+        const hasAccess = await this.canAccessPlan(planId);
+        if (!hasAccess) throw new ForbiddenException('Access denied to this risk management plan');
+
+        const [plan] = await db
+            .select()
+            .from(riskManagementPlans)
+            .where(and(eq(riskManagementPlans.id, planId), eq(riskManagementPlans.organizationId, orgId)))
+            .limit(1);
+        if (!plan) throw new NotFoundException('Risk management plan not found');
+
+        const [request] = await db
+            .insert(riskManagementPlanUpdateRequests)
+            .values({
+                riskManagementPlanId: planId,
+                requestedBy: uid,
+                proposedChanges: dto.proposedChanges,
+            })
+            .returning();
+
+        void this.sendUpdateRequestNotifications(planId, plan.title, uid, orgId);
+
+        return this.attachUpdateRequestRelations(request);
+    }
+
+    async listUpdateRequests(planId: string) {
+        const hasAccess = await this.canAccessPlan(planId);
+        if (!hasAccess) throw new ForbiddenException('Access denied to this risk management plan');
+
+        const requests = await db
+            .select()
+            .from(riskManagementPlanUpdateRequests)
+            .where(eq(riskManagementPlanUpdateRequests.riskManagementPlanId, planId))
+            .orderBy(desc(riskManagementPlanUpdateRequests.createdAt));
+
+        return Promise.all(requests.map((r) => this.attachUpdateRequestRelations(r)));
+    }
+
+    async reviewUpdateRequest(planId: string, requestId: string, dto: ReviewUpdateRequestDto) {
+        const uid = this.userId;
+        const orgId = this.orgId;
+
+        const hasAccess = await this.canAccessPlan(planId);
+        if (!hasAccess) throw new ForbiddenException('Access denied to this risk management plan');
+
+        const [request] = await db
+            .select()
+            .from(riskManagementPlanUpdateRequests)
+            .where(
+                and(
+                    eq(riskManagementPlanUpdateRequests.id, requestId),
+                    eq(riskManagementPlanUpdateRequests.riskManagementPlanId, planId),
+                ),
+            )
+            .limit(1);
+
+        if (!request) throw new NotFoundException('Update request not found');
+        if (request.requestedBy === uid)
+            throw new ForbiddenException('You cannot review your own update request');
+        if (request.status !== 'pending')
+            throw new BadRequestException('This request has already been reviewed');
+
+        const result = await db.transaction(async (tx) => {
+            const [updated] = await tx
+                .update(riskManagementPlanUpdateRequests)
+                .set({ status: dto.status, reviewedBy: uid, reviewNote: dto.reviewNote ?? null, updatedAt: new Date() })
+                .where(eq(riskManagementPlanUpdateRequests.id, requestId))
+                .returning();
+
+            if (dto.status === 'approved') {
+                const [plan] = await tx
+                    .select()
+                    .from(riskManagementPlans)
+                    .where(eq(riskManagementPlans.id, planId))
+                    .limit(1);
+
+                const [flagLinks, assigneeLinks] = await Promise.all([
+                    tx
+                        .select({ id: riskManagementPlanComplianceFlags.complianceFlagId })
+                        .from(riskManagementPlanComplianceFlags)
+                        .where(eq(riskManagementPlanComplianceFlags.riskManagementPlanId, planId)),
+                    tx
+                        .select({ id: riskManagementPlanAssignees.userId })
+                        .from(riskManagementPlanAssignees)
+                        .where(eq(riskManagementPlanAssignees.riskManagementPlanId, planId)),
+                ]);
+
+                const currentObj = {
+                    title: plan.title,
+                    dueDate: plan.dueDate.toISOString().split('T')[0],
+                    type: plan.type,
+                    rootCauseType: plan.rootCauseType,
+                    impactAnalysis: plan.impactAnalysis,
+                    justification: plan.justification,
+                    riskRuleId: plan.riskRuleId ?? null,
+                    complianceFlagIds: flagLinks.map((f) => f.id),
+                    assigneeIds: assigneeLinks.map((a) => a.id),
+                };
+
+                const patched = applyPatch(currentObj, request.proposedChanges);
+
+                await tx
+                    .update(riskManagementPlans)
+                    .set({
+                        title: patched.title,
+                        dueDate: new Date(patched.dueDate),
+                        type: patched.type,
+                        rootCauseType: patched.rootCauseType,
+                        impactAnalysis: patched.impactAnalysis,
+                        justification: patched.justification,
+                        riskRuleId: patched.riskRuleId,
+                        updatedAt: new Date(),
+                    })
+                    .where(and(eq(riskManagementPlans.id, planId), eq(riskManagementPlans.organizationId, orgId)));
+
+                await tx
+                    .delete(riskManagementPlanComplianceFlags)
+                    .where(eq(riskManagementPlanComplianceFlags.riskManagementPlanId, planId));
+                if (patched.complianceFlagIds.length) {
+                    await tx.insert(riskManagementPlanComplianceFlags).values(
+                        patched.complianceFlagIds.map((flagId) => ({ riskManagementPlanId: planId, complianceFlagId: flagId })),
+                    );
+                }
+
+                await tx
+                    .delete(riskManagementPlanAssignees)
+                    .where(eq(riskManagementPlanAssignees.riskManagementPlanId, planId));
+                if (patched.assigneeIds.length) {
+                    await tx.insert(riskManagementPlanAssignees).values(
+                        patched.assigneeIds.map((userId) => ({ riskManagementPlanId: planId, userId })),
+                    );
+                }
+            }
+
+            return updated;
+        });
+
+        void this.sendReviewNotification(planId, request.requestedBy, uid, orgId, dto.status, dto.reviewNote ?? null);
+
+        return this.attachUpdateRequestRelations(result);
+    }
+
+    private async attachUpdateRequestRelations(
+        request: typeof riskManagementPlanUpdateRequests.$inferSelect,
+    ) {
+        const userIds = [request.requestedBy, request.reviewedBy].filter(Boolean) as string[];
+        const userList = userIds.length
+            ? await db
+                .select({ id: users.id, email: users.email, name: users.name })
+                .from(users)
+                .where(inArray(users.id, userIds))
+            : [];
+        const userMap = Object.fromEntries(userList.map((u) => [u.id, u]));
+
+        return {
+            ...request,
+            requestedByUser: request.requestedBy ? (userMap[request.requestedBy] ?? null) : null,
+            reviewedByUser: request.reviewedBy ? (userMap[request.reviewedBy] ?? null) : null,
+        };
+    }
+
+    private async sendUpdateRequestNotifications(
+        planId: string,
+        planTitle: string,
+        requesterId: string,
+        orgId: string,
+    ) {
+        try {
+            const [requester] = await db
+                .select({ name: users.name })
+                .from(users)
+                .where(eq(users.id, requesterId))
+                .limit(1);
+            const requesterName = requester?.name ?? 'Someone';
+
+            const [plan] = await db
+                .select({ createdBy: riskManagementPlans.createdBy })
+                .from(riskManagementPlans)
+                .where(eq(riskManagementPlans.id, planId))
+                .limit(1);
+
+            const assignees = await db
+                .select({ userId: riskManagementPlanAssignees.userId })
+                .from(riskManagementPlanAssignees)
+                .where(eq(riskManagementPlanAssignees.riskManagementPlanId, planId));
+
+            const recipients = new Set<string>();
+            if (plan?.createdBy && plan.createdBy !== requesterId) recipients.add(plan.createdBy);
+            for (const { userId } of assignees) {
+                if (userId !== requesterId) recipients.add(userId);
+            }
+
+            const value = {
+                type: 'rmp_update_request' as const,
+                planId,
+                planTitle,
+                requestedByUserId: requesterId,
+                requestedByName: requesterName,
+                link: `/risk-management/${planId}`,
+            };
+
+            for (const userId of recipients) {
+                await this.notificationsService.createNotification(userId, orgId, value);
+            }
+        } catch (err) {
+            this.logger.error('Failed to send update request notifications', err);
+        }
+    }
+
+    private async sendReviewNotification(
+        planId: string,
+        requestedById: string | null,
+        reviewerId: string,
+        orgId: string,
+        status: 'approved' | 'rejected',
+        reviewNote: string | null,
+    ) {
+        try {
+            if (!requestedById) return;
+
+            const [[reviewer], [plan]] = await Promise.all([
+                db.select({ name: users.name }).from(users).where(eq(users.id, reviewerId)).limit(1),
+                db.select({ title: riskManagementPlans.title }).from(riskManagementPlans).where(eq(riskManagementPlans.id, planId)).limit(1),
+            ]);
+
+            await this.notificationsService.createNotification(requestedById, orgId, {
+                type: 'rmp_update_reviewed',
+                planId,
+                planTitle: plan?.title ?? 'Risk Management Plan',
+                reviewedByUserId: reviewerId,
+                reviewedByName: reviewer?.name ?? 'Someone',
+                reviewStatus: status,
+                reviewNote,
+                link: `/risk-management/${planId}`,
+            });
+        } catch (err) {
+            this.logger.error('Failed to send review notification', err);
         }
     }
 

@@ -52,6 +52,7 @@
     "jsonwebtoken": "^9.0.3",
     "jwks-rsa": "^4.0.1",
     "mailgun.js": "^13.0.1",
+    "microdiff": "^1.5.0",
     "nanoid": "^5.1.11",
     "pg": "^8.20.0",
     "pusher": "^5.3.3",

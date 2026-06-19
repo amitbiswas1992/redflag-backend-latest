@@ -25,7 +25,9 @@ import {
 import {
     CreateRiskManagementPlanDto,
     CreateRiskManagementPlanMessageDto,
+    CreateUpdateRequestDto,
     PlanStatus,
+    ReviewUpdateRequestDto,
     RiskManagementPlanType,
     RootCauseType,
     UpdateRiskManagementPlanDto,
@@ -134,5 +136,40 @@ export class RiskManagementController {
     @Post('plans/:id/messages')
     createMessage(@Param('id') id: string, @Body() dto: CreateRiskManagementPlanMessageDto) {
         return this.service.createMessage(id, dto);
+    }
+
+    // ── Maker-Checker Update Requests ─────────────────────────────────────────
+
+    @ApiOperation({ summary: 'Submit a maker-checker update request for a plan' })
+    @ApiParam({ name: 'id', description: 'Plan UUID' })
+    @ApiCreatedResponse({ description: 'Update request created; checkers notified' })
+    @ApiForbiddenResponse({ description: 'Access denied' })
+    @Post('plans/:id/update-requests')
+    createUpdateRequest(@Param('id') id: string, @Body() dto: CreateUpdateRequestDto) {
+        return this.service.createUpdateRequest(id, dto);
+    }
+
+    @ApiOperation({ summary: 'List all update requests for a plan' })
+    @ApiParam({ name: 'id', description: 'Plan UUID' })
+    @ApiOkResponse({ description: 'Update requests with maker and checker user info' })
+    @ApiForbiddenResponse({ description: 'Access denied' })
+    @Get('plans/:id/update-requests')
+    listUpdateRequests(@Param('id') id: string) {
+        return this.service.listUpdateRequests(id);
+    }
+
+    @ApiOperation({ summary: 'Approve or reject an update request (checker only)' })
+    @ApiParam({ name: 'id', description: 'Plan UUID' })
+    @ApiParam({ name: 'requestId', description: 'Update request UUID' })
+    @ApiOkResponse({ description: 'Request reviewed; if approved, plan is updated' })
+    @ApiForbiddenResponse({ description: 'Cannot review your own request or access denied' })
+    @ApiBadRequestResponse({ description: 'Request already reviewed' })
+    @Patch('plans/:id/update-requests/:requestId/review')
+    reviewUpdateRequest(
+        @Param('id') id: string,
+        @Param('requestId') requestId: string,
+        @Body() dto: ReviewUpdateRequestDto,
+    ) {
+        return this.service.reviewUpdateRequest(id, requestId, dto);
     }
 }

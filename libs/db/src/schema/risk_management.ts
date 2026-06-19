@@ -1,4 +1,5 @@
-import { index, pgEnum, pgTable, primaryKey, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
+import type { Difference } from 'microdiff';
+import { index, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
 import { organizations, users } from './identity';
 import { complianceFlags } from './compliance';
 import { riskRules } from './rules';
@@ -90,6 +91,42 @@ export const riskManagementPlanAssignees = pgTable(
         primaryKey({ columns: [table.riskManagementPlanId, table.userId] }),
         index('idx_rmp_assignees_plan').on(table.riskManagementPlanId),
         index('idx_rmp_assignees_user').on(table.userId),
+    ],
+);
+
+// ── Maker-Checker Update Requests ────────────────────────────────────────────
+
+export type RMPProposedChanges = Difference[];
+
+export const updateRequestStatusEnum = pgEnum('update_request_status', [
+    'pending',
+    'approved',
+    'rejected',
+]);
+
+export const riskManagementPlanUpdateRequests = pgTable(
+    'risk_management_plan_update_requests',
+    {
+        id: uuid('id').primaryKey().defaultRandom(),
+        riskManagementPlanId: uuid('risk_management_plan_id')
+            .references(() => riskManagementPlans.id, { onDelete: 'cascade' })
+            .notNull(),
+        requestedBy: uuid('requested_by').references(() => users.id, { onDelete: 'set null' }),
+        reviewedBy: uuid('reviewed_by').references(() => users.id, { onDelete: 'set null' }),
+        status: updateRequestStatusEnum('status').notNull().default('pending'),
+        proposedChanges: jsonb('proposed_changes').notNull().$type<RMPProposedChanges>(),
+        reviewNote: text('review_note'),
+        createdAt: timestamp('created_at').defaultNow().notNull(),
+        updatedAt: timestamp('updated_at')
+            .defaultNow()
+            .notNull()
+            .$onUpdate(() => new Date()),
+    },
+    (table) => [
+        index('idx_rmp_update_requests_plan').on(table.riskManagementPlanId),
+        index('idx_rmp_update_requests_requester').on(table.requestedBy),
+        index('idx_rmp_update_requests_reviewer').on(table.reviewedBy),
+        index('idx_rmp_update_requests_status').on(table.status),
     ],
 );
 

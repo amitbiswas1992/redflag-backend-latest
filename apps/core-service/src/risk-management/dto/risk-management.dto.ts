@@ -3,11 +3,13 @@ import {
     IsArray,
     IsDateString,
     IsEnum,
+    IsIn,
     IsNotEmpty,
     IsOptional,
     IsString,
     IsUUID,
 } from 'class-validator';
+import type { Difference } from 'microdiff';
 
 export enum PlanStatus {
     IN_PROGRESS = 'in_progress',
@@ -34,11 +36,11 @@ export class CreateRiskManagementPlanDto {
     @ApiProperty({ example: 'Telehealth Prescribing Compliance Plan' })
     @IsString()
     @IsNotEmpty()
-    title: string;
+    title!: string;
 
     @ApiProperty({ example: '2026-06-01T00:00:00.000Z' })
     @IsDateString()
-    dueDate: string;
+    dueDate!: string;
 
     @ApiProperty({ enum: RiskManagementPlanType, default: RiskManagementPlanType.MITIGATE })
     @IsOptional()
@@ -47,17 +49,17 @@ export class CreateRiskManagementPlanDto {
 
     @ApiProperty({ enum: RootCauseType })
     @IsEnum(RootCauseType)
-    rootCauseType: RootCauseType;
+    rootCauseType!: RootCauseType;
 
     @ApiProperty({ example: 'Patients are being prescribed controlled substances without in-person evaluation.' })
     @IsString()
     @IsNotEmpty()
-    impactAnalysis: string;
+    impactAnalysis!: string;
 
     @ApiProperty({ example: 'Implementing mandatory in-person visit requirement before telehealth prescriptions.' })
     @IsString()
     @IsNotEmpty()
-    justification: string;
+    justification!: string;
 
     @ApiPropertyOptional({ type: [String], description: 'UUIDs of compliance flags to link' })
     @IsOptional()
@@ -83,11 +85,34 @@ export class CreateRiskManagementPlanMessageDto {
     @ApiProperty({ example: 'Can you clarify the impact on outpatient encounters?' })
     @IsString()
     @IsNotEmpty()
-    text: string;
+    text!: string;
 }
 
 export class UpdateRiskManagementPlanStatusDto {
     @ApiProperty({ enum: PlanStatus })
     @IsEnum(PlanStatus)
-    status: PlanStatus;
+    status!: PlanStatus;
+}
+
+export enum UpdateRequestStatus {
+    PENDING = 'pending',
+    APPROVED = 'approved',
+    REJECTED = 'rejected',
+}
+
+export class CreateUpdateRequestDto {
+    @ApiProperty({ description: 'microdiff Difference[] representing proposed changes', type: 'array' })
+    @IsArray()
+    proposedChanges!: Difference[];
+}
+
+export class ReviewUpdateRequestDto {
+    @ApiProperty({ enum: ['approved', 'rejected'] })
+    @IsIn(['approved', 'rejected'])
+    status!: 'approved' | 'rejected';
+
+    @ApiPropertyOptional({ example: 'Looks good, approved with minor notes.' })
+    @IsOptional()
+    @IsString()
+    reviewNote?: string;
 }

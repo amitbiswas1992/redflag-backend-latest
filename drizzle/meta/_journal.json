@@ -141,6 +141,13 @@
       "when": 1781871516782,
       "tag": "0019_handy_klaw",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1781894526378,
+      "tag": "0020_groovy_vanisher",
+      "breakpoints": true
     }
   ]
 }

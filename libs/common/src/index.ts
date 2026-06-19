@@ -7,3 +7,4 @@ export * from './filters/global-exception.filter';
 export * from './interceptors/logging.interceptor';
 export * from './logger/logger.service';
 export * from './services/audit.service';
+export * from './apply-patch';
